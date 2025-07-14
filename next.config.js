@@ -5,7 +5,6 @@ const nextConfig = {
   // Performance optimizations
   experimental: {
     serverComponentsExternalPackages: ['@upstash/redis'],
-    optimizeCss: true,
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
   },
   
