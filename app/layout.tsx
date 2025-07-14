@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
 import { Toaster } from '@/components/ui/toaster'
+import { ErrorBoundary } from '@/components/ui/error-boundary'
+import { MonitoringDashboard } from '@/components/ui/monitoring-dashboard'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -32,12 +34,19 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <Providers>
-          <div className="min-h-screen bg-background">
-            {children}
-            <Toaster />
-          </div>
-        </Providers>
+        <ErrorBoundary>
+          <Providers>
+            <div className="min-h-screen bg-background">
+              {children}
+              <Toaster />
+              
+              {/* 生产环境监控面板 */}
+              {process.env.NODE_ENV === 'production' && (
+                <MonitoringDashboard />
+              )}
+            </div>
+          </Providers>
+        </ErrorBoundary>
       </body>
     </html>
   )
