@@ -22,9 +22,9 @@ export function CacheManager({
   showDetails = false, 
   onCacheUpdate 
 }: CacheManagerProps) {
-  const [caches, setCaches] = useState<CacheInfo[]>([]);
-  const [isVisible, setIsVisible] = useState(showDetails);
+  const [isVisible, setIsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [cacheList, setCacheList] = useState<CacheInfo[]>([]);
 
   const getStorageSize = (storage: Storage): number => {
     let size = 0;
@@ -70,12 +70,14 @@ export function CacheManager({
     if ('caches' in window) {
       try {
         const cacheNames = await caches.keys();
-        for (const cacheName of cacheNames) {
+        const cacheNamesArray = Array.from(cacheNames);
+        for (const cacheName of cacheNamesArray) {
           const cache = await caches.open(cacheName);
           const keys = await cache.keys();
+          const keysArray = Array.from(keys);
           let totalSize = 0;
           
-          for (const request of keys) {
+          for (const request of keysArray) {
             const response = await cache.match(request);
             if (response) {
               const blob = await response.blob();
@@ -116,7 +118,7 @@ export function CacheManager({
     setIsLoading(true);
     try {
       const cacheInfo = await getCacheInfo();
-      setCaches(cacheInfo);
+      setCacheList(cacheInfo);
       onCacheUpdate?.(cacheInfo);
     } catch (error) {
       console.error('Failed to refresh cache info:', error);
@@ -138,7 +140,8 @@ export function CacheManager({
         case 'cache':
           if ('caches' in window) {
             const cacheNames = await caches.keys();
-            await Promise.all(cacheNames.map(name => caches.delete(name)));
+            const cacheNamesArray = Array.from(cacheNames);
+            await Promise.all(cacheNamesArray.map((name: string) => caches.delete(name)));
           }
           break;
         case 'indexedDB':
@@ -164,7 +167,8 @@ export function CacheManager({
         
         if ('caches' in window) {
           const cacheNames = await caches.keys();
-          await Promise.all(cacheNames.map(name => caches.delete(name)));
+          const cacheNamesArray = Array.from(cacheNames);
+          await Promise.all(cacheNamesArray.map((name: string) => caches.delete(name)));
         }
 
         await refreshCacheInfo();
@@ -202,7 +206,7 @@ export function CacheManager({
     );
   }
 
-  const totalSize = caches.reduce((sum, cache) => sum + cache.size, 0);
+  const totalSize = cacheList.reduce((sum, cache) => sum + cache.size, 0);
 
   return (
     <div className="fixed bottom-4 left-4 z-50 w-80">
@@ -228,7 +232,7 @@ export function CacheManager({
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-2">
-            {caches.map((cache, index) => (
+            {cacheList.map((cache, index) => (
               <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                 <div className="flex items-center space-x-2">
                   <HardDrive className="h-4 w-4 text-gray-500" />

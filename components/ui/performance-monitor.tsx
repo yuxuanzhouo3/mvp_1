@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
 import { Badge } from './badge';
 import { Activity, Clock, Zap, AlertTriangle } from 'lucide-react';
@@ -26,56 +26,75 @@ export function PerformanceMonitor({
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
   const [isVisible, setIsVisible] = useState(showDetails);
   const observerRef = useRef<PerformanceObserver | null>(null);
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const getPerformanceMetrics = (): PerformanceMetrics => {
-      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-      const paint = performance.getEntriesByType('paint');
-      
-      const firstPaint = paint.find(entry => entry.name === 'first-paint');
-      const firstContentfulPaint = paint.find(entry => entry.name === 'first-contentful-paint');
-      
-      return {
-        pageLoadTime: navigation.loadEventEnd - navigation.loadEventStart,
-        firstContentfulPaint: firstContentfulPaint?.startTime || 0,
-        largestContentfulPaint: 0, // 将通过 PerformanceObserver 获取
-        cumulativeLayoutShift: 0, // 将通过 PerformanceObserver 获取
-        firstInputDelay: 0, // 将通过 PerformanceObserver 获取
-        timeToInteractive: navigation.domInteractive - navigation.fetchStart
-      };
-    };
-
-    const updateMetrics = (newMetrics: Partial<PerformanceMetrics>) => {
+  // Debounced update function to prevent excessive re-renders
+  const debouncedUpdate = useCallback((newMetrics: Partial<PerformanceMetrics>) => {
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
+    }
+    
+    updateTimeoutRef.current = setTimeout(() => {
       setMetrics(prev => {
         const updated = { ...prev, ...newMetrics } as PerformanceMetrics;
         onMetricsUpdate?.(updated);
         return updated;
       });
-    };
+    }, 100); // 100ms debounce
+  }, [onMetricsUpdate]);
 
-    // 初始化指标
+  // Memoize performance calculation to avoid recalculation
+  const getPerformanceMetrics = useCallback((): PerformanceMetrics => {
+    if (typeof window === 'undefined') {
+      return {
+        pageLoadTime: 0,
+        firstContentfulPaint: 0,
+        largestContentfulPaint: 0,
+        cumulativeLayoutShift: 0,
+        firstInputDelay: 0,
+        timeToInteractive: 0
+      };
+    }
+
+    const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+    const paint = performance.getEntriesByType('paint');
+    
+    const firstPaint = paint.find(entry => entry.name === 'first-paint');
+    const firstContentfulPaint = paint.find(entry => entry.name === 'first-contentful-paint');
+    
+    return {
+      pageLoadTime: navigation.loadEventEnd - navigation.loadEventStart,
+      firstContentfulPaint: firstContentfulPaint?.startTime || 0,
+      largestContentfulPaint: 0, // Will be updated by PerformanceObserver
+      cumulativeLayoutShift: 0, // Will be updated by PerformanceObserver
+      firstInputDelay: 0, // Will be updated by PerformanceObserver
+      timeToInteractive: navigation.domInteractive - navigation.fetchStart
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Initialize metrics once
     const initialMetrics = getPerformanceMetrics();
     setMetrics(initialMetrics);
     onMetricsUpdate?.(initialMetrics);
 
-    // 监听 LCP (Largest Contentful Paint)
+    // Set up performance observers only if they're supported
     if ('PerformanceObserver' in window) {
       try {
+        // LCP Observer
         observerRef.current = new PerformanceObserver((list) => {
           const entries = list.getEntries();
           const lastEntry = entries[entries.length - 1];
-          updateMetrics({ largestContentfulPaint: lastEntry.startTime });
+          debouncedUpdate({ largestContentfulPaint: lastEntry.startTime });
         });
         observerRef.current.observe({ entryTypes: ['largest-contentful-paint'] });
       } catch (error) {
         console.warn('PerformanceObserver not supported:', error);
       }
-    }
 
-    // 监听 CLS (Cumulative Layout Shift)
-    if ('PerformanceObserver' in window) {
+      // CLS Observer
       try {
         const clsObserver = new PerformanceObserver((list) => {
           let cls = 0;
@@ -85,22 +104,20 @@ export function PerformanceMonitor({
               cls += layoutShiftEntry.value;
             }
           }
-          updateMetrics({ cumulativeLayoutShift: cls });
+          debouncedUpdate({ cumulativeLayoutShift: cls });
         });
         clsObserver.observe({ entryTypes: ['layout-shift'] });
       } catch (error) {
         console.warn('CLS PerformanceObserver not supported:', error);
       }
-    }
 
-    // 监听 FID (First Input Delay)
-    if ('PerformanceObserver' in window) {
+      // FID Observer
       try {
         const fidObserver = new PerformanceObserver((list) => {
           const entries = list.getEntries();
           const firstInput = entries[0] as any;
           if (firstInput) {
-            updateMetrics({ firstInputDelay: firstInput.processingStart - firstInput.startTime });
+            debouncedUpdate({ firstInputDelay: firstInput.processingStart - firstInput.startTime });
           }
         });
         fidObserver.observe({ entryTypes: ['first-input'] });
@@ -113,10 +130,16 @@ export function PerformanceMonitor({
       if (observerRef.current) {
         observerRef.current.disconnect();
       }
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
     };
-  }, [onMetricsUpdate]);
+  }, [getPerformanceMetrics, debouncedUpdate, onMetricsUpdate]);
 
-  const getPerformanceScore = (metrics: PerformanceMetrics): number => {
+  // Memoize performance score calculation
+  const performanceScore = useMemo(() => {
+    if (!metrics) return 0;
+    
     let score = 100;
     
     // LCP 评分 (权重 25%)
@@ -136,29 +159,28 @@ export function PerformanceMonitor({
     else if (metrics.timeToInteractive > 7300) score -= 50;
     
     return Math.max(0, score);
-  };
+  }, [metrics]);
 
-  const getPerformanceLevel = (score: number): 'excellent' | 'good' | 'needs-improvement' | 'poor' => {
-    if (score >= 90) return 'excellent';
-    if (score >= 50) return 'good';
-    if (score >= 25) return 'needs-improvement';
+  // Memoize performance level
+  const performanceLevel = useMemo(() => {
+    if (performanceScore >= 90) return 'excellent';
+    if (performanceScore >= 50) return 'good';
+    if (performanceScore >= 25) return 'needs-improvement';
     return 'poor';
-  };
+  }, [performanceScore]);
 
-  const getPerformanceColor = (level: string) => {
-    switch (level) {
+  // Memoize performance color
+  const performanceColor = useMemo(() => {
+    switch (performanceLevel) {
       case 'excellent': return 'bg-green-100 text-green-800';
       case 'good': return 'bg-blue-100 text-blue-800';
       case 'needs-improvement': return 'bg-yellow-100 text-yellow-800';
       case 'poor': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
-  };
+  }, [performanceLevel]);
 
   if (!metrics) return null;
-
-  const score = getPerformanceScore(metrics);
-  const level = getPerformanceLevel(score);
 
   if (!isVisible) {
     return (
@@ -181,8 +203,8 @@ export function PerformanceMonitor({
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-medium">性能监控</CardTitle>
             <div className="flex items-center space-x-2">
-              <Badge className={getPerformanceColor(level)}>
-                {score}/100
+              <Badge className={performanceColor}>
+                {performanceScore}/100
               </Badge>
               <button
                 onClick={() => setIsVisible(false)}
@@ -237,7 +259,7 @@ export function PerformanceMonitor({
             </div>
           </div>
           
-          {level === 'poor' && (
+          {performanceLevel === 'poor' && (
             <div className="flex items-center space-x-2 p-2 bg-red-50 rounded text-xs text-red-700">
               <AlertTriangle className="h-3 w-3" />
               <span>性能需要优化</span>

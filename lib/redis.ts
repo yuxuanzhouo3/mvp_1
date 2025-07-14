@@ -1,12 +1,15 @@
 import { Redis } from '@upstash/redis'
 
-if (!process.env.UPSTASH_REDIS_URL || !process.env.UPSTASH_REDIS_TOKEN) {
+const redisUrl = process.env.UPSTASH_REDIS_URL?.trim();
+const redisToken = process.env.UPSTASH_REDIS_TOKEN?.trim();
+
+if (!redisUrl || !redisToken) {
   throw new Error('Missing Upstash Redis environment variables')
 }
 
 export const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_URL,
-  token: process.env.UPSTASH_REDIS_TOKEN,
+  url: redisUrl,
+  token: redisToken,
 })
 
 // 常用 Redis 操作封装
@@ -67,7 +70,7 @@ export const redisUtils = {
 
   // 哈希操作
   async hset(key: string, field: string, value: any) {
-    return await redis.hset(key, field, JSON.stringify(value))
+    return await redis.hset(key, { [field]: JSON.stringify(value) })
   },
 
   async hget<T>(key: string, field: string): Promise<T | null> {

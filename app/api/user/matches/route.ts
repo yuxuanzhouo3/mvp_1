@@ -1,10 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value;
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options });
+          },
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: '', ...options });
+          },
+        },
+      }
+    );
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -16,82 +33,51 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '10');
-    const offset = parseInt(searchParams.get('offset') || '0');
-
     // Get user's matches
     const { data: matches, error: matchesError } = await supabase
       .from('matches')
       .select(`
         id,
+        user1_id,
+        user2_id,
         compatibility_score,
+        match_reasons,
         created_at,
         matched_user:profiles!matches_user2_id_fkey(
           id,
           full_name,
           avatar_url,
-          bio,
-          location,
-          interests
+          bio
         )
       `)
-      .eq('user1_id', user.id)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+      .order('created_at', { ascending: false });
 
     if (matchesError) {
+      console.error('Error fetching matches:', matchesError);
       return NextResponse.json(
         { error: 'Failed to fetch matches' },
         { status: 500 }
       );
     }
 
-    // Also get matches where user is user2
-    const { data: reverseMatches, error: reverseError } = await supabase
-      .from('matches')
-      .select(`
-        id,
-        compatibility_score,
-        created_at,
-        matched_user:profiles!matches_user1_id_fkey(
-          id,
-          full_name,
-          avatar_url,
-          bio,
-          location,
-          interests
-        )
-      `)
-      .eq('user2_id', user.id)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    // Transform data for frontend
+    const transformedMatches = matches?.map(match => ({
+      id: match.id,
+      matchedUser: match.user1_id === user.id ? match.matched_user : {
+        id: match.user1_id,
+        full_name: 'Unknown User',
+        avatar_url: null,
+        bio: null
+      },
+      compatibilityScore: match.compatibility_score,
+      matchReasons: match.match_reasons,
+      matchedAt: match.created_at
+    })) || [];
 
-    if (reverseError) {
-      return NextResponse.json(
-        { error: 'Failed to fetch reverse matches' },
-        { status: 500 }
-      );
-    }
-
-    // Combine and sort matches
-    const allMatches = [
-      ...(matches || []).map(match => ({
-        ...match,
-        matched_user: match.matched_user,
-      })),
-      ...(reverseMatches || []).map(match => ({
-        ...match,
-        matched_user: match.matched_user,
-      }))
-    ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    return NextResponse.json({ 
-      matches: allMatches.slice(0, limit),
-      total: allMatches.length
-    });
+    return NextResponse.json({ matches: transformedMatches });
   } catch (error) {
-    console.error('Error fetching user matches:', error);
+    console.error('Error in user matches API:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

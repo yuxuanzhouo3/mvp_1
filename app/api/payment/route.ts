@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
+import { db, initializeDatabase } from '@/lib/db'
+import { withRetry } from '@/lib/utils/retry'
+import { DatabaseErrorHandler } from '@/lib/middleware/db-error-handler'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16'
 })
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Initialize database if not already initialized
+if (!db.getInitializationStatus) {
+  initializeDatabase();
+}
 
 export async function POST(request: Request) {
   try {
@@ -37,19 +40,30 @@ export async function POST(request: Request) {
       },
     })
 
+    // 获取数据库连接
+    const supabase = db.getInstance()
+
     // 保存交易记录到Supabase
-    const { error: transactionError } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: userId,
-        amount,
-        currency: currency || 'usd',
-        payment_method: paymentMethod,
-        status: 'pending',
-        stripe_payment_intent_id: paymentIntent.id,
-        credits_purchased: credits,
-        created_at: new Date().toISOString()
-      })
+    const transactionResult = await db.executeWithRetry(
+      async () => {
+        const { error } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: userId,
+            amount,
+            currency: currency || 'usd',
+            payment_method: paymentMethod,
+            status: 'pending',
+            stripe_payment_intent_id: paymentIntent.id,
+            credits_purchased: credits,
+            created_at: new Date().toISOString()
+          });
+        return { error };
+      },
+      'payment transaction save'
+    );
+    
+    const { error: transactionError } = transactionResult;
 
     if (transactionError) {
       console.error('Transaction save error:', transactionError)
@@ -82,6 +96,9 @@ export async function PUT(request: Request) {
         { status: 400 }
       )
     }
+
+    // 获取数据库连接
+    const supabase = db.getInstance()
 
     // 更新交易状态
     const { error } = await supabase

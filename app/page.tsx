@@ -15,10 +15,10 @@ export default function HomePage() {
             <span className="text-2xl font-bold gradient-text">PersonaLink</span>
           </div>
           <div className="flex items-center space-x-4">
-            <Link href="/auth/signin">
+            <Link href="/auth/login">
               <Button variant="ghost">Sign In</Button>
             </Link>
-            <Link href="/auth/signup">
+            <Link href="/auth/register">
               <Button>Get Started</Button>
             </Link>
           </div>
@@ -41,7 +41,7 @@ export default function HomePage() {
             Experience meaningful conversations and genuine connections.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/auth/signup">
+            <Link href="/auth/register">
               <Button size="lg" className="text-lg px-8 py-6">
                 Start Matching Now
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -148,7 +148,7 @@ export default function HomePage() {
             <p className="text-xl mb-8 opacity-90">
               Join thousands of users who have already discovered meaningful connections with AI companions
             </p>
-            <Link href="/auth/signup">
+            <Link href="/auth/register">
               <Button size="lg" variant="secondary" className="text-lg px-8 py-6">
                 Start Your Journey Today
                 <ArrowRight className="ml-2 h-5 w-5" />

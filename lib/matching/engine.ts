@@ -69,7 +69,7 @@ export class MatchingEngine {
 
     const matches: MatchResult[] = [];
 
-    for (const [otherUserId, otherProfile] of this.userProfiles) {
+    for (const [otherUserId, otherProfile] of Array.from(this.userProfiles.entries())) {
       if (otherUserId === userId) continue;
 
       const score = this.calculateCompatibilityScore(userProfile, otherProfile);
@@ -124,11 +124,11 @@ export class MatchingEngine {
     const hobbies2 = new Set(user2.hobbies);
 
     // Combine interests and hobbies
-    const allInterests1 = new Set([...interests1, ...hobbies1]);
-    const allInterests2 = new Set([...interests2, ...hobbies2]);
+    const allInterests1 = new Set([...Array.from(interests1), ...Array.from(hobbies1)]);
+    const allInterests2 = new Set([...Array.from(interests2), ...Array.from(hobbies2)]);
 
-    const intersection = new Set([...allInterests1].filter(x => allInterests2.has(x)));
-    const union = new Set([...allInterests1, ...allInterests2]);
+    const intersection = new Set([...Array.from(allInterests1)].filter(x => allInterests2.has(x)));
+    const union = new Set([...Array.from(allInterests1), ...Array.from(allInterests2)]);
 
     return union.size > 0 ? intersection.size / union.size : 0;
   }

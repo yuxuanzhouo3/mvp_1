@@ -63,17 +63,18 @@ export async function POST(request: NextRequest) {
       case 'like':
         // Create a match if both users like each other
         const { data: existingMatch } = await supabase
-          .from('user_matches')
+          .from('matches')
           .select('*')
-          .or(`user_id.eq.${matchedUserId},matched_user_id.eq.${matchedUserId}`)
-          .or(`user_id.eq.${userId},matched_user_id.eq.${userId}`)
+          .or(`user1_id.eq.${matchedUserId},user2_id.eq.${matchedUserId}`)
+          .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
           .single();
 
         if (existingMatch) {
           // Both users have liked each other - create a match
-          await supabase.from('user_matches').insert({
-            user_id: userId,
-            matched_user_id: matchedUserId,
+          await supabase.from('matches').insert({
+            user1_id: userId,
+            user2_id: matchedUserId,
+            status: 'accepted'
           });
 
           return NextResponse.json({
@@ -82,9 +83,10 @@ export async function POST(request: NextRequest) {
           });
         } else {
           // First like - store for potential future match
-          await supabase.from('user_likes').insert({
-            user_id: userId,
-            liked_user_id: matchedUserId,
+          await supabase.from('matches').insert({
+            user1_id: userId,
+            user2_id: matchedUserId,
+            status: 'pending'
           });
 
           return NextResponse.json({
@@ -95,9 +97,10 @@ export async function POST(request: NextRequest) {
 
       case 'pass':
         // Record pass to avoid showing this user again
-        await supabase.from('user_passes').insert({
-          user_id: userId,
-          passed_user_id: matchedUserId,
+        await supabase.from('matches').insert({
+          user1_id: userId,
+          user2_id: matchedUserId,
+          status: 'rejected'
         });
 
         return NextResponse.json({

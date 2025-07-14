@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = createClient();
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -24,15 +23,16 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (profileError) {
+      console.error('Error fetching profile:', profileError);
       return NextResponse.json(
-        { error: 'Profile not found' },
-        { status: 404 }
+        { error: 'Failed to fetch profile' },
+        { status: 500 }
       );
     }
 
     return NextResponse.json({ profile });
   } catch (error) {
-    console.error('Error fetching user profile:', error);
+    console.error('Error in user profile API:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const supabase = createClient();
+    const updates = await request.json();
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -54,34 +55,28 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { full_name, bio, location, interests, avatar_url } = body;
-
     // Update user profile
-    const { data: profile, error: updateError } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .update({
-        full_name,
-        bio,
-        location,
-        interests,
-        avatar_url,
+        ...updates,
         updated_at: new Date().toISOString(),
       })
       .eq('id', user.id)
       .select()
       .single();
 
-    if (updateError) {
+    if (profileError) {
+      console.error('Error updating profile:', profileError);
       return NextResponse.json(
         { error: 'Failed to update profile' },
-        { status: 400 }
+        { status: 500 }
       );
     }
 
     return NextResponse.json({ profile });
   } catch (error) {
-    console.error('Error updating user profile:', error);
+    console.error('Error in user profile API:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

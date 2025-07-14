@@ -13,19 +13,27 @@ import {
   LogOut,
   Bell
 } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthProvider'
+import { User as UserType } from '@supabase/supabase-js'
 
 const navigation = [
-  { name: '仪表盘', href: '/dashboard', icon: Home },
-  { name: '聊天', href: '/chat', icon: MessageSquare },
-  { name: '匹配', href: '/matching', icon: Heart },
-  { name: '充值', href: '/payment/recharge', icon: CreditCard },
-  { name: '设置', href: '/dashboard/settings', icon: Settings },
+  { name: 'Dashboard', href: '/dashboard', icon: Home },
+  { name: 'Chat', href: '/chat', icon: MessageSquare },
+  { name: 'Matching', href: '/matching', icon: Heart },
+  { name: 'Recharge', href: '/payment/recharge', icon: CreditCard },
+  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
 
-export default function DashboardSidebar() {
+interface DashboardSidebarProps {
+  user: UserType | null;
+}
+
+export const DashboardSidebar = ({ user }: DashboardSidebarProps) => {
   const pathname = usePathname()
-  const { user, signOut } = useAuth()
+
+  const handleSignOut = async () => {
+    // Handle sign out logic here
+    window.location.href = '/auth/login';
+  }
 
   return (
     <div className="flex flex-col w-64 bg-background border-r">
@@ -68,7 +76,7 @@ export default function DashboardSidebar() {
                 {user?.user_metadata?.full_name || user?.email}
               </p>
               <p className="text-xs text-muted-foreground truncate">
-                {user?.user_metadata?.credits || 0} 积分
+                {user?.user_metadata?.credits || 0} credits
               </p>
             </div>
           </div>
@@ -82,7 +90,7 @@ export default function DashboardSidebar() {
             >
               <Link href="/dashboard/notifications">
                 <Bell className="mr-2 h-4 w-4" />
-                通知设置
+                Notifications
               </Link>
             </Button>
             
@@ -90,10 +98,10 @@ export default function DashboardSidebar() {
               variant="ghost"
               size="sm"
               className="w-full justify-start text-destructive hover:text-destructive"
-              onClick={signOut}
+              onClick={handleSignOut}
             >
               <LogOut className="mr-2 h-4 w-4" />
-              退出登录
+              Sign Out
             </Button>
           </div>
         </div>

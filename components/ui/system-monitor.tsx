@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
 import { Badge } from './badge';
 import { Progress } from './progress';
-import { Activity, Wifi, WifiOff, Battery, BatteryCharging, Cpu, Memory, HardDrive } from 'lucide-react';
+import { Activity, Wifi, WifiOff, Battery, BatteryCharging, Cpu, HardDrive } from 'lucide-react';
 
 interface SystemMetrics {
   online: boolean;
@@ -96,13 +96,13 @@ export function SystemMonitor({
       if ('connection' in navigator) {
         const connection = (navigator as any).connection;
         if (connection.effectiveType) {
-          const speeds = {
+          const speeds: Record<string, number> = {
             'slow-2g': 0.5,
             '2g': 1,
             '3g': 3,
             '4g': 10
           };
-          updateMetrics({ networkSpeed: speeds[connection.effectiveType] || 0 });
+          updateMetrics({ networkSpeed: speeds[connection.effectiveType as string] || 0 });
         }
       }
     };
@@ -210,7 +210,7 @@ export function SystemMonitor({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Memory className="h-4 w-4 text-blue-500" />
+                <HardDrive className="h-4 w-4 text-blue-500" />
                 <span className="text-sm">内存使用</span>
               </div>
               <span className={`text-sm font-mono ${getStatusColor(metrics.memoryUsage, { good: 70, warning: 85, critical: 95 })}`}>

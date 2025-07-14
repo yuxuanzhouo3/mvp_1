@@ -5,6 +5,7 @@ import { Providers } from '@/components/providers'
 import { Toaster } from '@/components/ui/toaster'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { MonitoringDashboard } from '@/components/ui/monitoring-dashboard'
+import { memo } from 'react'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -26,11 +27,16 @@ export const metadata: Metadata = {
   },
 }
 
+// Memoize the monitoring dashboard to prevent unnecessary re-renders
+const MemoizedMonitoringDashboard = memo(MonitoringDashboard);
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
@@ -40,9 +46,9 @@ export default function RootLayout({
               {children}
               <Toaster />
               
-              {/* 生产环境监控面板 */}
-              {process.env.NODE_ENV === 'production' && (
-                <MonitoringDashboard />
+              {/* Only render monitoring dashboard in development */}
+              {isDevelopment && (
+                <MemoizedMonitoringDashboard />
               )}
             </div>
           </Providers>

@@ -7,7 +7,7 @@ import {
   Phone, 
   Video, 
   User, 
-  Block,
+  Ban,
   Flag
 } from 'lucide-react'
 import {
@@ -124,7 +124,7 @@ export default function ChatHeader({ chatId, participant }: ChatHeaderProps) {
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleBlock} className="text-destructive">
-              <Block className="mr-2 h-4 w-4" />
+              <Ban className="mr-2 h-4 w-4" />
               屏蔽用户
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleReport} className="text-destructive">

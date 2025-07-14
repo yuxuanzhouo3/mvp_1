@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useChat } from '@/hooks/useChat'
+import { useChat, Message as ChatMessage } from '@/app/hooks/useChat'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -42,11 +42,22 @@ export default function MessageList({
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
-  const { messages: realtimeMessages, sendMessage } = useChat(chatId)
+  const { messages: realtimeMessages, sendMessage } = useChat({ chatId })
 
   useEffect(() => {
     if (realtimeMessages) {
-      setMessages(realtimeMessages)
+      // Convert ChatMessage to Message format
+      const convertedMessages: Message[] = realtimeMessages.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        sender_id: msg.sender_id,
+        recipient_id: '', // ChatMessage doesn't have recipient_id
+        type: 'text' as const, // Default to text
+        status: 'sent' as const, // Default to sent
+        created_at: msg.created_at,
+        file_url: msg.attachments?.[0] || undefined,
+      }))
+      setMessages(convertedMessages)
     }
   }, [realtimeMessages])
 

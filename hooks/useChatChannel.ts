@@ -66,8 +66,8 @@ export default function useChatChannel(chatId: string) {
       .on('presence', { event: 'sync' }, () => {
         const presenceState = chatChannel.presenceState()
         const participants = Object.values(presenceState).flat().map(p => ({
-          user_id: p.user_id,
-          online_at: p.online_at,
+          user_id: (p as any).user_id || p.presence_ref,
+          online_at: (p as any).online_at || new Date().toISOString(),
           last_seen: new Date().toISOString()
         }))
         setParticipants(participants)

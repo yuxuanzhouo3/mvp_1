@@ -62,7 +62,7 @@ export default function ChatPage() {
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize chat hook
-  const { sendMessage, isConnected } = useChat(chatId);
+  const { sendMessage, isConnected } = useChat({ chatId });
 
   useEffect(() => {
     if (!user) {
@@ -147,7 +147,7 @@ export default function ChatPage() {
 
       if (response.ok) {
         const data = await response.json();
-        await sendMessage('', 'file', data.file_url);
+        await sendMessage('', [data.file_url]);
         toast({
           title: '文件上传成功',
           description: '文件已发送',
@@ -178,7 +178,7 @@ export default function ChatPage() {
 
       if (response.ok) {
         const data = await response.json();
-        await sendMessage('', 'image', data.image_url);
+        await sendMessage('', [data.image_url]);
         toast({
           title: '图片上传成功',
           description: '图片已发送',
