@@ -5,6 +5,11 @@
       "NEXT_PUBLIC_APP_ENV": "production"
     }
   },
+  "functions": {
+    "app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
   "routes": [
     {
       "src": "/api/(.*)",
@@ -24,5 +29,9 @@
         "Referrer-Policy": "strict-origin-when-cross-origin"
       }
     }
-  ]
+  ],
+  "public": true,
+  "github": {
+    "silent": true
+  }
 } 
