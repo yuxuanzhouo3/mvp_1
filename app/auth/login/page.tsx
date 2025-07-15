@@ -3,58 +3,56 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { Mail, Lock, Phone, Chrome } from 'lucide-react';
-
-const emailSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
-
-const phoneSchema = z.object({
-  phone: z.string().min(10, 'Invalid phone number'),
-});
-
-const otpSchema = z.object({
-  otp: z.string().length(6, 'OTP must be 6 digits'),
-});
-
-type EmailFormData = z.infer<typeof emailSchema>;
-type PhoneFormData = z.infer<typeof phoneSchema>;
-type OTPFormData = z.infer<typeof otpSchema>;
+import { Mail, Lock, Phone, Chrome, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [phoneSent, setPhoneSent] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [activeTab, setActiveTab] = useState('email');
+  const [showPassword, setShowPassword] = useState(false);
+  
   const router = useRouter();
   const { signIn, signInWithGoogle, signInWithPhone, verifyPhoneOTP } = useAuth();
   const { toast } = useToast();
 
-  const emailForm = useForm<EmailFormData>({
-    resolver: zodResolver(emailSchema),
-  });
-
-  const phoneForm = useForm<PhoneFormData>({
-    resolver: zodResolver(phoneSchema),
-  });
-
-  const otpForm = useForm<OTPFormData>({
-    resolver: zodResolver(otpSchema),
-  });
-
-  const onEmailSubmit = async (data: EmailFormData) => {
+  const onEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
+    
+    // Basic validation
+    if (!email || !password) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all fields',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: 'Error',
+        description: 'Password must be at least 6 characters',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const { error } = await signIn(data.email, data.password);
+      const { error } = await signIn(email, password);
       if (error) {
         toast({
           title: 'Login failed',
@@ -62,7 +60,14 @@ export default function LoginPage() {
           variant: 'destructive',
         });
       } else {
-        router.push('/dashboard');
+        toast({
+          title: 'Success',
+          description: 'Welcome back!',
+        });
+        // Force redirect to dashboard
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1000);
       }
     } catch (error) {
       toast({
@@ -85,6 +90,15 @@ export default function LoginPage() {
           description: error.message,
           variant: 'destructive',
         });
+      } else {
+        toast({
+          title: 'Success',
+          description: 'Welcome back!',
+        });
+        // Force redirect to dashboard
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1000);
       }
     } catch (error) {
       toast({
@@ -97,10 +111,22 @@ export default function LoginPage() {
     }
   };
 
-  const onPhoneSubmit = async (data: PhoneFormData) => {
+  const onPhoneSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
+    
+    if (!phone || phone.length < 10) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a valid phone number',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const { error } = await signInWithPhone(data.phone);
+      const { error } = await signInWithPhone(phone);
       if (error) {
         toast({
           title: 'SMS failed',
@@ -109,7 +135,7 @@ export default function LoginPage() {
         });
       } else {
         setPhoneSent(true);
-        setPhoneNumber(data.phone);
+        setPhoneNumber(phone);
         toast({
           title: 'SMS sent',
           description: 'Check your phone for the verification code',
@@ -126,10 +152,22 @@ export default function LoginPage() {
     }
   };
 
-  const onOTPSubmit = async (data: OTPFormData) => {
+  const onOTPSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
+    
+    if (!otp || otp.length !== 6) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a valid 6-digit code',
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const { error } = await verifyPhoneOTP(phoneNumber, data.otp);
+      const { error } = await verifyPhoneOTP(phoneNumber, otp);
       if (error) {
         toast({
           title: 'Verification failed',
@@ -137,7 +175,14 @@ export default function LoginPage() {
           variant: 'destructive',
         });
       } else {
-        router.push('/dashboard');
+        toast({
+          title: 'Success',
+          description: 'Welcome back!',
+        });
+        // Force redirect to dashboard
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 1000);
       }
     } catch (error) {
       toast({
@@ -160,40 +205,54 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="email" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="email">Email</TabsTrigger>
               <TabsTrigger value="phone">Phone</TabsTrigger>
-              <TabsTrigger value="google">Google</TabsTrigger>
             </TabsList>
 
             <TabsContent value="email" className="space-y-4">
-              <form onSubmit={emailForm.handleSubmit(onEmailSubmit)} className="space-y-4">
+              <form onSubmit={onEmailSubmit} className="space-y-4">
                 <div className="space-y-2">
-                  <Input
-                    {...emailForm.register('email')}
-                    type="email"
-                    placeholder="Email"
-                    icon={<Mail className="h-4 w-4" />}
-                  />
-                  {emailForm.formState.errors.email && (
-                    <p className="text-sm text-red-500">
-                      {emailForm.formState.errors.email.message}
-                    </p>
-                  )}
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <Input
+                      type="email"
+                      placeholder="Email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Input
-                    {...emailForm.register('password')}
-                    type="password"
-                    placeholder="Password"
-                    icon={<Lock className="h-4 w-4" />}
-                  />
-                  {emailForm.formState.errors.password && (
-                    <p className="text-sm text-red-500">
-                      {emailForm.formState.errors.password.message}
-                    </p>
-                  )}
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock className="h-4 w-4 text-gray-400" />
+                    </div>
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10 pr-10"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? 'Signing in...' : 'Sign in'}
@@ -208,38 +267,37 @@ export default function LoginPage() {
 
             <TabsContent value="phone" className="space-y-4">
               {!phoneSent ? (
-                <form onSubmit={phoneForm.handleSubmit(onPhoneSubmit)} className="space-y-4">
+                <form onSubmit={onPhoneSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Input
-                      {...phoneForm.register('phone')}
-                      type="tel"
-                      placeholder="Phone number"
-                      icon={<Phone className="h-4 w-4" />}
-                    />
-                    {phoneForm.formState.errors.phone && (
-                      <p className="text-sm text-red-500">
-                        {phoneForm.formState.errors.phone.message}
-                      </p>
-                    )}
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Phone className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <Input
+                        type="tel"
+                        placeholder="Phone number"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        className="pl-10"
+                        required
+                      />
+                    </div>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Sending SMS...' : 'Send verification code'}
                   </Button>
                 </form>
               ) : (
-                <form onSubmit={otpForm.handleSubmit(onOTPSubmit)} className="space-y-4">
+                <form onSubmit={onOTPSubmit} className="space-y-4">
                   <div className="space-y-2">
                     <Input
-                      {...otpForm.register('otp')}
                       type="text"
                       placeholder="Enter 6-digit code"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
                       maxLength={6}
+                      required
                     />
-                    {otpForm.formState.errors.otp && (
-                      <p className="text-sm text-red-500">
-                        {otpForm.formState.errors.otp.message}
-                      </p>
-                    )}
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Verifying...' : 'Verify code'}
@@ -248,26 +306,44 @@ export default function LoginPage() {
                     type="button"
                     variant="outline"
                     className="w-full"
-                    onClick={() => setPhoneSent(false)}
+                    onClick={() => {
+                      setPhoneSent(false);
+                      setOtp('');
+                    }}
                   >
-                    Back to phone input
+                    Back to phone number
                   </Button>
                 </form>
               )}
             </TabsContent>
+          </Tabs>
 
-            <TabsContent value="google" className="space-y-4">
+          {/* Social Login Section - Moved to bottom */}
+          <div className="mt-6">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <div className="mt-6">
               <Button
-                onClick={onGoogleSignIn}
+                type="button"
                 variant="outline"
                 className="w-full"
+                onClick={onGoogleSignIn}
                 disabled={isLoading}
               >
-                <Chrome className="h-4 w-4 mr-2" />
-                {isLoading ? 'Signing in...' : 'Sign in with Google'}
+                <Chrome className="mr-2 h-4 w-4" />
+                Continue with Google
               </Button>
-            </TabsContent>
-          </Tabs>
+            </div>
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">

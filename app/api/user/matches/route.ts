@@ -1,27 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+
+// Mock matches data
+const MOCK_MATCHES = [
+  {
+    id: 'match-1',
+    matched_user: {
+      id: 'user-1',
+      full_name: 'Sarah Chen',
+      avatar_url: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face',
+    },
+    compatibility_score: 85,
+    matched_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'match-2',
+    matched_user: {
+      id: 'user-2',
+      full_name: 'Alex Johnson',
+      avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
+    },
+    compatibility_score: 92,
+    matched_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+  {
+    id: 'match-3',
+    matched_user: {
+      id: 'user-3',
+      full_name: 'Maria Garcia',
+      avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
+    },
+    compatibility_score: 78,
+    matched_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+  },
+];
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: any) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: any) {
-            cookieStore.set({ name, value: '', ...options });
-          },
-        },
-      }
-    );
+    // Check if we're in mock mode
+    const isMockMode = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (isMockMode) {
+      const { searchParams } = new URL(request.url);
+      const limit = parseInt(searchParams.get('limit') || '10');
+      const mockMatches = MOCK_MATCHES.slice(0, limit);
+      return NextResponse.json({ matches: mockMatches });
+    }
+
+    const supabase = createClient();
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -33,24 +59,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user's matches
+    // Get user matches
     const { data: matches, error: matchesError } = await supabase
       .from('matches')
       .select(`
         id,
-        user1_id,
-        user2_id,
-        compatibility_score,
-        match_reasons,
-        created_at,
-        matched_user:profiles!matches_user2_id_fkey(
+        matched_user:profiles!matches_match_id_fkey(
           id,
           full_name,
-          avatar_url,
-          bio
-        )
+          avatar_url
+        ),
+        compatibility_score:score,
+        matched_at:created_at
       `)
-      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+      .eq('user_id', user.id)
+      .eq('status', 'accepted')
       .order('created_at', { ascending: false });
 
     if (matchesError) {
@@ -61,21 +84,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Transform data for frontend
-    const transformedMatches = matches?.map(match => ({
-      id: match.id,
-      matchedUser: match.user1_id === user.id ? match.matched_user : {
-        id: match.user1_id,
-        full_name: 'Unknown User',
-        avatar_url: null,
-        bio: null
-      },
-      compatibilityScore: match.compatibility_score,
-      matchReasons: match.match_reasons,
-      matchedAt: match.created_at
-    })) || [];
-
-    return NextResponse.json({ matches: transformedMatches });
+    return NextResponse.json({ matches });
   } catch (error) {
     console.error('Error in user matches API:', error);
     return NextResponse.json(

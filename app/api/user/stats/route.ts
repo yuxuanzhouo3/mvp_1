@@ -1,27 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+
+// Mock stats data
+const MOCK_STATS = {
+  totalMatches: 15,
+  totalMessages: 127,
+  activeChats: 8,
+  profileCompletion: 85,
+};
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name: string, value: string, options: any) {
-            cookieStore.set({ name, value, ...options });
-          },
-          remove(name: string, options: any) {
-            cookieStore.set({ name, value: '', ...options });
-          },
-        },
-      }
-    );
+    // Check if we're in mock mode
+    const isMockMode = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (isMockMode) {
+      return NextResponse.json({ stats: MOCK_STATS });
+    }
+
+    const supabase = createClient();
     
     // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -33,29 +30,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get user's stats
-    const { count: matchCount } = await supabase
-      .from('matches')
-      .select('*', { count: 'exact', head: true })
-      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+    // Get user stats
+    const { data: stats, error: statsError } = await supabase
+      .rpc('get_user_stats', { user_id: user.id });
 
-    const { count: chatCount } = await supabase
-      .from('chats')
-      .select('*', { count: 'exact', head: true })
-      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
-
-    const { count: messageCount } = await supabase
-      .from('messages')
-      .select('*', { count: 'exact', head: true })
-      .eq('sender_id', user.id);
-
-    const stats = {
-      matchCount: matchCount || 0,
-      chatCount: chatCount || 0,
-      messageCount: messageCount || 0,
-      totalConnections: matchCount || 0,
-      activeChats: chatCount || 0,
-    };
+    if (statsError) {
+      console.error('Error fetching stats:', statsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch stats' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ stats });
   } catch (error) {
