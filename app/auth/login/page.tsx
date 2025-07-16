@@ -340,10 +340,8 @@ export default function LoginPage() {
             <CardDescription className="text-white text-lg font-medium drop-shadow-sm">
               Sign in to your account and start connecting
             </CardDescription>
-          </CardHeader>
-          
-          <CardContent className="space-y-6">
-            {/* Google Sign-in Button */}
+            
+            {/* Google Sign-in Button - Moved to header */}
             <Button
               type="button"
               onClick={onGoogleSignIn}
@@ -369,7 +367,9 @@ export default function LoginPage() {
                 <span className="bg-white px-2 text-gray-500">or</span>
               </div>
             </div>
-
+          </CardHeader>
+          
+          <CardContent className="space-y-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 bg-white/10 backdrop-blur-sm border border-white/20">
                 <TabsTrigger 
