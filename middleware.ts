@@ -2,7 +2,10 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 // Check if we're in mock mode
-const mockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
+const mockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co' ||
+                 process.env.NEXT_PUBLIC_SUPABASE_URL === 'your_supabase_url_here' ||
+                 !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+                 !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export async function middleware(request: NextRequest) {
   // Skip middleware for static files and API routes
@@ -48,6 +51,7 @@ export async function middleware(request: NextRequest) {
     }
 
     if (isAuthenticated) {
+      console.log('🔄 Middleware: User authenticated on login page, redirecting to dashboard');
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
     return NextResponse.next()

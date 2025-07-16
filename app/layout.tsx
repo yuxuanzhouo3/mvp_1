@@ -5,6 +5,7 @@ import { Providers } from '@/components/providers'
 import { Toaster } from '@/components/ui/toaster'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { MonitoringDashboard } from '@/components/ui/monitoring-dashboard'
+import { GlobalHeader } from '@/components/ui/global-header'
 import { memo } from 'react'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -43,6 +44,7 @@ export default function RootLayout({
         <ErrorBoundary>
           <Providers>
             <div className="min-h-screen bg-background">
+              <GlobalHeader />
               {children}
               <Toaster />
               

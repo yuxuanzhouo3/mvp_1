@@ -45,8 +45,12 @@ export default function LoginPage() {
         setHasRedirected(true);
         hasRedirectedRef.current = true; // Double protection
         
-        // Use replace instead of push to avoid back button issues
-        router.replace('/dashboard');
+        // Use window.location for more reliable redirect
+        if (typeof window !== 'undefined') {
+          window.location.href = '/dashboard';
+        } else {
+          router.replace('/dashboard');
+        }
       } else if (!user && (hasRedirected || hasRedirectedRef.current)) {
         console.log('❌ User logged out, resetting redirect state');
         setHasRedirected(false);
@@ -122,19 +126,78 @@ export default function LoginPage() {
         console.log('⏳ Waiting for user state update...');
         console.log('🔄 User state should update automatically via AuthProvider');
         
+        // Immediate redirect after successful login
+        console.log('🚀 Immediate redirect to dashboard...');
+        setHasRedirected(true);
+        hasRedirectedRef.current = true;
+        
+        // Use window.location for immediate redirect
+        if (typeof window !== 'undefined') {
+          console.log('🌐 Using window.location redirect...');
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 500); // Small delay to show success message
+        } else {
+          router.replace('/dashboard');
+        }
+        
+        // Add manual redirect button for testing
+        console.log('🔧 Adding manual redirect option...');
+        if (typeof window !== 'undefined') {
+          const manualRedirect = () => {
+            console.log('🔧 Manual redirect triggered');
+            window.location.href = '/dashboard';
+          };
+          
+          // Add a temporary button for manual redirect
+          setTimeout(() => {
+            const existingButton = document.getElementById('manual-redirect-btn');
+            if (!existingButton) {
+              const button = document.createElement('button');
+              button.id = 'manual-redirect-btn';
+              button.textContent = 'Manual Redirect to Dashboard';
+              button.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #ff6b6b;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 5px;
+                cursor: pointer;
+                z-index: 9999;
+                font-size: 14px;
+              `;
+              button.onclick = manualRedirect;
+              document.body.appendChild(button);
+              
+              // Auto-remove after 10 seconds
+              setTimeout(() => {
+                if (button.parentNode) {
+                  button.parentNode.removeChild(button);
+                }
+              }, 10000);
+            }
+          }, 1000);
+        }
+        
         // Fallback redirect mechanism
         setTimeout(() => {
           console.log('⏰ Fallback redirect check - User state:', user);
-          if (user && !hasRedirected && !hasRedirectedRef.current) {
+          if (!hasRedirected && !hasRedirectedRef.current) {
             console.log('🔄 Fallback redirect triggered');
             setHasRedirected(true);
             hasRedirectedRef.current = true;
-            router.replace('/dashboard');
+            if (typeof window !== 'undefined') {
+              window.location.href = '/dashboard';
+            } else {
+              router.replace('/dashboard');
+            }
           }
           console.log('⏰ Timeout reached, resetting loading state');
           setIsLoading(false);
         }, 2000);
-        // The redirect will happen automatically via useEffect when user state updates
       }
     } catch (error) {
       console.log('💥 Unexpected error during signIn:', error);
