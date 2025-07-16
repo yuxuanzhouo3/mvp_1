@@ -103,7 +103,11 @@ export default function MessageList({
               src={message.file_url} 
               alt="Image" 
               className="max-w-xs rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-              onClick={() => window.open(message.file_url, '_blank')}
+              onClick={() => {
+                if (typeof window !== 'undefined' && message.file_url) {
+                  window.open(message.file_url, '_blank')
+                }
+              }}
             />
             {message.content && (
               <p className="text-sm">{message.content}</p>
@@ -127,7 +131,11 @@ export default function MessageList({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => window.open(message.file_url, '_blank')}
+                onClick={() => {
+                  if (typeof window !== 'undefined' && message.file_url) {
+                    window.open(message.file_url, '_blank')
+                  }
+                }}
               >
                 下载
               </Button>

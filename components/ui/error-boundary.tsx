@@ -39,7 +39,9 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   handleGoHome = () => {
-    window.location.href = '/';
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
   };
 
   render() {
@@ -164,13 +166,15 @@ export function AsyncErrorBoundary({
       onError?.(event.error, { componentStack: '' });
     };
 
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    window.addEventListener('error', handleError);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('unhandledrejection', handleUnhandledRejection);
+      window.addEventListener('error', handleError);
 
-    return () => {
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-      window.removeEventListener('error', handleError);
-    };
+      return () => {
+        window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+        window.removeEventListener('error', handleError);
+      };
+    }
   }, [onError]);
 
   if (hasError) {
@@ -194,7 +198,11 @@ export function AsyncErrorBoundary({
           </CardHeader>
           <CardContent>
             <Button 
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.location.reload();
+                }
+              }}
               className="w-full"
             >
               <RefreshCw className="mr-2 h-4 w-4" />

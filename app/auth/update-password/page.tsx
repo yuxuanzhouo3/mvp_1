@@ -115,6 +115,7 @@ export default function UpdatePasswordPage() {
                 type="password"
                 placeholder="New password"
                 icon={<Lock className="h-4 w-4" />}
+                autoComplete="new-password"
               />
               {form.formState.errors.password && (
                 <p className="text-sm text-red-500">
@@ -128,6 +129,7 @@ export default function UpdatePasswordPage() {
                 type="password"
                 placeholder="Confirm new password"
                 icon={<Lock className="h-4 w-4" />}
+                autoComplete="new-password"
               />
               {form.formState.errors.confirmPassword && (
                 <p className="text-sm text-red-500">

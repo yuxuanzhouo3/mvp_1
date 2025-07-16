@@ -1,46 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
-// Mock user profile data
-const MOCK_PROFILE = {
-  id: 'mock-user-id-123',
-  email: 'test@personalink.ai',
-  full_name: 'Test User',
-  avatar_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-  bio: 'I love meeting new people and having meaningful conversations!',
-  location: 'San Francisco, CA',
-  interests: ['Technology', 'Travel', 'Music', 'Reading', 'Cooking'],
-  credits: 100,
-  membership_level: 'free',
-  is_verified: true,
-  is_online: true,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if we're in mock mode (no Supabase config)
-    const isMockMode = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    if (isMockMode) {
-      // Return mock profile data
-      return NextResponse.json({ profile: MOCK_PROFILE });
+    // Get the authorization header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'No authorization header' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    // Extract the token
+    const token = authHeader.replace('Bearer ', '');
     
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    // Verify the token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Get user profile
+    // Get user profile from profiles table
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('*')
@@ -48,73 +31,37 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (profileError) {
-      console.error('Error fetching profile:', profileError);
-      return NextResponse.json(
-        { error: 'Failed to fetch profile' },
-        { status: 500 }
-      );
+      // If profile doesn't exist, create a default one
+      const defaultProfile = {
+        id: user.id,
+        email: user.email,
+        full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
+        avatar_url: user.user_metadata?.avatar_url,
+        credits: 100, // Default credits
+        bio: '',
+        location: '',
+        interests: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const { data: newProfile, error: insertError } = await supabase
+        .from('profiles')
+        .insert(defaultProfile)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error creating profile:', insertError);
+        return NextResponse.json({ error: 'Failed to create profile' }, { status: 500 });
+      }
+
+      return NextResponse.json({ profile: newProfile });
     }
 
     return NextResponse.json({ profile });
   } catch (error) {
-    console.error('Error in user profile API:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    const updates = await request.json();
-    
-    // Check if we're in mock mode
-    const isMockMode = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    if (isMockMode) {
-      // Return updated mock profile
-      const updatedProfile = { ...MOCK_PROFILE, ...updates, updated_at: new Date().toISOString() };
-      return NextResponse.json({ profile: updatedProfile });
-    }
-
-    const supabase = createClient();
-    
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    // Update user profile
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', user.id)
-      .select()
-      .single();
-
-    if (profileError) {
-      console.error('Error updating profile:', profileError);
-      return NextResponse.json(
-        { error: 'Failed to update profile' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ profile });
-  } catch (error) {
-    console.error('Error in user profile API:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Profile API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

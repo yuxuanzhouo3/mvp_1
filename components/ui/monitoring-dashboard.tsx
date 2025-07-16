@@ -34,7 +34,7 @@ export function MonitoringDashboard({
 
   if (!isVisible) {
     return (
-      <div className="fixed bottom-4 right-4 z-50">
+      <div className="fixed bottom-4 left-4 z-50">
         <button
           onClick={handleToggle}
           className="bg-white border border-gray-200 rounded-lg p-2 shadow-lg hover:shadow-xl transition-shadow"
@@ -48,7 +48,7 @@ export function MonitoringDashboard({
 
   if (isMinimized) {
     return (
-      <div className="fixed bottom-4 right-4 z-50">
+      <div className="fixed bottom-4 left-4 z-50">
         <Card className="w-64 shadow-xl">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">

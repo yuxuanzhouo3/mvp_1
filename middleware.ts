@@ -1,112 +1,100 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
 
-// Rate limiting store (in production, use Redis)
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>()
-
-// Rate limiting configuration
-const RATE_LIMIT_WINDOW = 60 * 1000 // 1 minute
-const RATE_LIMIT_MAX_REQUESTS = 100 // requests per window
+// Check if we're in mock mode
+const mockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next()
-  
-  // Create Supabase client
-  const supabase = createServerClient(
-    'https://bamratexknmqvdbalzen.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhbXJhdGV4a25tcXZkYmFsemVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MTM4NzEsImV4cCI6MjA2ODA4OTg3MX0.yYa98ioJLLouUgHWITGb7U_VjNCTUuM-5NcraM7f3zA',
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
-        },
-      },
-    }
-  )
-  
-  // Get user session
-  const { data: { session } } = await supabase.auth.getSession()
-  
-  // Rate limiting
-  const clientIP = request.ip || request.headers.get('x-forwarded-for') || 'unknown'
-  const rateLimitKey = `${clientIP}:${request.nextUrl.pathname}`
-  
-  const now = Date.now()
-  const rateLimit = rateLimitStore.get(rateLimitKey)
-  
-  if (rateLimit && now < rateLimit.resetTime) {
-    if (rateLimit.count >= RATE_LIMIT_MAX_REQUESTS) {
-      return new NextResponse('Too Many Requests', { status: 429 })
-    }
-    rateLimit.count++
-  } else {
-    rateLimitStore.set(rateLimitKey, {
-      count: 1,
-      resetTime: now + RATE_LIMIT_WINDOW
-    })
+  // Skip middleware for static files and API routes
+  if (
+    request.nextUrl.pathname.startsWith('/_next') ||
+    request.nextUrl.pathname.startsWith('/api') ||
+    request.nextUrl.pathname.startsWith('/favicon.ico') ||
+    request.nextUrl.pathname.startsWith('/static')
+  ) {
+    return NextResponse.next();
   }
-  
-  // Security headers
-  response.headers.set('X-Content-Type-Options', 'nosniff')
-  response.headers.set('X-Frame-Options', 'DENY')
-  response.headers.set('X-XSS-Protection', '1; mode=block')
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  
+
   // Authentication checks for protected routes
-  const protectedRoutes = ['/dashboard', '/chat', '/matching', '/payment']
+  const protectedRoutes = ['/dashboard', '/chat', '/matching', '/payment', '/profile']
   const isProtectedRoute = protectedRoutes.some(route => 
     request.nextUrl.pathname.startsWith(route)
   )
   
-  if (isProtectedRoute && !session) {
-    const redirectUrl = new URL('/auth/login', request.url)
-    redirectUrl.searchParams.set('redirect', request.nextUrl.pathname)
-    return NextResponse.redirect(redirectUrl)
-  }
-  
-  // Admin route protection
-  if (request.nextUrl.pathname.startsWith('/ops') && !session) {
-    return NextResponse.redirect(new URL('/auth/login', request.url))
-  }
-  
-  // Check admin access for ops routes
-  if (request.nextUrl.pathname.startsWith('/ops') && session) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', session.user.id)
-      .single()
+  // Check if user is on login page while authenticated
+  if (request.nextUrl.pathname === '/auth/login') {
+    let isAuthenticated = false;
     
-    if (!profile || profile.role !== 'admin') {
+    if (mockMode) {
+      const mockSession = request.cookies.get('mock-session');
+      isAuthenticated = mockSession?.value === 'true';
+    } else {
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll()
+            },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+            },
+          },
+        }
+      )
+      const { data: { session } } = await supabase.auth.getSession()
+      isAuthenticated = !!session
+    }
+
+    if (isAuthenticated) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
+    return NextResponse.next()
   }
-  
-  // CORS for API routes
-  if (request.nextUrl.pathname.startsWith('/api')) {
-    const origin = request.headers.get('origin')
-    const allowedOrigins = [
-      'https://yourdomain.com',
-      'http://localhost:3000'
-    ]
+
+  if (isProtectedRoute) {
+    let isAuthenticated = false;
     
-    if (origin && allowedOrigins.includes(origin)) {
-      response.headers.set('Access-Control-Allow-Origin', origin)
+    if (mockMode) {
+      // In mock mode, check for mock session cookie
+      const mockSession = request.cookies.get('mock-session');
+      isAuthenticated = mockSession?.value === 'true';
+      
+      // Only log for debugging specific issues
+      if (process.env.NODE_ENV === 'development' && Math.random() < 0.1) {
+        console.log('🎭 Middleware: Mock auth check:', {
+          path: request.nextUrl.pathname,
+          isAuthenticated,
+          hasCookie: !!mockSession
+        });
+      }
+    } else {
+      // Real Supabase authentication
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll()
+            },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value, options }) => request.cookies.set(name, value))
+            },
+          },
+        }
+      )
+      const { data: { session } } = await supabase.auth.getSession()
+      isAuthenticated = !!session
     }
-    
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-    
-    if (request.method === 'OPTIONS') {
-      return new NextResponse(null, { status: 200 })
+
+    if (!isAuthenticated) {
+      return NextResponse.redirect(new URL('/auth/login', request.url))
     }
   }
-  
-  return response
+
+  return NextResponse.next()
 }
 
 export const config = {
@@ -116,8 +104,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
+     * - api (API routes)
      */
-    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api).*)',
   ],
 } 

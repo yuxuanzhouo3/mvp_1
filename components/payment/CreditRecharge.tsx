@@ -138,7 +138,9 @@ export default function CreditRecharge() {
         
         if (selectedPaymentMethod.id === 'stripe') {
           // Redirect to Stripe checkout
-          window.location.href = data.checkoutUrl;
+          if (typeof window !== 'undefined') {
+            window.location.href = data.checkoutUrl;
+          }
         } else if (selectedPaymentMethod.id === 'usdt') {
           // Show USDT payment details
           toast({

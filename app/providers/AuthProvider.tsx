@@ -56,12 +56,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // Check if we're in mock mode (no Supabase config)
-  const isMockMode = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Check if we're in mock mode (no Supabase config or using mock credentials)
+  const isMockMode = useMemo(() => {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    const isMock = !supabaseUrl || 
+           !supabaseKey ||
+           supabaseUrl === 'https://mock.supabase.co' ||
+           supabaseKey === 'mock-key' ||
+           supabaseUrl === 'your_supabase_url_here' ||
+           supabaseKey === 'your_supabase_anon_key_here';
+    
+    return isMock;
+  }, []);
+
+  // Check for mock mode override from localStorage (client-side only)
+  const [mockModeOverride, setMockModeOverride] = useState(false);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const override = localStorage.getItem('mock-mode-override');
+        if (override === 'true') {
+          console.log('🎭 Mock mode enabled via localStorage override');
+          setMockModeOverride(true);
+        }
+      } catch (error) {
+        console.error('Error reading mock mode override from localStorage:', error);
+      }
+      
+      // Only log once during initialization to avoid spam
+      if (!(window as any).__mockModeLogged) {
+        console.log('🎭 Mock mode detection:', {
+          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 20) + '...',
+          supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 10) + '...',
+          isMock: isMockMode || mockModeOverride
+        });
+        (window as any).__mockModeLogged = true;
+      }
+    }
+  }, [isMockMode]);
+
+  const finalMockMode = isMockMode || mockModeOverride;
 
   // Memoize Supabase client to prevent recreation
   const supabase = useMemo(() => {
-    if (isMockMode) {
+    if (finalMockMode) {
       // Return a mock client
       return {
         auth: {
@@ -74,7 +115,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           signOut: async () => ({ error: null }),
           resetPasswordForEmail: async () => ({ data: null, error: null }),
           updateUser: async () => ({ data: { user: null }, error: null }),
-          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+          onAuthStateChange: (callback: any) => {
+            // Store the callback for mock auth state changes
+            if (typeof window !== 'undefined') {
+              (window as any).__mockAuthCallback = callback;
+            }
+            return { 
+              data: { 
+                subscription: { 
+                  unsubscribe: () => {
+                    if (typeof window !== 'undefined') {
+                      delete (window as any).__mockAuthCallback;
+                    }
+                  } 
+                } 
+              } 
+            };
+          },
           functions: {
             invoke: async () => ({ data: null, error: null })
           }
@@ -94,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Memoize captureUserMetadata to prevent recreation
   const captureUserMetadata = useCallback(async (user: User) => {
-    if (isMockMode) {
+    if (finalMockMode) {
       console.log('Mock mode: Skipping user metadata capture');
       return;
     }
@@ -142,48 +199,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    console.log('🚀 AuthProvider useEffect started');
+    console.log('🎭 Mock mode status:', isMockMode);
 
     // Get initial session
     const getInitialSession = async () => {
       try {
-        if (isMockMode) {
-          // In mock mode, check localStorage for mock session
-          const mockSession = localStorage.getItem('mock-session');
-          if (mockSession && mounted) {
+        if (finalMockMode) {
+          // In mock mode, check both localStorage and cookies for mock session
+          let mockSessionLocalStorage = null;
+          let mockSessionCookie = false;
+          
+          // Only access localStorage and document.cookie on the client side
+          if (typeof window !== 'undefined') {
+            try {
+              mockSessionLocalStorage = localStorage.getItem('mock-session');
+              mockSessionCookie = document.cookie.includes('mock-session=true');
+            } catch (error) {
+              console.error('Error reading mock session from storage:', error);
+            }
+          }
+          
+          if ((mockSessionLocalStorage || mockSessionCookie) && mounted) {
+            console.log('✅ Mock session found, setting user state');
             setSession(MOCK_SESSION);
             setUser(MOCK_USER);
-            setLoading(false);
             return;
           }
-        }
-
-        const { data: { session } } = await supabase.auth.getSession();
-        if (mounted) {
-          setSession(session);
-          setUser(session?.user ?? null);
-          setLoading(false);
+        } else {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session && mounted) {
+            setSession(session);
+            setUser(session.user);
+          }
         }
       } catch (error) {
         console.error('Error getting initial session:', error);
-        if (mounted) {
-          setLoading(false);
-        }
       }
     };
 
     getInitialSession();
 
     // Listen for auth changes
+    console.log('👂 Setting up auth state change listener...');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: string, session: Session | null) => {
         if (!mounted) return;
+
+        console.log('🔄 Auth state change event:', event);
+        console.log('📊 Session data:', session);
+        console.log('👤 User data:', session?.user);
 
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
 
+        console.log('✅ Auth state updated - User:', session?.user);
+
         // Only capture metadata on SIGNED_IN event
         if (event === 'SIGNED_IN' && session?.user) {
+          console.log('🎯 SIGNED_IN event detected, capturing metadata...');
           // Use setTimeout to avoid blocking the auth state change
           setTimeout(() => {
             captureUserMetadata(session.user);
@@ -193,34 +268,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     return () => {
+      console.log('🧹 AuthProvider cleanup - unmounting');
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [supabase, captureUserMetadata, isMockMode]);
+  }, [supabase, captureUserMetadata, finalMockMode]);
 
   // Memoize all auth functions to prevent unnecessary re-renders
   const signIn = useCallback(async (email: string, password: string) => {
-    if (isMockMode) {
+    console.log('🔐 AuthProvider.signIn called with:', { email, finalMockMode });
+    console.log('🎭 Mock mode status:', finalMockMode);
+    console.log('📊 Current user state before signIn:', user);
+    
+    if (finalMockMode) {
+      console.log('🎭 Mock mode: Checking credentials...');
       // Mock authentication
       if (email === 'test@personalink.ai' && password === 'test123') {
+        console.log('✅ Mock credentials valid, setting user state...');
         setSession(MOCK_SESSION);
         setUser(MOCK_USER);
         localStorage.setItem('mock-session', 'true');
+        
+        // Set cookie for middleware authentication with longer expiry
+        document.cookie = 'mock-session=true; path=/; max-age=86400; SameSite=Lax';
+        console.log('🍪 Mock session cookie set');
+        console.log('💾 Mock session saved to localStorage');
+        console.log('👤 User state set to:', MOCK_USER);
+        console.log('🔄 Triggering auth state change...');
+        
+        // Trigger the auth state change callback
+        if (typeof window !== 'undefined' && (window as any).__mockAuthCallback) {
+          setTimeout(() => {
+            (window as any).__mockAuthCallback('SIGNED_IN', MOCK_SESSION);
+          }, 100);
+        }
+        
         return { error: null };
       } else {
+        console.log('❌ Mock credentials invalid:', { email, password });
         return { error: { message: 'Invalid email or password' } };
       }
     }
 
+    console.log('🌐 Real mode: Calling Supabase auth...');
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    console.log('🌐 Supabase auth result:', { error });
     return { error };
-  }, [supabase, isMockMode]);
+  }, [supabase, finalMockMode, user]);
 
   const signUp = useCallback(async (email: string, password: string, fullName: string) => {
-    if (isMockMode) {
+    if (finalMockMode) {
       // Mock registration
       const mockNewUser = {
         ...MOCK_USER,
@@ -231,6 +331,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession({ ...MOCK_SESSION, user: mockNewUser });
       setUser(mockNewUser);
       localStorage.setItem('mock-session', 'true');
+      
+      // Set cookie for middleware authentication with longer expiry
+      document.cookie = 'mock-session=true; path=/; max-age=86400; SameSite=Lax';
+      console.log('🍪 Mock signup session cookie set');
+      
       return { error: null };
     }
 
@@ -244,11 +349,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
     return { error };
-  }, [supabase, isMockMode]);
+  }, [supabase, finalMockMode]);
 
   const signInWithGoogle = useCallback(async () => {
-    if (isMockMode) {
-      return { error: { message: 'Google sign-in not available in mock mode' } };
+    if (finalMockMode) {
+      // In mock mode, simulate Google sign-in by creating a mock user
+      console.log('🎭 Mock mode: Simulating Google sign-in...');
+      const mockGoogleUser = {
+        ...MOCK_USER,
+        id: `mock-google-user-${Date.now()}`,
+        email: 'mock-google-user@personalink.ai',
+        user_metadata: { 
+          full_name: 'Mock Google User',
+          avatar_url: 'https://via.placeholder.com/150',
+          provider: 'google'
+        }
+      };
+      
+      setSession({ ...MOCK_SESSION, user: mockGoogleUser });
+      setUser(mockGoogleUser);
+      localStorage.setItem('mock-session', 'true');
+      
+      // Set cookie for middleware authentication with longer expiry
+      document.cookie = 'mock-session=true; path=/; max-age=86400; SameSite=Lax';
+      console.log('🍪 Mock Google session cookie set');
+      
+      return { error: null };
     }
 
     const { error } = await supabase.auth.signInWithOAuth({
@@ -258,22 +384,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       },
     });
     return { error };
-  }, [supabase, isMockMode]);
+  }, [supabase, finalMockMode]);
 
   const signInWithPhone = useCallback(async (phone: string) => {
-    if (isMockMode) {
-      return { error: { message: 'Phone sign-in not available in mock mode' } };
+    if (finalMockMode) {
+      // In mock mode, simulate phone sign-in
+      console.log('🎭 Mock mode: Simulating phone sign-in for:', phone);
+      return { error: null };
     }
 
     const { error } = await supabase.auth.signInWithOtp({
       phone,
     });
     return { error };
-  }, [supabase, isMockMode]);
+  }, [supabase, finalMockMode]);
 
   const verifyPhoneOTP = useCallback(async (phone: string, token: string) => {
-    if (isMockMode) {
-      return { error: { message: 'Phone verification not available in mock mode' } };
+    if (finalMockMode) {
+      // In mock mode, accept any 6-digit code
+      console.log('🎭 Mock mode: Verifying phone OTP:', { phone, token });
+      if (token.length === 6 && /^\d+$/.test(token)) {
+        const mockPhoneUser = {
+          ...MOCK_USER,
+          id: `mock-phone-user-${Date.now()}`,
+          email: `${phone}@personalink.ai`,
+          phone,
+          user_metadata: { 
+            full_name: 'Mock Phone User',
+            phone
+          }
+        };
+        
+        setSession({ ...MOCK_SESSION, user: mockPhoneUser });
+        setUser(mockPhoneUser);
+        localStorage.setItem('mock-session', 'true');
+        
+        // Set cookie for middleware authentication with longer expiry
+        document.cookie = 'mock-session=true; path=/; max-age=86400; SameSite=Lax';
+        console.log('🍪 Mock phone session cookie set');
+        
+        return { error: null };
+      } else {
+        return { error: { message: 'Please enter a valid 6-digit code' } };
+      }
     }
 
     const { error } = await supabase.auth.verifyOtp({
@@ -282,23 +435,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       type: 'sms',
     });
     return { error };
-  }, [supabase, isMockMode]);
+  }, [supabase, finalMockMode]);
 
   const signOut = useCallback(async () => {
-    if (isMockMode) {
+    if (finalMockMode) {
       setSession(null);
       setUser(null);
       localStorage.removeItem('mock-session');
+      
+      // Clear cookie for middleware authentication
+      document.cookie = 'mock-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      console.log('🍪 Mock session cookie cleared');
+      
+      // Trigger the auth state change callback
+      if (typeof window !== 'undefined' && (window as any).__mockAuthCallback) {
+        setTimeout(() => {
+          (window as any).__mockAuthCallback('SIGNED_OUT', null);
+        }, 100);
+      }
+      
       router.push('/');
       return;
     }
 
     await supabase.auth.signOut();
     router.push('/');
-  }, [supabase, router, isMockMode]);
+  }, [supabase, router, finalMockMode]);
 
   const resetPassword = useCallback(async (email: string) => {
-    if (isMockMode) {
+    if (finalMockMode) {
       return { error: { message: 'Password reset not available in mock mode' } };
     }
 
@@ -306,10 +471,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       redirectTo: `${window.location.origin}/auth/update-password`,
     });
     return { error };
-  }, [supabase, isMockMode]);
+  }, [supabase, finalMockMode]);
 
   const updatePassword = useCallback(async (password: string) => {
-    if (isMockMode) {
+    if (finalMockMode) {
       return { error: { message: 'Password update not available in mock mode' } };
     }
 
@@ -317,10 +482,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password,
     });
     return { error };
-  }, [supabase, isMockMode]);
+  }, [supabase, finalMockMode]);
 
   const enable2FA = useCallback(async () => {
-    if (isMockMode) {
+    if (finalMockMode) {
       return { error: { message: '2FA not available in mock mode' } };
     }
 
@@ -332,10 +497,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       return { error: { message: 'Failed to enable 2FA' } };
     }
-  }, [supabase, user, isMockMode]);
+  }, [supabase, user, finalMockMode]);
 
   const verify2FA = useCallback(async (token: string) => {
-    if (isMockMode) {
+    if (finalMockMode) {
       return { error: { message: '2FA verification not available in mock mode' } };
     }
 
@@ -347,7 +512,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       return { error: { message: 'Failed to verify 2FA' } };
     }
-  }, [supabase, user, isMockMode]);
+  }, [supabase, user, finalMockMode]);
 
   const value = useMemo(() => ({
     user,

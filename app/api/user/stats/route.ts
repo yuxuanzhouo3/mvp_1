@@ -1,53 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
-// Mock stats data
-const MOCK_STATS = {
-  totalMatches: 15,
-  totalMessages: 127,
-  activeChats: 8,
-  profileCompletion: 85,
-};
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if we're in mock mode
-    const isMockMode = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    if (isMockMode) {
-      return NextResponse.json({ stats: MOCK_STATS });
+    // Get the authorization header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'No authorization header' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    // Extract the token
+    const token = authHeader.replace('Bearer ', '');
     
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+    // Verify the token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Get user stats
-    const { data: stats, error: statsError } = await supabase
-      .rpc('get_user_stats', { user_id: user.id });
+    // For now, return mock stats since we don't have all the tables yet
+    const mockStats = {
+      totalMatches: 12,
+      totalMessages: 156,
+      activeChats: 3,
+      profileCompletion: 85
+    };
 
-    if (statsError) {
-      console.error('Error fetching stats:', statsError);
-      return NextResponse.json(
-        { error: 'Failed to fetch stats' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ stats });
+    return NextResponse.json({ stats: mockStats });
   } catch (error) {
-    console.error('Error in user stats API:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Stats API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

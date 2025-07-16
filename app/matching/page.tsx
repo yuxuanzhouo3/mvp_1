@@ -64,16 +64,105 @@ export default function MatchingPage() {
     loadCandidates();
   }, [user]);
 
-  const loadCandidates = async () => {
+  const loadCandidates = async (isRefresh = false) => {
     try {
       setIsLoading(true);
       
-      const response = await fetch('/api/matching/candidates');
+      // Check if we're in mock mode
+      const isMockMode = !process.env.NEXT_PUBLIC_SUPABASE_URL || 
+                        process.env.NEXT_PUBLIC_SUPABASE_URL === 'your_supabase_url_here' ||
+                        process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
+      
+      if (isMockMode) {
+        // Use mock data in mock mode
+        console.log('🎭 Mock mode: Using mock candidates');
+        
+        const mockCandidates: MatchCandidate[] = [
+          {
+            id: '1',
+            full_name: 'Alice Johnson',
+            avatar_url: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
+            age: 28,
+            location: 'San Francisco, CA',
+            bio: 'Software engineer passionate about AI and machine learning. Love hiking, reading sci-fi novels, and trying new restaurants.',
+            interests: ['Technology', 'AI', 'Hiking', 'Reading', 'Food'],
+            industry: 'Technology',
+            communication_style: 'Direct and thoughtful',
+            compatibility_score: 0.95,
+            common_interests: ['Technology', 'AI'],
+            match_reasons: ['Shared interest in technology', 'Similar communication style', 'Compatible lifestyle']
+          },
+          {
+            id: '2',
+            full_name: 'Bob Smith',
+            avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
+            age: 32,
+            location: 'New York, NY',
+            bio: 'Product manager with a background in design. Enjoy traveling, photography, and building things that matter.',
+            interests: ['Product Management', 'Design', 'Travel', 'Photography', 'Innovation'],
+            industry: 'Technology',
+            communication_style: 'Collaborative and creative',
+            compatibility_score: 0.87,
+            common_interests: ['Technology', 'Innovation'],
+            match_reasons: ['Professional alignment', 'Creative mindset', 'Growth-oriented']
+          },
+          {
+            id: '3',
+            full_name: 'Carol Davis',
+            avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face',
+            age: 26,
+            location: 'Austin, TX',
+            bio: 'Data scientist working on healthcare applications. Love yoga, cooking, and exploring new cultures through food.',
+            interests: ['Data Science', 'Healthcare', 'Yoga', 'Cooking', 'Travel'],
+            industry: 'Healthcare',
+            communication_style: 'Analytical and empathetic',
+            compatibility_score: 0.92,
+            common_interests: ['Technology', 'Innovation'],
+            match_reasons: ['Data-driven approach', 'Health-conscious lifestyle', 'Cultural curiosity']
+          }
+        ];
+        
+        setCandidates(mockCandidates);
+        return;
+      }
+      
+      // Get the current session for the auth token
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error('No access token available');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      };
+      
+      // Add timestamp for refresh functionality
+      const url = isRefresh 
+        ? `/api/matching/candidates?refresh=true&t=${Date.now()}`
+        : '/api/matching/candidates';
+      
+      const response = await fetch(url, { headers });
       if (response.ok) {
         const data = await response.json();
         setCandidates(data.candidates);
+      } else {
+        console.error('Candidates API error:', response.status);
+        toast({
+          title: '加载失败',
+          description: '无法加载匹配候选人',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
+      console.error('Candidates loading error:', error);
       toast({
         title: '加载失败',
         description: '无法加载匹配候选人',
@@ -204,7 +293,12 @@ export default function MatchingPage() {
 
   const handleRefresh = () => {
     setCurrentIndex(0);
-    loadCandidates();
+    // Force reload with new candidates
+    loadCandidates(true);
+  };
+
+  const handleGoToDashboard = () => {
+    router.push('/dashboard');
   };
 
   if (isLoading) {
@@ -274,6 +368,13 @@ export default function MatchingPage() {
               onClick={handleRefresh}
             >
               <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGoToDashboard}
+            >
+              <User className="h-4 w-4" />
             </Button>
           </div>
         </div>

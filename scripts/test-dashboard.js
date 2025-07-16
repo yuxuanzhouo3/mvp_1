@@ -1,68 +1,107 @@
-// Test script for dashboard functionality
-console.log('🎯 PersonaLink Dashboard Test');
-console.log('=============================');
+#!/usr/bin/env node
 
-console.log('\n📋 Test Instructions:');
-console.log('1. Open your browser and go to: http://localhost:3000/auth/login');
-console.log('2. Enter these credentials:');
-console.log('   Email: test@personalink.ai');
-console.log('   Password: test123');
-console.log('3. Click "Sign In"');
-console.log('4. You should be redirected to: http://localhost:3000/dashboard');
+/**
+ * Dashboard Test Script
+ * Tests dashboard access with authentication
+ */
 
-console.log('\n📊 Expected Dashboard Features:');
-console.log('┌─────────────────────────────────────────────────────────┐');
-console.log('│ Dashboard Layout:                                      │');
-console.log('├─────────────────────────────────────────────────────────┤');
-console.log('│ 🏠 Sidebar Navigation:                                 │');
-console.log('│   • Dashboard (active)                                 │');
-console.log('│   • Find Matches                                       │');
-console.log('│   • Chat                                               │');
-console.log('│   • Profile                                            │');
-console.log('│   • Settings                                           │');
-console.log('│   • Logout                                             │');
-console.log('├─────────────────────────────────────────────────────────┤');
-console.log('│ 📈 Main Content:                                       │');
-console.log('│   • Welcome message with user name                     │');
-console.log('│   • Credit balance card (100 credits)                  │');
-console.log('│   • Recent matches section                             │');
-console.log('│   • Activity timeline                                  │');
-console.log('│   • Quick stats (matches, messages, etc.)              │');
-console.log('└─────────────────────────────────────────────────────────┘');
+const http = require('http');
 
-console.log('\n🔍 Database Data (Mock Mode):');
-console.log('┌─────────────────────────────────────────────────────────┐');
-console.log('│ User Profile:                                          │');
-console.log('│   • ID: mock-user-id-123                               │');
-console.log('│   • Name: Test User                                    │');
-console.log('│   • Email: test@personalink.ai                         │');
-console.log('│   • Credits: 100                                       │');
-console.log('│   • Membership: free                                   │');
-console.log('├─────────────────────────────────────────────────────────┤');
-console.log('│ Sample Data:                                           │');
-console.log('│   • 3 recent matches                                   │');
-console.log('│   • 5 recent activities                                │');
-console.log('│   • 2 active chats                                     │');
-console.log('│   • 15 unread messages                                 │');
-console.log('└─────────────────────────────────────────────────────────┘');
+async function testDashboard() {
+  console.log('🧪 Testing Dashboard Access\n');
+  
+  // Helper function to make HTTP requests
+  function makeRequest(path, method = 'GET', cookies = []) {
+    return new Promise((resolve, reject) => {
+      const options = {
+        hostname: 'localhost',
+        port: 3000,
+        path: path,
+        method: method,
+        headers: {
+          'User-Agent': 'Test-Script/1.0',
+          'Cookie': cookies.join('; ')
+        }
+      };
+      
+      const req = http.request(options, (res) => {
+        let body = '';
+        res.on('data', (chunk) => {
+          body += chunk;
+        });
+        res.on('end', () => {
+          resolve({
+            statusCode: res.statusCode,
+            headers: res.headers,
+            body: body
+          });
+        });
+      });
+      
+      req.on('error', (err) => {
+        reject(err);
+      });
+      
+      req.end();
+    });
+  }
 
-console.log('\n🎯 Test Scenarios:');
-console.log('1. ✅ Login with correct credentials');
-console.log('2. ✅ Access protected dashboard');
-console.log('3. ✅ View user profile information');
-console.log('4. ✅ Navigate between sections');
-console.log('5. ✅ View credit balance');
-console.log('6. ✅ Check recent matches');
-console.log('7. ✅ View activity timeline');
-console.log('8. ✅ Test logout functionality');
+  try {
+    // Test 1: Dashboard without authentication
+    console.log('1️⃣ Testing dashboard without auth...');
+    const dashboardNoAuth = await makeRequest('/dashboard');
+    console.log(`   Status: ${dashboardNoAuth.statusCode}`);
+    if (dashboardNoAuth.statusCode === 302) {
+      console.log('   ✅ Correctly redirects unauthenticated users');
+    } else {
+      console.log('   ⚠️  Unexpected response');
+    }
 
-console.log('\n🔧 Mock Mode Features:');
-console.log('• No Supabase configuration required');
-console.log('• Instant authentication');
-console.log('• Persistent session (localStorage)');
-console.log('• Full dashboard functionality');
-console.log('• Real-time data simulation');
-console.log('• All UI components working');
+    // Test 2: Dashboard with mock session cookie
+    console.log('\n2️⃣ Testing dashboard with mock session...');
+    const dashboardWithAuth = await makeRequest('/dashboard', 'GET', ['mock-session=true']);
+    console.log(`   Status: ${dashboardWithAuth.statusCode}`);
+    
+    if (dashboardWithAuth.statusCode === 200) {
+      console.log('   ✅ Dashboard loads successfully with authentication');
+      
+      // Check if the response contains dashboard content
+      if (dashboardWithAuth.body.includes('dashboard') || 
+          dashboardWithAuth.body.includes('Dashboard') ||
+          dashboardWithAuth.body.includes('react')) {
+        console.log('   ✅ Dashboard content is present');
+      } else {
+        console.log('   ⚠️  Dashboard content might be missing');
+        console.log('   📄 Response preview:', dashboardWithAuth.body.substring(0, 200) + '...');
+      }
+    } else if (dashboardWithAuth.statusCode === 307) {
+      console.log('   ⚠️  Still redirecting - might be a timing issue');
+    } else {
+      console.log('   ❌ Unexpected response with authentication');
+    }
 
-console.log('\n🚀 Ready to test! The dashboard should be fully functional.');
-console.log('💡 Tip: Check the browser console for any errors during testing.'); 
+    // Test 3: Check if there are any JavaScript errors
+    console.log('\n3️⃣ Checking for JavaScript errors...');
+    if (dashboardWithAuth.body.includes('error') || 
+        dashboardWithAuth.body.includes('Error') ||
+        dashboardWithAuth.body.includes('TypeError')) {
+      console.log('   ⚠️  Potential JavaScript errors detected');
+    } else {
+      console.log('   ✅ No obvious JavaScript errors');
+    }
+
+    console.log('\n🎉 Dashboard test completed!');
+    console.log('\n📋 Next steps:');
+    console.log('   1. Open http://localhost:3000/auth/login in your browser');
+    console.log('   2. Login with any email/password (mock mode)');
+    console.log('   3. You should be redirected to the dashboard');
+    console.log('   4. Check browser console for any JavaScript errors');
+
+  } catch (error) {
+    console.error('❌ Test failed:', error.message);
+    process.exit(1);
+  }
+}
+
+// Run the test
+testDashboard(); 

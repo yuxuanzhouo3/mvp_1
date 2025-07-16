@@ -44,7 +44,9 @@ export default function ChatHeader({ chatId, participant }: ChatHeaderProps) {
 
   const handleViewProfile = () => {
     // 查看用户资料
-    window.open(`/user/${participant.id}`, '_blank')
+    if (typeof window !== 'undefined') {
+      window.open(`/user/${participant.id}`, '_blank')
+    }
   }
 
   const handleBlock = () => {

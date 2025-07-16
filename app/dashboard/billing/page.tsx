@@ -74,6 +74,11 @@ export default function BillingPage() {
 
   const downloadInvoice = async (recordId: string) => {
     try {
+      // Only execute on client side
+      if (typeof window === 'undefined') {
+        return;
+      }
+
       const response = await fetch(`/api/user/billing/${recordId}/invoice`);
       if (response.ok) {
         const blob = await response.blob();

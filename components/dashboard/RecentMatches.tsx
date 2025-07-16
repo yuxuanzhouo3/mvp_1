@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +26,7 @@ interface RecentMatchesProps {
 export default function RecentMatches({ userId }: RecentMatchesProps) {
   const [matches, setMatches] = useState<Match[]>([])
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
     fetchRecentMatches()
@@ -60,12 +62,14 @@ export default function RecentMatches({ userId }: RecentMatchesProps) {
 
   const handleStartChat = (matchId: string) => {
     // 跳转到聊天页面
-    window.location.href = `/chat/${matchId}`
+    router.push(`/chat/${matchId}`)
   }
 
   const handleViewProfile = (matchId: string) => {
     // 跳转到用户资料页面
-    window.open(`/user/${matchId}`, '_blank')
+    if (typeof window !== 'undefined') {
+      window.open(`/user/${matchId}`, '_blank')
+    }
   }
 
   if (loading) {

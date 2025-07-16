@@ -184,7 +184,7 @@ export function PerformanceMonitor({
 
   if (!isVisible) {
     return (
-      <div className="fixed bottom-4 right-4 z-50">
+      <div className="fixed bottom-4 left-20 z-50">
         <button
           onClick={() => setIsVisible(true)}
           className="bg-white border border-gray-200 rounded-lg p-2 shadow-lg hover:shadow-xl transition-shadow"
@@ -197,7 +197,7 @@ export function PerformanceMonitor({
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80">
+    <div className="fixed bottom-4 left-20 z-50 w-80">
       <Card className="shadow-xl">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">

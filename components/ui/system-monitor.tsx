@@ -49,8 +49,10 @@ export function SystemMonitor({
     const handleOnline = () => updateMetrics({ online: true });
     const handleOffline = () => updateMetrics({ online: false });
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', handleOnline);
+      window.addEventListener('offline', handleOffline);
+    }
 
     // 获取电池信息
     const getBatteryInfo = async () => {
@@ -127,8 +129,10 @@ export function SystemMonitor({
     }, 5000);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      }
       clearInterval(interval);
     };
   }, [onMetricsUpdate]);

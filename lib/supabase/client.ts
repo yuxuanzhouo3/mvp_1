@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Check if we're in mock mode (for build/deployment without real Supabase)
+const isMockMode = process.env.NODE_ENV === 'production' && 
+  (!process.env.NEXT_PUBLIC_SUPABASE_URL || 
+   process.env.NEXT_PUBLIC_SUPABASE_URL === 'your_supabase_url_here');
+
+const supabaseUrl = isMockMode ? 'https://mock.supabase.co' : process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = isMockMode ? 'mock-key' : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 

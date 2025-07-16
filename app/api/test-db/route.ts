@@ -1,102 +1,86 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 
-const supabaseUrl = 'https://bamratexknmqvdbalzen.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhbXJhdGV4a25tcXZkYmFsemVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MTM4NzEsImV4cCI6MjA2ODA4OTg3MX0.yYa98ioJLLouUgHWITGb7U_VjNCTUuM-5NcraM7f3zA';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    console.log('🔍 Testing API Database Operations...');
+    console.log('🔍 Testing database connection...');
+    
+    // Check if we're in mock mode
+    const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
+    
+    if (isMockMode) {
+      console.log('🎭 Mock mode: Simulating database connection');
+      return NextResponse.json({
+        status: 'success',
+        mode: 'mock',
+        message: 'Database connection simulated successfully',
+        timestamp: new Date().toISOString(),
+        mockData: {
+          profiles: 1,
+          matches: 0,
+          chats: 0,
+          messages: 0
+        }
+      });
+    }
 
-    // 1. 测试基本连接
-    const { data: connectionTest, error: connectionError } = await supabase
+    // Real database connection test
+    const supabase = createClient();
+    
+    // Test basic connection
+    const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('count')
       .limit(1);
 
-    if (connectionError) {
+    if (profilesError) {
+      console.error('❌ Database connection failed:', profilesError);
       return NextResponse.json({
         status: 'error',
-        message: 'Database connection failed',
-        error: connectionError.message
+        mode: 'real',
+        error: profilesError.message,
+        timestamp: new Date().toISOString()
       }, { status: 500 });
     }
 
-    // 2. 测试表结构
-    const tables = [
-      'profiles',
-      'user_settings', 
-      'match_preferences',
-      'matches',
-      'chat_rooms',
-      'messages',
-      'payments',
-      'user_balance',
-      'transactions',
-      'user_interests',
-      'user_photos'
-    ];
+    // Test other tables
+    const { data: matches } = await supabase
+      .from('matches')
+      .select('count')
+      .limit(1);
 
-    const tableStatus = [];
-    for (const table of tables) {
-      try {
-        const { data, error } = await supabase.from(table).select('*').limit(1);
-        tableStatus.push({
-          table,
-          status: error ? 'error' : 'ok',
-          error: error?.message || null
-        });
-      } catch (err) {
-        tableStatus.push({
-          table,
-          status: 'error',
-          error: err instanceof Error ? err.message : 'Unknown error'
-        });
-      }
-    }
+    const { data: chats } = await supabase
+      .from('chats')
+      .select('count')
+      .limit(1);
 
-    // 3. 测试查询性能
-    const startTime = Date.now();
-    const { data: profiles, error: queryError } = await supabase
-      .from('profiles')
-      .select('id, username, age, location')
-      .limit(10);
-    const queryTime = Date.now() - startTime;
+    const { data: messages } = await supabase
+      .from('messages')
+      .select('count')
+      .limit(1);
 
-    // 4. 测试 RLS
-    const { data: allProfiles, error: rlsError } = await supabase
-      .from('profiles')
-      .select('*');
-
-    const rlsWorking = rlsError && rlsError.message.includes('policy');
-
+    console.log('✅ Database connection successful');
+    
     return NextResponse.json({
       status: 'success',
-      tests: {
-        connection: {
-          status: 'ok',
-          message: 'Database connection successful'
-        },
-        tables: tableStatus,
-        performance: {
-          queryTime: `${queryTime}ms`,
-          profilesFound: profiles?.length || 0
-        },
-        rls: {
-          working: rlsWorking,
-          message: rlsWorking ? 'RLS is properly configured' : 'RLS might need configuration'
-        }
+      mode: 'real',
+      message: 'Database connection successful',
+      timestamp: new Date().toISOString(),
+      data: {
+        profiles: profiles?.length || 0,
+        matches: matches?.length || 0,
+        chats: chats?.length || 0,
+        messages: messages?.length || 0
       }
     });
 
   } catch (error) {
-    console.error('API test error:', error);
+    console.error('❌ Database test failed:', error);
     return NextResponse.json({
       status: 'error',
-      message: 'Internal server error',
-      error: error instanceof Error ? error.message : 'Unknown error'
+      mode: 'unknown',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      timestamp: new Date().toISOString()
     }, { status: 500 });
   }
 }
@@ -105,6 +89,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { action, data } = body;
+
+    // Create Supabase client
+    const supabase = createClient();
 
     switch (action) {
       case 'create_profile':

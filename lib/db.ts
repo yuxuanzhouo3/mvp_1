@@ -321,7 +321,7 @@ class DBConnection {
       health: this.healthStatus,
       config: this.config,
       isInitialized: this.isInitialized,
-      circuitBreaker: this.circuitBreaker.getStatus(),
+      circuitBreaker: this.circuitBreaker?.getStatus() || { state: 'unknown', failureCount: 0 },
       connectionPool: {
         size: this.connectionPool.size,
         maxSize: this.MAX_POOL_SIZE,

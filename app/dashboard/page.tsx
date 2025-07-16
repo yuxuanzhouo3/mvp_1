@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { createClient } from '@supabase/supabase-js';
 import { 
   User, 
   CreditCard, 
@@ -20,6 +21,11 @@ import {
   Calendar,
   MapPin
 } from 'lucide-react';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface UserProfile {
   id: string;
@@ -59,41 +65,119 @@ export default function DashboardPage() {
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!user) {
-      router.push('/auth/login');
-      return;
-    }
-
-    loadDashboardData();
-  }, [user]);
+  const [authSettled, setAuthSettled] = useState(false);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       
+      // Check if we're in mock mode
+      const isMockMode = !process.env.NEXT_PUBLIC_SUPABASE_URL || 
+                        process.env.NEXT_PUBLIC_SUPABASE_URL === 'your_supabase_url_here' ||
+                        process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
+      
+      if (isMockMode) {
+        // Use mock data in mock mode
+        console.log('🎭 Mock mode: Using mock dashboard data');
+        
+        const mockProfile: UserProfile = {
+          id: user?.id || 'mock-user',
+          email: user?.email || 'test@personalink.ai',
+          full_name: user?.user_metadata?.full_name || 'Test User',
+          avatar_url: user?.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+          credits: 100,
+          bio: 'Hello! I\'m a test user exploring PersonaLink.',
+          location: 'San Francisco, CA',
+          interests: ['Technology', 'AI', 'Friendship', 'Learning'],
+          created_at: new Date().toISOString()
+        };
+        
+        const mockMatches: RecentMatch[] = [
+          {
+            id: '1',
+            matched_user: {
+              id: 'user1',
+              full_name: 'Alice Johnson',
+              avatar_url: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face'
+            },
+            compatibility_score: 95,
+            matched_at: new Date(Date.now() - 86400000).toISOString()
+          },
+          {
+            id: '2',
+            matched_user: {
+              id: 'user2',
+              full_name: 'Bob Smith',
+              avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
+            },
+            compatibility_score: 87,
+            matched_at: new Date(Date.now() - 172800000).toISOString()
+          },
+          {
+            id: '3',
+            matched_user: {
+              id: 'user3',
+              full_name: 'Carol Davis',
+              avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face'
+            },
+            compatibility_score: 92,
+            matched_at: new Date(Date.now() - 259200000).toISOString()
+          }
+        ];
+        
+        const mockStats: DashboardStats = {
+          totalMatches: 12,
+          totalMessages: 156,
+          activeChats: 3,
+          profileCompletion: 85
+        };
+        
+        setProfile(mockProfile);
+        setRecentMatches(mockMatches);
+        setStats(mockStats);
+        return;
+      }
+      
+      // Get the current session for the auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.error('No access token available');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      };
+      
       // Load user profile
-      const profileResponse = await fetch(`/api/user/profile`);
+      const profileResponse = await fetch(`/api/user/profile`, { headers });
       if (profileResponse.ok) {
         const profileData = await profileResponse.json();
         setProfile(profileData.profile);
+      } else {
+        console.error('Profile API error:', profileResponse.status);
       }
 
       // Load recent matches
-      const matchesResponse = await fetch('/api/user/matches?limit=5');
+      const matchesResponse = await fetch('/api/user/matches?limit=5', { headers });
       if (matchesResponse.ok) {
         const matchesData = await matchesResponse.json();
         setRecentMatches(matchesData.matches);
+      } else {
+        console.error('Matches API error:', matchesResponse.status);
       }
 
       // Load dashboard stats
-      const statsResponse = await fetch('/api/user/stats');
+      const statsResponse = await fetch('/api/user/stats', { headers });
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         setStats(statsData.stats);
+      } else {
+        console.error('Stats API error:', statsResponse.status);
       }
     } catch (error) {
+      console.error('Dashboard data loading error:', error);
       toast({
         title: '加载失败',
         description: '无法加载仪表盘数据',
@@ -103,6 +187,79 @@ export default function DashboardPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Add a delay to allow auth state to settle
+    const timer = setTimeout(() => {
+      setAuthSettled(true);
+      if (!user) {
+        console.log('❌ No user found in dashboard, redirecting to login');
+        router.replace('/auth/login');
+        return;
+      } else {
+        console.log('✅ User authenticated, loading dashboard data');
+        console.log('👤 User details:', { id: user.id, email: user.email });
+        loadDashboardData();
+      }
+    }, 500); // Reduced delay for better UX
+
+    return () => clearTimeout(timer);
+  }, [user, router]);
+
+  // Show loading skeleton while auth is settling
+  if (!authSettled) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {/* Header Skeleton */}
+          <div className="flex justify-between items-center mb-8">
+            <div className="space-y-2">
+              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64 animate-pulse"></div>
+              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse"></div>
+            </div>
+            <div className="flex space-x-4">
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse"></div>
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse"></div>
+              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
+            </div>
+          </div>
+
+          {/* Content Skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1 space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
+                <div className="flex items-center space-x-4 mb-4">
+                  <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse"></div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
+                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-4 animate-pulse"></div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="space-y-2">
+                      <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse"></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleSignOut = async () => {
     try {

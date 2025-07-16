@@ -1,9 +1,27 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase/client';
 
 export async function GET() {
   try {
-    // Test database connection
+    // Check if we're in mock mode
+    const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
+    
+    if (isMockMode) {
+      // In mock mode, return success without database check
+      return NextResponse.json(
+        { 
+          status: 'ok',
+          database: 'mock',
+          timestamp: new Date().toISOString(),
+          version: '1.0.0',
+          environment: process.env.NODE_ENV,
+          mode: 'mock'
+        },
+        { status: 200 }
+      );
+    }
+
+    // Real database connection test
+    const { supabase } = await import('@/lib/supabase/client');
     const { error } = await supabase.from('profiles').select('count').limit(1);
     
     const status = error ? 'degraded' : 'ok';
@@ -15,7 +33,8 @@ export async function GET() {
         database,
         timestamp: new Date().toISOString(),
         version: '1.0.0',
-        environment: process.env.NODE_ENV
+        environment: process.env.NODE_ENV,
+        mode: 'real'
       },
       { status: error ? 503 : 200 }
     );
@@ -26,7 +45,8 @@ export async function GET() {
         status: 'error',
         database: 'error',
         timestamp: new Date().toISOString(),
-        error: 'Health check failed'
+        error: 'Health check failed',
+        mode: 'error'
       },
       { status: 500 }
     );

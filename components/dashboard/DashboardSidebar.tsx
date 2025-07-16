@@ -1,8 +1,12 @@
+"use client";
+
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { useAuth } from '@/app/providers/AuthProvider'
+import { useToast } from '@/hooks/use-toast'
 import { 
   Home, 
   MessageSquare, 
@@ -13,7 +17,6 @@ import {
   LogOut,
   Bell
 } from 'lucide-react'
-import { User as UserType } from '@supabase/supabase-js'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -23,16 +26,40 @@ const navigation = [
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
 
+interface UserData {
+  id: string;
+  email?: string;
+  user_metadata?: {
+    full_name?: string;
+    avatar_url?: string;
+    credits?: number;
+  };
+}
+
 interface DashboardSidebarProps {
-  user: UserType | null;
+  user: UserData | null;
 }
 
 export const DashboardSidebar = ({ user }: DashboardSidebarProps) => {
   const pathname = usePathname()
+  const router = useRouter()
+  const { signOut } = useAuth()
+  const { toast } = useToast()
 
   const handleSignOut = async () => {
-    // Handle sign out logic here
-    window.location.href = '/auth/login';
+    try {
+      await signOut();
+      toast({
+        title: '已退出登录',
+        description: '期待您的再次光临！',
+      });
+    } catch (error) {
+      toast({
+        title: '退出失败',
+        description: '请稍后重试',
+        variant: 'destructive',
+      });
+    }
   }
 
   return (
