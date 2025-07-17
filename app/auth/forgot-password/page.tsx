@@ -200,12 +200,14 @@ export default function ForgotPasswordPage() {
         <Card className="backdrop-blur-xl bg-white/10 border-white/20 shadow-2xl">
           <CardHeader className="text-center space-y-4 pb-8">
             <div className="flex items-center justify-center space-x-3 mb-6">
-              <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl shadow-lg">
-                <Sparkles className="h-8 w-8 text-white" />
-              </div>
-              <h1 className="text-3xl font-bold text-white drop-shadow-lg">
-                PersonaLink
-              </h1>
+              <Link href="/" className="flex items-center space-x-3 hover:scale-105 transition-transform duration-200">
+                <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl shadow-lg">
+                  <Sparkles className="h-8 w-8 text-white" />
+                </div>
+                <h1 className="text-3xl font-bold text-white drop-shadow-lg">
+                  PersonaLink
+                </h1>
+              </Link>
             </div>
             <CardTitle className="text-3xl font-bold text-white mb-2">
               Reset password
@@ -239,7 +241,7 @@ export default function ForgotPasswordPage() {
                   <div className="space-y-2">
                     <div className="relative group">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-purple-400 transition-colors" />
+                        <Mail className="h-5 w-5 text-gray-800 group-focus-within:text-purple-400 transition-colors" />
                       </div>
                       <Input
                         {...form.register('email')}
@@ -282,7 +284,7 @@ export default function ForgotPasswordPage() {
                     <div className="space-y-2">
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Phone className="h-5 w-5 text-gray-400 group-focus-within:text-purple-400 transition-colors" />
+                          <Phone className="h-5 w-5 text-gray-800 group-focus-within:text-purple-400 transition-colors" />
                         </div>
                         <Input
                           type="tel"

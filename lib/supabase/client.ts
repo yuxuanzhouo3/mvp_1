@@ -1,14 +1,31 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js'
 
-// Check if we're in mock mode (for build/deployment without real Supabase)
-const isMockMode = process.env.NODE_ENV === 'production' && 
-  (!process.env.NEXT_PUBLIC_SUPABASE_URL || 
-   process.env.NEXT_PUBLIC_SUPABASE_URL === 'your_supabase_url_here');
+// Create a singleton Supabase client to prevent multiple instances
+let supabaseClient: ReturnType<typeof createClient> | null = null
 
-const supabaseUrl = isMockMode ? 'https://mock.supabase.co' : process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = isMockMode ? 'mock-key' : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+export function getSupabaseClient() {
+  if (!supabaseClient) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing Supabase environment variables')
+    }
+    
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    })
+  }
+  
+  return supabaseClient
+}
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Export the client directly for convenience
+export const supabase = getSupabaseClient()
 
 export type Database = {
   public: {

@@ -1,0 +1,210 @@
+'use client';
+
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { createClient, User, Session } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
+
+interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  signOut: () => Promise<{ error: any }>;
+  signInWithGoogle: () => Promise<{ error: any }>;
+  signInWithPhone: (phone: string) => Promise<{ error: any }>;
+  verifyPhoneOTP: (phone: string, token: string) => Promise<{ error: any }>;
+  resetPassword: (email: string) => Promise<{ error: any }>;
+  updateProfile: (updates: any) => Promise<{ error: any }>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+
+  // Create Supabase client
+  const supabase = useMemo(() => {
+    return createClient(
+     https://bamarate425zdbalzenu.supabase.co,
+     eyJhbGciOiJIUzI1NiIsInR5CI6kpXVCJ9eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhbXJhdGV425tcXZkYmFsemVuIiwicm9ZSI6ImFub24iLCJpYXQiOjE3TI1MTM4NzEsImV4CI6A2DA4g3X0Ya98oJLLouUgHWITGb7_VjNCTUuM-5craM73
+    );
+  }, []);
+
+  // Capture user metadata to database
+  const captureUserMetadata = useCallback(async (user: User) => {
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .upsert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+          avatar_url: user.user_metadata?.avatar_url || '',
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error('Error capturing user metadata:', error);
+      }
+    } catch (error) {
+      console.error('Error in captureUserMetadata:', error);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    let mounted = true;
+    console.log('🚀 AuthProvider useEffect started');
+
+    // Get initial session
+    const getInitialSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && mounted) {
+          setSession(session);
+          setUser(session.user);
+        }
+      } catch (error) {
+        console.error('Error getting initial session:', error);
+      }
+    };
+
+    getInitialSession();
+
+    // Listen for auth changes
+    console.log('👂 Setting up auth state change listener...');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('🔄 Auth state changed:', event, session?.user?.email);
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+
+          if (session?.user && event === 'SIGNED_IN') {
+            // Capture user metadata when they sign in
+            setTimeout(() => {
+              captureUserMetadata(session.user);
+            }, 0);
+          }
+        }
+      }
+    );
+
+    return () => {
+      console.log('🧹 AuthProvider cleanup - unmounting');
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase, captureUserMetadata]);
+
+  // Memoize all auth functions to prevent unnecessary re-renders
+  const signIn = useCallback(async (email: string, password: string) => {
+    console.log('🔐 AuthProvider.signIn called with:', { email });
+    console.log('📊 Current user state before signIn:', user);
+    
+    console.log('🌐 Real mode: Calling Supabase auth...');
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    console.log('🌐 Supabase auth result:', { error });
+    return { error };
+  }, [supabase, user]);
+
+  const signUp = useCallback(async (email: string, password: string, fullName: string) => {
+    console.log('📝 AuthProvider.signUp called with:', { email, fullName });
+    
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+        },
+      },
+    });
+    
+    console.log('🌐 Supabase signup result:', { error });
+    return { error };
+  }, [supabase]);
+
+  const signOut = useCallback(async () => {
+    console.log('🚪 AuthProvider.signOut called');
+    
+    const { error } = await supabase.auth.signOut();
+    
+    if (!error) {
+      setUser(null);
+      setSession(null);
+    }
+    
+    return { error };
+  }, [supabase]);
+
+  const signInWithGoogle = useCallback(async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    return { error };
+  }, [supabase]);
+
+  const signInWithPhone = useCallback(async (phone: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      phone,
+    });
+    return { error };
+  }, [supabase]);
+
+  const verifyPhoneOTP = useCallback(async (phone: string, token: string) => {
+    const { error } = await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: 'sms',
+    });
+    return { error };
+  }, [supabase]);
+
+  const resetPassword = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/update-password`,
+    });
+    return { error };
+  }, [supabase]);
+
+  const updateProfile = useCallback(async (updates: any) => {
+    const { error } = await supabase.auth.updateUser(updates);
+    return { error };
+  }, [supabase]);
+
+  const value = {
+    user,
+    session,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+    signInWithGoogle,
+    signInWithPhone,
+    verifyPhoneOTP,
+    resetPassword,
+    updateProfile,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+} 

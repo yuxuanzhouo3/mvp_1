@@ -15,37 +15,37 @@ export default function TwoFactorSetup() {
   const [isEnabled, setIsEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState<'setup' | 'verify' | 'enabled'>('setup');
-  const { enable2FA, verify2FA, user } = useAuth();
+  // const { enable2FA, verify2FA, user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     // Check if 2FA is already enabled
-    if (user) {
-      // This would typically come from user profile
-      setIsEnabled(false); // For demo purposes
-    }
-  }, [user]);
+    // if (user) {
+    //   // This would typically come from user profile
+    //   setIsEnabled(false); // For demo purposes
+    // }
+  }, []);
 
   const handleEnable2FA = async () => {
     setIsLoading(true);
     try {
-      const { error, data } = await enable2FA();
+      // const { error, data } = await enable2FA();
       
-      if (error) {
-        toast({
-          title: 'Error',
-          description: error.message || 'Failed to enable 2FA',
-          variant: 'destructive',
-        });
-      } else if (data) {
-        setQrCode(data.qrCode);
-        setSecret(data.secret);
-        setStep('verify');
-        toast({
-          title: '2FA Setup',
-          description: 'Scan the QR code with your authenticator app',
-        });
-      }
+      // if (error) {
+      //   toast({
+      //     title: 'Error',
+      //     description: error.message || 'Failed to enable 2FA',
+      //     variant: 'destructive',
+      //   });
+      // } else if (data) {
+      //   setQrCode(data.qrCode);
+      //   setSecret(data.secret);
+      //   setStep('verify');
+      //   toast({
+      //     title: '2FA Setup',
+      //     description: 'Scan the QR code with your authenticator app',
+      //   });
+      // }
     } catch (error) {
       toast({
         title: 'Error',
@@ -69,22 +69,22 @@ export default function TwoFactorSetup() {
 
     setIsLoading(true);
     try {
-      const { error } = await verify2FA(verificationCode);
+      // const { error } = await verify2FA(verificationCode);
       
-      if (error) {
-        toast({
-          title: 'Verification Failed',
-          description: error.message || 'Invalid verification code',
-          variant: 'destructive',
-        });
-      } else {
-        setIsEnabled(true);
-        setStep('enabled');
-        toast({
-          title: '2FA Enabled',
-          description: 'Two-factor authentication has been successfully enabled',
-        });
-      }
+      // if (error) {
+      //   toast({
+      //     title: 'Verification Failed',
+      //     description: error.message || 'Invalid verification code',
+      //     variant: 'destructive',
+      //   });
+      // } else {
+      //   setIsEnabled(true);
+      //   setStep('enabled');
+      //   toast({
+      //     title: '2FA Enabled',
+      //     description: 'Two-factor authentication has been successfully enabled',
+      //   });
+      // }
     } catch (error) {
       toast({
         title: 'Error',

@@ -44,7 +44,7 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="py-20 bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10">
         <div className="container mx-auto px-4 text-center">
-          <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto">
             <Badge className="mb-6 bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary px-4 py-2 rounded-full">
               🚀 AI-Powered Friend Matching Platform
             </Badge>
@@ -52,7 +52,7 @@ export default function HomePage() {
               Find Your Ideal
               <br />
               <span className="text-gradient-theme">AI Friend Match</span>
-            </h1>
+        </h1>
             <p className="text-xl text-gray-600 dark:text-gray-300 mb-12 max-w-3xl mx-auto">
               Connect with AI companions that match your personality, interests, and communication style. Experience meaningful conversations and genuine connections that feel real.
             </p>
@@ -270,8 +270,8 @@ export default function HomePage() {
           </div>
           <div className="text-center text-sm text-gray-400">
             © 2024 PersonaLink. All rights reserved. Made with ❤️ for meaningful connections.
-          </div>
         </div>
+      </div>
       </footer>
 
       {/* Theme Controls */}

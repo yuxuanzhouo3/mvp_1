@@ -4,31 +4,6 @@ import { redirect } from 'next/navigation';
 
 export async function getCurrentUser() {
   try {
-    // Check if we're in mock mode
-    const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
-    
-    if (isMockMode) {
-      // In mock mode, check for mock session cookie
-      const cookieStore = cookies();
-      const mockSession = cookieStore.get('mock-session');
-      
-      if (mockSession?.value === 'true') {
-        // Return mock user data
-        return {
-          id: 'mock-user-id-123',
-          email: 'test@personalink.ai',
-          user_metadata: {
-            full_name: 'Test User'
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-      }
-      
-      return null;
-    }
-
-    // Real Supabase authentication
     const cookieStore = cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -73,37 +48,6 @@ export async function requireAuth() {
 
 export async function getSession() {
   try {
-    // Check if we're in mock mode
-    const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
-    
-    if (isMockMode) {
-      // In mock mode, check for mock session cookie
-      const cookieStore = cookies();
-      const mockSession = cookieStore.get('mock-session');
-      
-      if (mockSession?.value === 'true') {
-        // Return mock session data
-        return {
-          access_token: 'mock-access-token',
-          refresh_token: 'mock-refresh-token',
-          expires_in: 3600,
-          token_type: 'bearer',
-          user: {
-            id: 'mock-user-id-123',
-            email: 'test@personalink.ai',
-            user_metadata: {
-              full_name: 'Test User'
-            },
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-        };
-      }
-      
-      return null;
-    }
-
-    // Real Supabase authentication
     const cookieStore = cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

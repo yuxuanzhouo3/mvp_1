@@ -127,11 +127,7 @@ export default function MatchingPage() {
       }
       
       // Get the current session for the auth token
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      const { supabase } = await import('@/lib/supabase/client');
       
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {

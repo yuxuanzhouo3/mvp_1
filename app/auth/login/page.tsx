@@ -28,38 +28,40 @@ export default function LoginPage() {
   const { signIn, signInWithGoogle, signInWithPhone, verifyPhoneOTP, user } = useAuth();
   const { toast } = useToast();
 
-  // Redirect if already logged in - Robust redirect prevention with auth settling
+  // Immediate redirect if user is already authenticated
   useEffect(() => {
-    console.log('🔄 LoginPage useEffect triggered - User state changed:', user);
-    console.log('📊 Current user object:', user);
-    console.log('🎯 Current loading state:', isLoading);
-    console.log('🔄 Has redirected state:', hasRedirected);
-    console.log('🔄 Has redirected ref:', hasRedirectedRef.current);
-    
-    // Add a small delay to allow auth state to fully settle
-    const timer = setTimeout(() => {
-      // Only redirect if user exists, we haven't already redirected, and we're not loading
-      if (user && !hasRedirected && !hasRedirectedRef.current && !isLoading) {
-        console.log('✅ User authenticated, redirecting to dashboard...');
-        console.log('🚀 Router.replace called with /dashboard');
-        setHasRedirected(true);
-        hasRedirectedRef.current = true; // Double protection
-        
-        // Use window.location for more reliable redirect
-        if (typeof window !== 'undefined') {
-          window.location.href = '/dashboard';
-        } else {
-          router.replace('/dashboard');
-        }
-      } else if (!user && (hasRedirected || hasRedirectedRef.current)) {
-        console.log('❌ User logged out, resetting redirect state');
-        setHasRedirected(false);
-        hasRedirectedRef.current = false; // Reset both when user actually logs out
-      }
-    }, 100); // Small delay to ensure auth state is settled
+    console.log('🚀 Login page mounted - user:', !!user, 'user id:', user?.id);
+    if (user && user.id) {
+      console.log('✅ User already authenticated, redirecting immediately');
+      // Force redirect with window.location to bypass any routing issues
+      window.location.href = '/dashboard';
+    }
+  }, [user]);
 
-    return () => clearTimeout(timer);
-  }, [user, router, isLoading, hasRedirected]);
+  // Also check on every render if user becomes authenticated
+  if (user && user.id) {
+    console.log('🚀 User authenticated during render, redirecting');
+    // Use setTimeout to avoid React state update during render
+    setTimeout(() => {
+      window.location.href = '/dashboard';
+    }, 0);
+  }
+
+  // Redirect if already logged in - Simplified logic to prevent infinite loops
+  useEffect(() => {
+    console.log('🔄 Login page useEffect - user:', !!user, 'isLoading:', isLoading, 'hasRedirected:', hasRedirectedRef.current);
+    
+    if (user && !hasRedirectedRef.current) {
+      hasRedirectedRef.current = true;
+      console.log('✅ User authenticated, redirecting to dashboard');
+      // Force redirect immediately
+      router.replace('/dashboard');
+    }
+    // Reset redirect ref if user logs out
+    if (!user && hasRedirectedRef.current) {
+      hasRedirectedRef.current = false;
+    }
+  }, [user, router]);
 
   // Reset loading state if user state changes
   useEffect(() => {
@@ -74,8 +76,6 @@ export default function LoginPage() {
     console.log('📝 Login form submitted');
     console.log('📧 Email:', email);
     console.log('🔑 Password length:', password.length);
-    console.log('🎭 Mock mode check - URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
-    console.log('🎭 Mock mode check - Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 10) + '...');
     
     setIsLoading(true);
     console.log('⏳ Loading state set to true');
@@ -126,78 +126,13 @@ export default function LoginPage() {
         console.log('⏳ Waiting for user state update...');
         console.log('🔄 User state should update automatically via AuthProvider');
         
-        // Immediate redirect after successful login
-        console.log('🚀 Immediate redirect to dashboard...');
-        setHasRedirected(true);
-        hasRedirectedRef.current = true;
-        
-        // Use window.location for immediate redirect
-        if (typeof window !== 'undefined') {
-          console.log('🌐 Using window.location redirect...');
-          setTimeout(() => {
-            window.location.href = '/dashboard';
-          }, 500); // Small delay to show success message
-        } else {
-          router.replace('/dashboard');
-        }
-        
-        // Add manual redirect button for testing
-        console.log('🔧 Adding manual redirect option...');
-        if (typeof window !== 'undefined') {
-          const manualRedirect = () => {
-            console.log('🔧 Manual redirect triggered');
-            window.location.href = '/dashboard';
-          };
-          
-          // Add a temporary button for manual redirect
-          setTimeout(() => {
-            const existingButton = document.getElementById('manual-redirect-btn');
-            if (!existingButton) {
-              const button = document.createElement('button');
-              button.id = 'manual-redirect-btn';
-              button.textContent = 'Manual Redirect to Dashboard';
-              button.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: #ff6b6b;
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 5px;
-                cursor: pointer;
-                z-index: 9999;
-                font-size: 14px;
-              `;
-              button.onclick = manualRedirect;
-              document.body.appendChild(button);
-              
-              // Auto-remove after 10 seconds
-              setTimeout(() => {
-                if (button.parentNode) {
-                  button.parentNode.removeChild(button);
-                }
-              }, 10000);
-            }
-          }, 1000);
-        }
-        
-        // Fallback redirect mechanism
+        // Force redirect after successful login with longer delay to ensure auth state settles
         setTimeout(() => {
-          console.log('⏰ Fallback redirect check - User state:', user);
-          if (!hasRedirected && !hasRedirectedRef.current) {
-            console.log('🔄 Fallback redirect triggered');
-            setHasRedirected(true);
-            hasRedirectedRef.current = true;
-            if (typeof window !== 'undefined') {
-              window.location.href = '/dashboard';
-            } else {
-              router.replace('/dashboard');
-            }
-          }
-          console.log('⏰ Timeout reached, resetting loading state');
-          setIsLoading(false);
-        }, 2000);
+          console.log('🚀 Force redirecting to dashboard after successful login');
+          window.location.href = '/dashboard';
+        }, 1500);
+        
+        setIsLoading(false);
       }
     } catch (error) {
       console.log('💥 Unexpected error during signIn:', error);
@@ -264,14 +199,14 @@ export default function LoginPage() {
         setPhoneSent(true);
         setPhoneNumber(phone);
         toast({
-          title: 'Mock Mode',
-          description: 'In mock mode, enter any 6-digit code',
+          title: 'Success',
+          description: 'Verification code sent to your phone',
         });
       }
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Phone sign-in is not available in mock mode',
+        description: 'Phone sign-in is not available',
         variant: 'destructive',
       });
       setIsLoading(false);
@@ -293,14 +228,19 @@ export default function LoginPage() {
     }
 
     try {
-      // In mock mode, any 6-digit code works
-      toast({
-        title: 'Success',
-        description: 'Phone verification successful!',
-      });
-      // Mock successful login
-      const { error } = await signIn('test@personalink.ai', 'test123');
-      if (!error) {
+      const { error } = await verifyPhoneOTP(phoneNumber, otp);
+      if (error) {
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+      } else {
+        toast({
+          title: 'Success',
+          description: 'Phone verification successful!',
+        });
         // The redirect will happen automatically via useEffect
       }
     } catch (error) {
@@ -327,12 +267,14 @@ export default function LoginPage() {
         <Card className="backdrop-blur-xl bg-white/10 border-white/20 shadow-2xl">
           <CardHeader className="text-center space-y-4 pb-8">
             <div className="flex items-center justify-center space-x-3 mb-6">
-              <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl shadow-lg">
-                <Sparkles className="h-8 w-8 text-white" />
-              </div>
-              <h1 className="text-3xl font-bold text-white drop-shadow-lg">
-                PersonaLink
-              </h1>
+              <Link href="/" className="flex items-center space-x-3 hover:scale-105 transition-transform duration-200">
+                <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl shadow-lg">
+                  <Sparkles className="h-8 w-8 text-white" />
+                </div>
+                <h1 className="text-3xl font-bold text-white drop-shadow-lg">
+                  PersonaLink
+                </h1>
+              </Link>
             </div>
             <CardTitle className="text-3xl font-bold text-white mb-2">
               Welcome back
@@ -393,7 +335,7 @@ export default function LoginPage() {
                   <div className="space-y-2">
                     <div className="relative group">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-purple-400 transition-colors" />
+                        <Mail className="h-5 w-5 text-gray-800 group-focus-within:text-purple-400 transition-colors" />
                       </div>
                       <Input
                         type="email"
@@ -411,7 +353,7 @@ export default function LoginPage() {
                   <div className="space-y-2">
                     <div className="relative group">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-purple-400 transition-colors" />
+                        <Lock className="h-5 w-5 text-gray-800 group-focus-within:text-purple-400 transition-colors" />
                       </div>
                       <Input
                         type={showPassword ? "text" : "password"}
@@ -425,7 +367,7 @@ export default function LoginPage() {
                       />
                       <button
                         type="button"
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-purple-400 transition-colors"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-800 hover:text-purple-400 transition-colors"
                         onClick={() => setShowPassword(!showPassword)}
                         tabIndex={-1}
                       >
@@ -473,7 +415,7 @@ export default function LoginPage() {
                     <div className="space-y-2">
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Phone className="h-5 w-5 text-gray-400 group-focus-within:text-purple-400 transition-colors" />
+                          <Phone className="h-5 w-5 text-gray-800 group-focus-within:text-purple-400 transition-colors" />
                         </div>
                         <Input
                           type="tel"

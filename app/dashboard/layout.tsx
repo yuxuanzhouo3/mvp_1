@@ -1,31 +1,50 @@
-import { getCurrentUser } from '@/lib/auth';
-import { redirect } from 'next/navigation';
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/app/providers/AuthProvider';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children
 }: {
   children: React.ReactNode;
 }) {
-  try {
-    const user = await getCurrentUser();
-    
-    if (!user) {
-      redirect('/auth/login');
+  const { user, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      console.log('❌ No user found in dashboard layout, redirecting to login');
+      router.replace('/auth/login');
     }
-    
+  }, [user, loading, router]);
+
+  // Show loading state while checking authentication
+  if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-        <DashboardSidebar user={user} />
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-6">
-            {children}
-          </div>
-        </main>
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 border-b-2 border-purple-600"></div>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
       </div>
     );
-  } catch (error) {
-    console.error('Dashboard layout error:', error);
-    redirect('/auth/login');
   }
+
+  // Dont render anything if user is not authenticated
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+      <DashboardSidebar user={user} />
+      <main className="flex-1 overflow-y-auto">
+        <div className="p-6">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
 } 
