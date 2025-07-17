@@ -167,58 +167,25 @@ export default function DashboardPage() {
       console.log('👤 User details:', { id: user.id, email: user.email });
       loadDashboardData();
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading]); // Remove router from dependencies
 
-  // Show loading skeleton while auth is settling
-  if (!authSettled || authLoading) {
+  // Debug logging - only log when state changes significantly
+  const renderKey = `${authLoading}-${!!profile}-${loading}-${!!user}`;
+  console.log('🔍 Dashboard render state:', { 
+    authLoading, 
+    profile: !!profile, 
+    loading, 
+    user: !!user,
+    renderKey
+  });
+  
+  // Show loading only if we're still loading auth OR if we have a user but no profile and we're still loading
+  if (authLoading || (user && !profile && loading)) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          {/* Header Skeleton */}
-          <div className="flex justify-between items-center mb-8">
-            <div className="space-y-2">
-              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-64 animate-pulse"></div>
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-96 animate-pulse"></div>
-            </div>
-            <div className="flex space-x-4">
-              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse"></div>
-              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-16 animate-pulse"></div>
-              <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse"></div>
-            </div>
-          </div>
-
-          {/* Content Skeleton */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1 space-y-6">
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32 animate-pulse"></div>
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24 animate-pulse"></div>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full animate-pulse"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
-                <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-48 mb-4 animate-pulse"></div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="space-y-2">
-                      <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse"></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">加载中...</p>
         </div>
       </div>
     );
@@ -252,28 +219,6 @@ export default function DashboardPage() {
   const handleViewChats = () => {
     router.push('/chat');
   };
-
-  // Debug logging - only log when state changes significantly
-  const renderKey = `${authLoading}-${!!profile}-${loading}-${!!user}`;
-  console.log('🔍 Dashboard render state:', { 
-    authLoading, 
-    profile: !!profile, 
-    loading, 
-    user: !!user,
-    renderKey
-  });
-  
-  // Show loading only if we're still loading auth or if we have no profile yet
-  if (authLoading || (!profile && !loading)) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">加载中...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!profile) {
     return (
