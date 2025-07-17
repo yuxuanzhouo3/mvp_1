@@ -1,0 +1,45 @@
+/*
+ * ATTENTION: An "eval-source-map" devtool has been used.
+ * This devtool is neither made for production nor for readable output files.
+ * It uses "eval()" calls to create a separate source file with attached SourceMaps in the browser devtools.
+ * If you are trying to read the output file, select a different devtool (https://webpack.js.org/configuration/devtool/)
+ * or disable the default devtool with "devtool: false".
+ * If you are looking for production-ready output files, see mode: "production" (https://webpack.js.org/configuration/mode/).
+ */
+exports.id = "_rsc_lib_supabase_client_ts";
+exports.ids = ["_rsc_lib_supabase_client_ts"];
+exports.modules = {
+
+/***/ "?32c4":
+/*!****************************!*\
+  !*** bufferutil (ignored) ***!
+  \****************************/
+/***/ (() => {
+
+/* (ignored) */
+
+/***/ }),
+
+/***/ "?66e9":
+/*!********************************!*\
+  !*** utf-8-validate (ignored) ***!
+  \********************************/
+/***/ (() => {
+
+/* (ignored) */
+
+/***/ }),
+
+/***/ "(rsc)/./lib/supabase/client.ts":
+/*!********************************!*\
+  !*** ./lib/supabase/client.ts ***!
+  \********************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpack_require__.d(__webpack_exports__, {\n/* harmony export */   getSupabaseClient: () => (/* binding */ getSupabaseClient),\n/* harmony export */   supabase: () => (/* binding */ supabase)\n/* harmony export */ });\n/* harmony import */ var _supabase_supabase_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @supabase/supabase-js */ \"(rsc)/./node_modules/@supabase/supabase-js/dist/module/index.js\");\n\n// Create a singleton Supabase client to prevent multiple instances\nlet supabaseClient = null;\nfunction getSupabaseClient() {\n    if (!supabaseClient) {\n        const supabaseUrl = \"https://bamratexknmqvdbalzen.supabase.co\";\n        const supabaseAnonKey = \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhbXJhdGV4a25tcXZkYmFsemVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MTM4NzEsImV4cCI6MjA2ODA4OTg3MX0.yYa98ioJLLouUgHWITGb7U_VjNCTUuM-5NcraM7f3zA\";\n        if (!supabaseUrl || !supabaseAnonKey) {\n            throw new Error(\"Missing Supabase environment variables\");\n        }\n        supabaseClient = (0,_supabase_supabase_js__WEBPACK_IMPORTED_MODULE_0__.createClient)(supabaseUrl, supabaseAnonKey, {\n            auth: {\n                persistSession: true,\n                autoRefreshToken: true,\n                detectSessionInUrl: true\n            }\n        });\n    }\n    return supabaseClient;\n}\n// Export the client directly for convenience\nconst supabase = getSupabaseClient();\n//# sourceURL=[module]\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiKHJzYykvLi9saWIvc3VwYWJhc2UvY2xpZW50LnRzIiwibWFwcGluZ3MiOiI7Ozs7OztBQUFvRDtBQUVwRCxtRUFBbUU7QUFDbkUsSUFBSUMsaUJBQXlEO0FBRXRELFNBQVNDO0lBQ2QsSUFBSSxDQUFDRCxnQkFBZ0I7UUFDbkIsTUFBTUUsY0FBY0MsMENBQW9DO1FBQ3hELE1BQU1HLGtCQUFrQkgsa05BQXlDO1FBRWpFLElBQUksQ0FBQ0QsZUFBZSxDQUFDSSxpQkFBaUI7WUFDcEMsTUFBTSxJQUFJRSxNQUFNO1FBQ2xCO1FBRUFSLGlCQUFpQkQsbUVBQVlBLENBQUNHLGFBQWFJLGlCQUFpQjtZQUMxREcsTUFBTTtnQkFDSkMsZ0JBQWdCO2dCQUNoQkMsa0JBQWtCO2dCQUNsQkMsb0JBQW9CO1lBQ3RCO1FBQ0Y7SUFDRjtJQUVBLE9BQU9aO0FBQ1Q7QUFFQSw2Q0FBNkM7QUFDdEMsTUFBTWEsV0FBV1osb0JBQW1CIiwic291cmNlcyI6WyJ3ZWJwYWNrOi8vcGVyc29uYWxpbmsvLi9saWIvc3VwYWJhc2UvY2xpZW50LnRzPzVhYmYiXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgY3JlYXRlQ2xpZW50IH0gZnJvbSAnQHN1cGFiYXNlL3N1cGFiYXNlLWpzJ1xuXG4vLyBDcmVhdGUgYSBzaW5nbGV0b24gU3VwYWJhc2UgY2xpZW50IHRvIHByZXZlbnQgbXVsdGlwbGUgaW5zdGFuY2VzXG5sZXQgc3VwYWJhc2VDbGllbnQ6IFJldHVyblR5cGU8dHlwZW9mIGNyZWF0ZUNsaWVudD4gfCBudWxsID0gbnVsbFxuXG5leHBvcnQgZnVuY3Rpb24gZ2V0U3VwYWJhc2VDbGllbnQoKSB7XG4gIGlmICghc3VwYWJhc2VDbGllbnQpIHtcbiAgICBjb25zdCBzdXBhYmFzZVVybCA9IHByb2Nlc3MuZW52Lk5FWFRfUFVCTElDX1NVUEFCQVNFX1VSTCFcbiAgICBjb25zdCBzdXBhYmFzZUFub25LZXkgPSBwcm9jZXNzLmVudi5ORVhUX1BVQkxJQ19TVVBBQkFTRV9BTk9OX0tFWSFcbiAgICBcbiAgICBpZiAoIXN1cGFiYXNlVXJsIHx8ICFzdXBhYmFzZUFub25LZXkpIHtcbiAgICAgIHRocm93IG5ldyBFcnJvcignTWlzc2luZyBTdXBhYmFzZSBlbnZpcm9ubWVudCB2YXJpYWJsZXMnKVxuICAgIH1cbiAgICBcbiAgICBzdXBhYmFzZUNsaWVudCA9IGNyZWF0ZUNsaWVudChzdXBhYmFzZVVybCwgc3VwYWJhc2VBbm9uS2V5LCB7XG4gICAgICBhdXRoOiB7XG4gICAgICAgIHBlcnNpc3RTZXNzaW9uOiB0cnVlLFxuICAgICAgICBhdXRvUmVmcmVzaFRva2VuOiB0cnVlLFxuICAgICAgICBkZXRlY3RTZXNzaW9uSW5Vcmw6IHRydWVcbiAgICAgIH1cbiAgICB9KVxuICB9XG4gIFxuICByZXR1cm4gc3VwYWJhc2VDbGllbnRcbn1cblxuLy8gRXhwb3J0IHRoZSBjbGllbnQgZGlyZWN0bHkgZm9yIGNvbnZlbmllbmNlXG5leHBvcnQgY29uc3Qgc3VwYWJhc2UgPSBnZXRTdXBhYmFzZUNsaWVudCgpXG5cbmV4cG9ydCB0eXBlIERhdGFiYXNlID0ge1xuICBwdWJsaWM6IHtcbiAgICBUYWJsZXM6IHtcbiAgICAgIHByb2ZpbGVzOiB7XG4gICAgICAgIFJvdzoge1xuICAgICAgICAgIGlkOiBzdHJpbmc7XG4gICAgICAgICAgZnVsbF9uYW1lOiBzdHJpbmcgfCBudWxsO1xuICAgICAgICAgIGF2YXRhcl91cmw6IHN0cmluZyB8IG51bGw7XG4gICAgICAgICAgYmlvOiBzdHJpbmcgfCBudWxsO1xuICAgICAgICAgIGludGVyZXN0czogc3RyaW5nW10gfCBudWxsO1xuICAgICAgICAgIGNvbW11bmljYXRpb25fc3R5bGU6IHN0cmluZyB8IG51bGw7XG4gICAgICAgICAgY3JlYXRlZF9hdDogc3RyaW5nO1xuICAgICAgICAgIHVwZGF0ZWRfYXQ6IHN0cmluZztcbiAgICAgICAgfTtcbiAgICAgICAgSW5zZXJ0OiB7XG4gICAgICAgICAgaWQ6IHN0cmluZztcbiAgICAgICAgICBmdWxsX25hbWU/OiBzdHJpbmcgfCBudWxsO1xuICAgICAgICAgIGF2YXRhcl91cmw/OiBzdHJpbmcgfCBudWxsO1xuICAgICAgICAgIGJpbz86IHN0cmluZyB8IG51bGw7XG4gICAgICAgICAgaW50ZXJlc3RzPzogc3RyaW5nW10gfCBudWxsO1xuICAgICAgICAgIGNvbW11bmljYXRpb25fc3R5bGU/OiBzdHJpbmcgfCBudWxsO1xuICAgICAgICAgIGNyZWF0ZWRfYXQ/OiBzdHJpbmc7XG4gICAgICAgICAgdXBkYXRlZF9hdD86IHN0cmluZztcbiAgICAgICAgfTtcbiAgICAgICAgVXBkYXRlOiB7XG4gICAgICAgICAgaWQ/OiBzdHJpbmc7XG4gICAgICAgICAgZnVsbF9uYW1lPzogc3RyaW5nIHwgbnVsbDtcbiAgICAgICAgICBhdmF0YXJfdXJsPzogc3RyaW5nIHwgbnVsbDtcbiAgICAgICAgICBiaW8/OiBzdHJpbmcgfCBudWxsO1xuICAgICAgICAgIGludGVyZXN0cz86IHN0cmluZ1tdIHwgbnVsbDtcbiAgICAgICAgICBjb21tdW5pY2F0aW9uX3N0eWxlPzogc3RyaW5nIHwgbnVsbDtcbiAgICAgICAgICBjcmVhdGVkX2F0Pzogc3RyaW5nO1xuICAgICAgICAgIHVwZGF0ZWRfYXQ/OiBzdHJpbmc7XG4gICAgICAgIH07XG4gICAgICB9O1xuICAgICAgbWF0Y2hlczoge1xuICAgICAgICBSb3c6IHtcbiAgICAgICAgICBpZDogc3RyaW5nO1xuICAgICAgICAgIHVzZXIxX2lkOiBzdHJpbmc7XG4gICAgICAgICAgdXNlcjJfaWQ6IHN0cmluZztcbiAgICAgICAgICBjb21wYXRpYmlsaXR5X3Njb3JlOiBudW1iZXI7XG4gICAgICAgICAgbWF0Y2hfcmVhc29uczogc3RyaW5nW10gfCBudWxsO1xuICAgICAgICAgIGNyZWF0ZWRfYXQ6IHN0cmluZztcbiAgICAgICAgfTtcbiAgICAgICAgSW5zZXJ0OiB7XG4gICAgICAgICAgaWQ/OiBzdHJpbmc7XG4gICAgICAgICAgdXNlcjFfaWQ6IHN0cmluZztcbiAgICAgICAgICB1c2VyMl9pZDogc3RyaW5nO1xuICAgICAgICAgIGNvbXBhdGliaWxpdHlfc2NvcmU6IG51bWJlcjtcbiAgICAgICAgICBtYXRjaF9yZWFzb25zPzogc3RyaW5nW10gfCBudWxsO1xuICAgICAgICAgIGNyZWF0ZWRfYXQ/OiBzdHJpbmc7XG4gICAgICAgIH07XG4gICAgICAgIFVwZGF0ZToge1xuICAgICAgICAgIGlkPzogc3RyaW5nO1xuICAgICAgICAgIHVzZXIxX2lkPzogc3RyaW5nO1xuICAgICAgICAgIHVzZXIyX2lkPzogc3RyaW5nO1xuICAgICAgICAgIGNvbXBhdGliaWxpdHlfc2NvcmU/OiBudW1iZXI7XG4gICAgICAgICAgbWF0Y2hfcmVhc29ucz86IHN0cmluZ1tdIHwgbnVsbDtcbiAgICAgICAgICBjcmVhdGVkX2F0Pzogc3RyaW5nO1xuICAgICAgICB9O1xuICAgICAgfTtcbiAgICAgIGNoYXRzOiB7XG4gICAgICAgIFJvdzoge1xuICAgICAgICAgIGlkOiBzdHJpbmc7XG4gICAgICAgICAgdXNlcjFfaWQ6IHN0cmluZztcbiAgICAgICAgICB1c2VyMl9pZDogc3RyaW5nO1xuICAgICAgICAgIGNyZWF0ZWRfYXQ6IHN0cmluZztcbiAgICAgICAgICB1cGRhdGVkX2F0OiBzdHJpbmc7XG4gICAgICAgIH07XG4gICAgICAgIEluc2VydDoge1xuICAgICAgICAgIGlkPzogc3RyaW5nO1xuICAgICAgICAgIHVzZXIxX2lkOiBzdHJpbmc7XG4gICAgICAgICAgdXNlcjJfaWQ6IHN0cmluZztcbiAgICAgICAgICBjcmVhdGVkX2F0Pzogc3RyaW5nO1xuICAgICAgICAgIHVwZGF0ZWRfYXQ/OiBzdHJpbmc7XG4gICAgICAgIH07XG4gICAgICAgIFVwZGF0ZToge1xuICAgICAgICAgIGlkPzogc3RyaW5nO1xuICAgICAgICAgIHVzZXIxX2lkPzogc3RyaW5nO1xuICAgICAgICAgIHVzZXIyX2lkPzogc3RyaW5nO1xuICAgICAgICAgIGNyZWF0ZWRfYXQ/OiBzdHJpbmc7XG4gICAgICAgICAgdXBkYXRlZF9hdD86IHN0cmluZztcbiAgICAgICAgfTtcbiAgICAgIH07XG4gICAgICBtZXNzYWdlczoge1xuICAgICAgICBSb3c6IHtcbiAgICAgICAgICBpZDogc3RyaW5nO1xuICAgICAgICAgIGNoYXRfaWQ6IHN0cmluZztcbiAgICAgICAgICBzZW5kZXJfaWQ6IHN0cmluZztcbiAgICAgICAgICBjb250ZW50OiBzdHJpbmc7XG4gICAgICAgICAgbWVzc2FnZV90eXBlOiBzdHJpbmc7XG4gICAgICAgICAgY3JlYXRlZF9hdDogc3RyaW5nO1xuICAgICAgICB9O1xuICAgICAgICBJbnNlcnQ6IHtcbiAgICAgICAgICBpZD86IHN0cmluZztcbiAgICAgICAgICBjaGF0X2lkOiBzdHJpbmc7XG4gICAgICAgICAgc2VuZGVyX2lkOiBzdHJpbmc7XG4gICAgICAgICAgY29udGVudDogc3RyaW5nO1xuICAgICAgICAgIG1lc3NhZ2VfdHlwZT86IHN0cmluZztcbiAgICAgICAgICBjcmVhdGVkX2F0Pzogc3RyaW5nO1xuICAgICAgICB9O1xuICAgICAgICBVcGRhdGU6IHtcbiAgICAgICAgICBpZD86IHN0cmluZztcbiAgICAgICAgICBjaGF0X2lkPzogc3RyaW5nO1xuICAgICAgICAgIHNlbmRlcl9pZD86IHN0cmluZztcbiAgICAgICAgICBjb250ZW50Pzogc3RyaW5nO1xuICAgICAgICAgIG1lc3NhZ2VfdHlwZT86IHN0cmluZztcbiAgICAgICAgICBjcmVhdGVkX2F0Pzogc3RyaW5nO1xuICAgICAgICB9O1xuICAgICAgfTtcbiAgICB9O1xuICB9O1xufTsgIl0sIm5hbWVzIjpbImNyZWF0ZUNsaWVudCIsInN1cGFiYXNlQ2xpZW50IiwiZ2V0U3VwYWJhc2VDbGllbnQiLCJzdXBhYmFzZVVybCIsInByb2Nlc3MiLCJlbnYiLCJORVhUX1BVQkxJQ19TVVBBQkFTRV9VUkwiLCJzdXBhYmFzZUFub25LZXkiLCJORVhUX1BVQkxJQ19TVVBBQkFTRV9BTk9OX0tFWSIsIkVycm9yIiwiYXV0aCIsInBlcnNpc3RTZXNzaW9uIiwiYXV0b1JlZnJlc2hUb2tlbiIsImRldGVjdFNlc3Npb25JblVybCIsInN1cGFiYXNlIl0sInNvdXJjZVJvb3QiOiIifQ==\n//# sourceURL=webpack-internal:///(rsc)/./lib/supabase/client.ts\n");
+
+/***/ })
+
+};
+;

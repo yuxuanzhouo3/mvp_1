@@ -178,9 +178,6 @@ export default function ChatListPage() {
               <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                 聊天
               </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                与您的匹配对象保持联系
-              </p>
             </div>
           </div>
           <Button onClick={handleStartMatching}>
