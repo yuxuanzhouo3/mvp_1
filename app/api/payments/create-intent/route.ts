@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
+import { 
+  createPaymentRecord, 
+  validatePaymentAmount, 
+  validateCreditAmount,
+  getPackageById 
+} from '@/lib/payments';
+import { createUSDTPaymentRequest, createAlipayPaymentRequest } from '@/lib/payment-receivers';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
+  apiVersion: '2023-10-16',
 });
 
 interface CreateIntentRequest {
@@ -37,32 +44,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create payment record in database
-    const { data: payment, error: paymentError } = await supabase
-      .from('payments')
-      .insert({
-        user_id: user.id,
-        amount: amount,
-        currency: 'CNY',
-        payment_method: paymentMethod,
-        status: 'pending',
-        description: `Purchase ${credits} credits - ${packageId} package`,
-        metadata: {
-          packageId,
-          credits,
-          paymentMethod
-        }
-      })
-      .select()
-      .single();
-
-    if (paymentError) {
-      console.error('Payment creation error:', paymentError);
+    // Validate amounts
+    if (!validatePaymentAmount(amount)) {
       return NextResponse.json(
-        { error: 'Failed to create payment record' },
-        { status: 500 }
+        { error: 'Invalid payment amount' },
+        { status: 400 }
       );
     }
+
+    if (!validateCreditAmount(credits)) {
+      return NextResponse.json(
+        { error: 'Invalid credit amount' },
+        { status: 400 }
+      );
+    }
+
+    // Verify package exists
+    const packageData = getPackageById(packageId);
+    if (!packageData) {
+      return NextResponse.json(
+        { error: 'Invalid package ID' },
+        { status: 400 }
+      );
+    }
+
+    // Create payment record in database
+    const payment = await createPaymentRecord(
+      user.id,
+      amount,
+      paymentMethod,
+      packageId,
+      credits
+    );
 
     // Handle different payment methods
     switch (paymentMethod) {
@@ -70,10 +83,10 @@ export async function POST(request: NextRequest) {
         return await handleStripePayment(payment, amount, credits);
       
       case 'usdt':
-        return await handleUSDTPayment(payment, amount);
+        return await handleUSDTPayment(payment, amount, user.id);
       
       case 'alipay':
-        return await handleAlipayPayment(payment, amount);
+        return await handleAlipayPayment(payment, amount, user.id);
       
       default:
         return NextResponse.json(
@@ -144,28 +157,17 @@ async function handleStripePayment(payment: any, amount: number, credits: number
   }
 }
 
-async function handleUSDTPayment(payment: any, amount: number) {
+async function handleUSDTPayment(payment: any, amount: number, userId: string) {
   try {
-    // Generate USDT payment address (in production, this would be your actual USDT wallet)
-    const paymentAddress = 'TRC20_WALLET_ADDRESS_HERE'; // Replace with actual address
+    // Create USDT payment request with real wallet address
+    const usdtPayment = await createUSDTPaymentRequest(payment.id, amount, userId);
     
-    // Update payment record with USDT details
-    const supabase = createClient();
-    await supabase
-      .from('payments')
-      .update({
-        metadata: {
-          ...payment.metadata,
-          usdt_address: paymentAddress,
-          usdt_amount: amount,
-        }
-      })
-      .eq('id', payment.id);
-
     return NextResponse.json({
-      paymentAddress,
-      amount: amount,
-      paymentId: payment.id,
+      paymentAddress: usdtPayment.address,
+      amount: usdtPayment.amount,
+      network: usdtPayment.network,
+      paymentId: usdtPayment.paymentId,
+      instructions: `Please send exactly ${amount} USDT to the address above using ${usdtPayment.network} network. Include the payment ID in the memo if possible.`,
     });
   } catch (error) {
     console.error('USDT payment error:', error);
@@ -176,26 +178,17 @@ async function handleUSDTPayment(payment: any, amount: number) {
   }
 }
 
-async function handleAlipayPayment(payment: any, amount: number) {
+async function handleAlipayPayment(payment: any, amount: number, userId: string) {
   try {
-    // Generate Alipay QR code URL (in production, integrate with Alipay API)
-    const qrCodeUrl = `https://api.alipay.com/qrcode?amount=${amount}&order_id=${payment.id}`;
+    // Create Alipay payment request with real account
+    const alipayPayment = await createAlipayPaymentRequest(payment.id, amount, userId);
     
-    // Update payment record with Alipay details
-    const supabase = createClient();
-    await supabase
-      .from('payments')
-      .update({
-        metadata: {
-          ...payment.metadata,
-          alipay_qr_url: qrCodeUrl,
-        }
-      })
-      .eq('id', payment.id);
-
     return NextResponse.json({
-      qrCodeUrl,
-      paymentId: payment.id,
+      qrCodeUrl: alipayPayment.qrCode,
+      amount: alipayPayment.amount,
+      account: alipayPayment.account,
+      paymentId: alipayPayment.paymentId,
+      instructions: `Please scan the QR code with Alipay to pay ${amount} CNY. Make sure to include the payment ID in the note.`,
     });
   } catch (error) {
     console.error('Alipay payment error:', error);

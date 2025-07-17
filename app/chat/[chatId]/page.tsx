@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useChat } from '@/app/hooks/useChat';
+import { createClient } from '@supabase/supabase-js';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -61,6 +62,12 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  // Create Supabase client
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   // Initialize chat hook
   const { sendMessage, isConnected } = useChat({ chatId });
 
@@ -81,15 +88,29 @@ export default function ChatPage() {
     try {
       setIsLoading(true);
       
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        console.error('No session token available');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+      
       // Load chat messages
-      const messagesResponse = await fetch(`/api/chat/${chatId}/messages`);
+      const messagesResponse = await fetch(`/api/chat/${chatId}/messages`, { headers });
       if (messagesResponse.ok) {
         const messagesData = await messagesResponse.json();
         setMessages(messagesData.messages);
       }
 
       // Load chat user info
-      const userResponse = await fetch(`/api/chat/${chatId}/user`);
+      const userResponse = await fetch(`/api/chat/${chatId}/user`, { headers });
       if (userResponse.ok) {
         const userData = await userResponse.json();
         setChatUser(userData.user);

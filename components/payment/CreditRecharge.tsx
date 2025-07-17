@@ -17,6 +17,7 @@ import {
   Crown,
   ArrowLeft
 } from 'lucide-react';
+import PaymentMonitor from './PaymentMonitor';
 
 interface CreditPackage {
   id: string;
@@ -35,6 +36,16 @@ interface PaymentMethod {
   icon: React.ComponentType<{ className?: string }>;
   description: string;
   processingTime: string;
+}
+
+interface PaymentData {
+  paymentId: string;
+  paymentAddress?: string;
+  qrCodeUrl?: string;
+  account?: string;
+  network?: string;
+  amount: number;
+  paymentMethod: string;
 }
 
 const creditPackages: CreditPackage[] = [
@@ -103,6 +114,8 @@ export default function CreditRecharge() {
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
+  const [showPaymentMonitor, setShowPaymentMonitor] = useState(false);
 
   const handleBackToDashboard = () => {
     router.push('/dashboard');
@@ -110,10 +123,14 @@ export default function CreditRecharge() {
 
   const handlePackageSelect = (pkg: CreditPackage) => {
     setSelectedPackage(pkg);
+    setPaymentData(null);
+    setShowPaymentMonitor(false);
   };
 
   const handlePaymentMethodSelect = (method: PaymentMethod) => {
     setSelectedPaymentMethod(method);
+    setPaymentData(null);
+    setShowPaymentMonitor(false);
   };
 
   const handlePurchase = async () => {
@@ -149,17 +166,25 @@ export default function CreditRecharge() {
             window.location.href = data.checkoutUrl;
           }
         } else if (selectedPaymentMethod.id === 'usdt') {
-          // Show USDT payment details
-          toast({
-            title: 'USDT 支付',
-            description: `请向地址 ${data.paymentAddress} 转账 ${data.amount} USDT`,
+          // Show USDT payment monitor
+          setPaymentData({
+            paymentId: data.paymentId,
+            paymentAddress: data.paymentAddress,
+            amount: data.amount,
+            network: data.network,
+            paymentMethod: 'usdt',
           });
+          setShowPaymentMonitor(true);
         } else if (selectedPaymentMethod.id === 'alipay') {
-          // Show Alipay QR code
-          toast({
-            title: '支付宝支付',
-            description: '请扫描二维码完成支付',
+          // Show Alipay payment monitor
+          setPaymentData({
+            paymentId: data.paymentId,
+            qrCodeUrl: data.qrCodeUrl,
+            account: data.account,
+            amount: data.amount,
+            paymentMethod: 'alipay',
           });
+          setShowPaymentMonitor(true);
         }
       } else {
         throw new Error('支付创建失败');
@@ -175,11 +200,51 @@ export default function CreditRecharge() {
     }
   };
 
+  const handlePaymentVerified = () => {
+    toast({
+      title: '支付成功！',
+      description: '积分已添加到您的账户',
+    });
+    router.push('/dashboard');
+  };
+
   const getPackageIcon = (pkg: CreditPackage) => {
     if (pkg.bestValue) return Crown;
     if (pkg.popular) return Star;
     return Gift;
   };
+
+  // If payment monitor is shown, display it
+  if (showPaymentMonitor && paymentData) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setShowPaymentMonitor(false);
+              setPaymentData(null);
+            }}
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>返回选择</span>
+          </Button>
+        </div>
+
+        <PaymentMonitor
+          paymentId={paymentData.paymentId}
+          paymentMethod={paymentData.paymentMethod as 'usdt' | 'alipay'}
+          amount={paymentData.amount}
+          paymentAddress={paymentData.paymentAddress}
+          qrCodeUrl={paymentData.qrCodeUrl}
+          account={paymentData.account}
+          network={paymentData.network}
+          onPaymentVerified={handlePaymentVerified}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -409,56 +474,37 @@ export default function CreditRecharge() {
         </h2>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <CardContent className="text-center p-6">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <Zap className="h-6 w-6 text-blue-600" />
-              </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                即时到账
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                支付成功后积分立即到账，无需等待
-              </p>
-            </CardContent>
-          </Card>
+          <div className="text-center">
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Zap className="h-6 w-6 text-blue-600" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">即时到账</h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              支付成功后积分立即到账，无需等待
+            </p>
+          </div>
           
-          <Card>
-            <CardContent className="text-center p-6">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <Shield className="h-6 w-6 text-green-600" />
-              </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                安全支付
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                多种安全支付方式，保护您的资金安全
-              </p>
-            </CardContent>
-          </Card>
+          <div className="text-center">
+            <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Check className="h-6 w-6 text-green-600" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">安全可靠</h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              多种支付方式，安全加密保护
+            </p>
+          </div>
           
-          <Card>
-            <CardContent className="text-center p-6">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <Gift className="h-6 w-6 text-purple-600" />
-              </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                优惠活动
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                定期推出优惠活动，让您享受更多价值
-              </p>
-            </CardContent>
-          </Card>
+          <div className="text-center">
+            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Gift className="h-6 w-6 text-purple-600" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">灵活选择</h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              多种套餐选择，满足不同需求
+            </p>
+          </div>
         </div>
       </div>
     </div>
   );
-}
-
-// Missing Shield component
-const Shield = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-  </svg>
-); 
+} 
