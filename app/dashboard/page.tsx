@@ -292,6 +292,33 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center space-x-4">
+            {/* User Info Display */}
+            <div className="flex items-center space-x-3 bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={profile.avatar_url} />
+                <AvatarFallback>
+                  {profile.full_name?.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {profile.full_name}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {profile.email}
+                </p>
+              </div>
+            </div>
+            
+            {/* Quick Stats */}
+            <div className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
+              <CreditCard className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                {profile.credits} 积分
+              </span>
+            </div>
+            
+            {/* Action Buttons */}
             <Button variant="outline" onClick={handleViewChats}>
               <MessageSquare className="h-4 w-4 mr-2" />
               查看聊天
