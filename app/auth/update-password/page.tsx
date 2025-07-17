@@ -11,11 +11,13 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { Lock, CheckCircle, ArrowLeft, Sparkles } from 'lucide-react';
+import { Lock, CheckCircle, ArrowLeft, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const updatePasswordSchema = z.object({
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -27,9 +29,13 @@ type UpdatePasswordFormData = z.infer<typeof updatePasswordSchema>;
 function UpdatePasswordContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [passwordUpdated, setPasswordUpdated] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isValidSession, setIsValidSession] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<UpdatePasswordFormData>({
@@ -37,13 +43,75 @@ function UpdatePasswordContent() {
   });
 
   useEffect(() => {
-    // Check if user is authenticated
-    const checkAuth = async () => {
-      // This would typically check if the user has a valid session
-      // For now, we'll assume the user is authenticated if they reach this page
+    const checkSession = async () => {
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+        
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Session check error:', error);
+          toast({
+            title: 'Session Error',
+            description: 'Please try the password reset process again.',
+            variant: 'destructive',
+          });
+          router.push('/auth/forgot-password');
+          return;
+        }
+
+        if (!session) {
+          // Check if we have access_token in URL params (from email link)
+          const accessToken = searchParams.get('access_token');
+          const refreshToken = searchParams.get('refresh_token');
+          
+          if (accessToken && refreshToken) {
+            // Set the session from URL params
+            const { error: setSessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            
+            if (setSessionError) {
+              console.error('Set session error:', setSessionError);
+              toast({
+                title: 'Invalid Reset Link',
+                description: 'This password reset link is invalid or has expired. Please request a new one.',
+                variant: 'destructive',
+              });
+              router.push('/auth/forgot-password');
+              return;
+            }
+          } else {
+            toast({
+              title: 'No Valid Session',
+              description: 'Please use the password reset link from your email.',
+              variant: 'destructive',
+            });
+            router.push('/auth/forgot-password');
+            return;
+          }
+        }
+        
+        setIsValidSession(true);
+      } catch (error) {
+        console.error('Session check failed:', error);
+        toast({
+          title: 'Error',
+          description: 'Unable to verify your session. Please try again.',
+          variant: 'destructive',
+        });
+        router.push('/auth/forgot-password');
+      } finally {
+        setIsCheckingSession(false);
+      }
     };
-    checkAuth();
-  }, []);
+
+    checkSession();
+  }, [router, searchParams, toast]);
 
   const onSubmit = async (data: UpdatePasswordFormData) => {
     setIsLoading(true);
@@ -58,28 +126,54 @@ function UpdatePasswordContent() {
       });
       
       if (error) {
+        console.error('Password update error:', error);
         toast({
           title: 'Update failed',
-          description: error.message,
+          description: error.message || 'Failed to update password. Please try again.',
           variant: 'destructive',
         });
       } else {
         setPasswordUpdated(true);
         toast({
           title: 'Password updated',
-          description: 'Your password has been successfully updated',
+          description: 'Your password has been successfully updated. You can now sign in with your new password.',
         });
+        
+        // Sign out the user after password update
+        await supabase.auth.signOut();
       }
     } catch (error) {
+      console.error('Unexpected error:', error);
       toast({
         title: 'Error',
-        description: 'An unexpected error occurred',
+        description: 'An unexpected error occurred. Please try again.',
         variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (isCheckingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+        <div className="relative z-10 w-full max-w-md mx-4">
+          <Card className="backdrop-blur-xl bg-white/10 border-white/20 shadow-2xl">
+            <CardContent className="text-center py-12">
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-white text-lg">Verifying your session...</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isValidSession) {
+    return null; // Will redirect to forgot password
+  }
 
   if (passwordUpdated) {
     return (
@@ -157,19 +251,41 @@ function UpdatePasswordContent() {
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-gray-800 group-focus-within:text-purple-500 transition-colors" />
                   </div>
-              <Input
-                {...form.register('password')}
-                type="password"
-                placeholder="New password"
-                    className="pl-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500/50 focus:bg-white transition-all duration-300 shadow-lg"
-                autoComplete="new-password"
-              />
+                  <Input
+                    {...form.register('password')}
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="New password"
+                    className="pl-10 pr-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500/50 focus:bg-white transition-all duration-300 shadow-lg"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    )}
+                  </button>
                 </div>
               {form.formState.errors.password && (
                   <p className="text-sm text-red-400">
                   {form.formState.errors.password.message}
                 </p>
               )}
+              <div className="bg-white/10 rounded-lg p-3 border border-white/20">
+                <p className="text-xs text-gray-300 mb-2">
+                  <strong>Password requirements:</strong>
+                </p>
+                <ul className="text-xs text-gray-300 space-y-1">
+                  <li>• At least 8 characters</li>
+                  <li>• One uppercase letter</li>
+                  <li>• One lowercase letter</li>
+                  <li>• One number</li>
+                </ul>
+              </div>
             </div>
               
             <div className="space-y-2">
@@ -177,13 +293,24 @@ function UpdatePasswordContent() {
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-gray-800 group-focus-within:text-purple-500 transition-colors" />
                   </div>
-              <Input
-                {...form.register('confirmPassword')}
-                type="password"
-                placeholder="Confirm new password"
-                    className="pl-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500/50 focus:bg-white transition-all duration-300 shadow-lg"
-                autoComplete="new-password"
-              />
+                  <Input
+                    {...form.register('confirmPassword')}
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    placeholder="Confirm new password"
+                    className="pl-10 pr-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500/50 focus:bg-white transition-all duration-300 shadow-lg"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    )}
+                  </button>
                 </div>
               {form.formState.errors.confirmPassword && (
                   <p className="text-sm text-red-400">

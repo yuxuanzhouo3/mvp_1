@@ -45,27 +45,32 @@ export default function ForgotPasswordPage() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       );
       
+      // Send password reset email - Supabase will handle user existence check
+
+      // Send password reset email
       const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
         redirectTo: `${window.location.origin}/auth/update-password`
       });
       
       if (error) {
+        console.error('Password reset error:', error);
         toast({
           title: 'Reset failed',
-          description: error.message,
+          description: error.message || 'Failed to send reset email. Please try again.',
           variant: 'destructive',
         });
       } else {
         setEmailSent(true);
         toast({
           title: 'Reset email sent',
-          description: 'Check your email for password reset instructions',
+          description: 'Check your email for password reset instructions. If you don\'t see it, check your spam folder.',
         });
       }
     } catch (error) {
+      console.error('Unexpected error:', error);
       toast({
         title: 'Error',
-        description: 'An unexpected error occurred',
+        description: 'An unexpected error occurred. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -100,14 +105,14 @@ export default function ForgotPasswordPage() {
         setPhoneSent(true);
         setPhoneNumber(phone);
         toast({
-          title: 'Mock Mode',
-          description: 'In mock mode, enter any 6-digit code',
+          title: 'OTP sent',
+          description: 'Check your phone for the verification code',
         });
       }
     } catch (error) {
       toast({
         title: 'Error',
-        description: 'Phone reset is not available in mock mode',
+        description: 'Phone reset is not available in this mode',
         variant: 'destructive',
       });
       setIsLoading(false);
@@ -129,15 +134,24 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      // In mock mode, any 6-digit code works
-      toast({
-        title: 'Success',
-        description: 'Phone verification successful! Redirecting to password reset...',
-      });
-      // Mock successful verification - redirect to password reset page
-      setTimeout(() => {
-        router.push('/auth/update-password');
-      }, 2000);
+      const { error } = await verifyPhoneOTP(phoneNumber, otp);
+      if (error) {
+        toast({
+          title: 'Invalid code',
+          description: 'Please check your code and try again',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+      } else {
+        toast({
+          title: 'Success',
+          description: 'Phone verification successful! Redirecting to password reset...',
+        });
+        // Redirect to password reset page
+        setTimeout(() => {
+          router.push('/auth/update-password');
+        }, 2000);
+      }
     } catch (error) {
       toast({
         title: 'Error',
@@ -170,8 +184,18 @@ export default function ForgotPasswordPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center space-y-6">
+              <div className="bg-white/10 rounded-lg p-4 border border-white/20">
+                <p className="text-sm text-gray-300 mb-2">
+                  <strong>Important:</strong>
+                </p>
+                <ul className="text-xs text-gray-300 space-y-1 text-left">
+                  <li>• Check your spam/junk folder</li>
+                  <li>• The link expires in 1 hour</li>
+                  <li>• Click the link in the email to reset your password</li>
+                </ul>
+              </div>
               <p className="text-sm text-gray-300 mb-4">
-                Didn't receive the email? Check your spam folder or{' '}
+                Didn't receive the email?{' '}
                 <button
                   onClick={() => setEmailSent(false)}
                   className="text-purple-300 hover:text-purple-200 transition-colors duration-200 underline-offset-4 hover:underline"
@@ -250,7 +274,7 @@ export default function ForgotPasswordPage() {
                   <div className="space-y-2">
                     <div className="relative group">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Mail className="h-5 w-5 text-gray-800 group-focus-within:text-purple-400 transition-colors" />
+                        <Mail className="h-5 w-5 text-gray-800 group-focus-within:text-purple-500 transition-colors" />
                       </div>
                       <Input
                         {...form.register('email')}
@@ -278,10 +302,7 @@ export default function ForgotPasswordPage() {
                         <span>Sending...</span>
                       </div>
                     ) : (
-                      <div className="flex items-center space-x-2">
-                        <Shield className="h-4 w-4" />
-                        <span>Send reset link</span>
-                      </div>
+                      <span>Send reset email</span>
                     )}
                   </Button>
                 </form>
@@ -293,7 +314,7 @@ export default function ForgotPasswordPage() {
                     <div className="space-y-2">
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Phone className="h-5 w-5 text-gray-800 group-focus-within:text-purple-400 transition-colors" />
+                          <Phone className="h-5 w-5 text-gray-800 group-focus-within:text-purple-500 transition-colors" />
                         </div>
                         <Input
                           type="tel"
@@ -301,14 +322,9 @@ export default function ForgotPasswordPage() {
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           className="pl-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500/50 focus:bg-white transition-all duration-300 shadow-lg"
-                          required
-                          disabled={isLoading}
                           autoComplete="tel"
                         />
                       </div>
-                      {phone.length > 0 && phone.length < 10 && (
-                        <p className="text-sm text-red-400">Please enter a valid 10-digit phone number.</p>
-                      )}
                     </div>
                     
                     <Button 
@@ -319,65 +335,58 @@ export default function ForgotPasswordPage() {
                       {isLoading ? (
                         <div className="flex items-center space-x-2">
                           <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Sending code...</span>
+                          <span>Sending...</span>
                         </div>
                       ) : (
-                        <div className="flex items-center space-x-2">
-                          <Shield className="h-4 w-4" />
-                          <span>Send verification code</span>
-                        </div>
+                        <span>Send verification code</span>
                       )}
                     </Button>
                   </form>
                 ) : (
                   <form onSubmit={onOTPSubmit} className="space-y-4">
-                    <div className="text-center space-y-4">
-                      <p className="text-sm text-gray-300">
-                        Enter the 6-digit code sent to <span className="font-medium text-white">{phoneNumber}</span>
+                    <div className="space-y-2">
+                      <p className="text-sm text-gray-300 text-center">
+                        Enter the 6-digit code sent to {phoneNumber}
                       </p>
-                      <div className="flex items-center justify-center space-x-2">
+                      <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Shield className="h-5 w-5 text-gray-800 group-focus-within:text-purple-500 transition-colors" />
+                        </div>
                         <Input
                           type="text"
-                          placeholder="000000"
+                          placeholder="Enter 6-digit code"
                           value={otp}
-                          onChange={(e) => setOtp(e.target.value)}
-                          className="w-32 h-12 text-center text-lg font-mono bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500/50 focus:bg-white transition-all duration-300 shadow-lg"
+                          onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          className="pl-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500/50 focus:bg-white transition-all duration-300 shadow-lg text-center text-lg tracking-widest"
                           maxLength={6}
-                          autoComplete="one-time-code"
-                          disabled={isLoading}
                         />
                       </div>
-                      <Button 
-                        type="submit" 
-                        className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                        disabled={isLoading || otp.length !== 6}
-                      >
-                        {isLoading ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>Verifying...</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <Shield className="h-4 w-4" />
-                            <span>Verify code</span>
-                          </div>
-                        )}
-                      </Button>
                     </div>
                     
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full border-white/20 text-white hover:bg-white/10 transition-all duration-300"
-                      onClick={() => {
-                        setPhoneSent(false);
-                        setOtp('');
-                      }}
-                      disabled={isLoading}
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                      disabled={isLoading || otp.length !== 6}
                     >
-                      Back to phone number
+                      {isLoading ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Verifying...</span>
+                        </div>
+                      ) : (
+                        <span>Verify code</span>
+                      )}
                     </Button>
+                    
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() => setPhoneSent(false)}
+                        className="text-sm text-purple-300 hover:text-purple-200 transition-colors duration-200 underline-offset-4 hover:underline"
+                      >
+                        Use different phone number
+                      </button>
+                    </div>
                   </form>
                 )}
               </TabsContent>

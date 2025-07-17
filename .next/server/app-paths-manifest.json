@@ -1,11 +1,6 @@
 {
-  "/payment/recharge/page": "app/payment/recharge/page.js",
-  "/profile/edit/page": "app/profile/edit/page.js",
-  "/chat/page": "app/chat/page.js",
-  "/api/chat/list/route": "app/api/chat/list/route.js",
-  "/matching/page": "app/matching/page.js",
-  "/api/matching/candidates/route": "app/api/matching/candidates/route.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/settings/page": "app/dashboard/settings/page.js",
-  "/dashboard/notifications/page": "app/dashboard/notifications/page.js"
+  "/api/health/route": "app/api/health/route.js",
+  "/auth/forgot-password/page": "app/auth/forgot-password/page.js",
+  "/auth/update-password/page": "app/auth/update-password/page.js",
+  "/auth/login/page": "app/auth/login/page.js"
 }
