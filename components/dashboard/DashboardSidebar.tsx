@@ -51,11 +51,14 @@ export const DashboardSidebar = ({ user }: DashboardSidebarProps) => {
   const handleSignOut = async () => {
     try {
       await signOut();
+      // Force redirect to login page and clear all state
+      window.location.href = '/auth/login';
       toast({
         title: '已退出登录',
         description: '期待您的再次光临！',
       });
     } catch (error) {
+      console.error('Logout error:', error);
       toast({
         title: '退出失败',
         description: '请稍后重试',

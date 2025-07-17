@@ -1,11 +1,6 @@
 {
-  "/not-found": "app/not-found.js",
-  "/payment/recharge/page": "app/payment/recharge/page.js",
-  "/chat/page": "app/chat/page.js",
-  "/api/chat/list/route": "app/api/chat/list/route.js",
-  "/matching/page": "app/matching/page.js",
+  "/page": "app/page.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/dashboard/settings/page": "app/dashboard/settings/page.js",
   "/auth/login/page": "app/auth/login/page.js",
   "/dashboard/notifications/page": "app/dashboard/notifications/page.js"
 }

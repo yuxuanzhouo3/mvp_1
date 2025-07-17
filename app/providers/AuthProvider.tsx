@@ -192,12 +192,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('🚪 SignOut called');
     
     try {
+      // Clear Supabase session
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('SignOut error:', error);
+        throw error;
       }
+      
+      // Clear local state immediately
+      setSession(null);
+      setUser(null);
+      userRef.current = null;
+      
+      // Clear any localStorage items
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('supabase.auth.token');
+        localStorage.removeItem('supabase.auth.expires_at');
+        localStorage.removeItem('supabase.auth.refresh_token');
+      }
+      
+      console.log('✅ SignOut completed successfully');
     } catch (error) {
       console.error('SignOut error:', error);
+      throw error;
     }
   }, []);
 
