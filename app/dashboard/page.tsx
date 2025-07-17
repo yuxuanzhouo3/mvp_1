@@ -192,10 +192,22 @@ export default function DashboardPage() {
           setProfile(fallbackProfile);
         }
       }
-    }, 5000); // 5 second timeout
+    }, 3000); // 3 second timeout - more aggressive
 
     return () => clearTimeout(timeout);
   }, [loading, user, profile]);
+
+  // EMERGENCY FIX: Force redirect if still loading after 5 seconds
+  useEffect(() => {
+    const emergencyTimeout = setTimeout(() => {
+      if (loading && user) {
+        console.log('🚨 EMERGENCY: Dashboard still loading after 5s, forcing redirect to login');
+        window.location.href = '/auth/login';
+      }
+    }, 5000);
+
+    return () => clearTimeout(emergencyTimeout);
+  }, [loading, user]);
 
   // Debug logging - only log when state changes significantly
   const renderKey = `${authLoading}-${!!profile}-${loading}-${!!user}`;
