@@ -81,13 +81,22 @@ export default function DashboardPage() {
       
       // Load user profile
       console.log('📊 Loading user profile...');
-      const profileResponse = await fetch(`/api/user/profile`, { headers });
-      if (profileResponse.ok) {
-        const profileData = await profileResponse.json();
-        console.log('✅ Profile loaded:', profileData.profile);
-        setProfile(profileData.profile);
-      } else {
-        console.error('❌ Profile API error:', profileResponse.status);
+      try {
+        const profileResponse = await fetch(`/api/user/profile`, { 
+          headers,
+          // Add timeout to prevent hanging requests
+          signal: AbortSignal.timeout(5000)
+        });
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          console.log('✅ Profile loaded:', profileData.profile);
+          setProfile(profileData.profile);
+        } else {
+          console.error('❌ Profile API error:', profileResponse.status);
+          throw new Error(`Profile API failed: ${profileResponse.status}`);
+        }
+      } catch (error) {
+        console.error('❌ Profile loading failed:', error);
         // Fallback to basic user data if profile API fails
         const fallbackProfile: UserProfile = {
           id: user?.id || '',
@@ -182,18 +191,64 @@ export default function DashboardPage() {
     }
     
     setAuthSettled(true);
+    
     if (!user || !user.id) {
       console.log('❌ No user found in dashboard, redirecting to login');
       console.log('🔍 User check failed - user:', user, 'user.id:', user?.id);
+      // Reset all state when no user
+      setProfile(null);
+      setRecentMatches([]);
+      setStats(null);
+      setLoading(false);
       // Use window.location.href to force a full page reload and avoid routing issues
       window.location.href = '/auth/login';
       return;
     } else {
       console.log('✅ User authenticated, loading dashboard data');
       console.log('👤 User details:', { id: user.id, email: user.email });
+      // Reset loading state when user is authenticated
+      setLoading(true);
       loadDashboardData();
     }
   }, [user, authLoading]);
+
+  // AGGRESSIVE TIMEOUT: Force display after 2 seconds regardless of loading state
+  useEffect(() => {
+    const aggressiveTimeout = setTimeout(() => {
+      if (user && loading) {
+        console.log('⚡ AGGRESSIVE: Dashboard loading timeout - forcing display with fallback data');
+        setLoading(false);
+        
+        // Create a fallback profile if none exists
+        if (!profile && user) {
+          const fallbackProfile: UserProfile = {
+            id: user.id,
+            email: user.email || '',
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
+            avatar_url: user.user_metadata?.avatar_url || '',
+            bio: '',
+            location: '',
+            interests: [],
+            credits: 100,
+            created_at: new Date().toISOString()
+          };
+          setProfile(fallbackProfile);
+        }
+        
+        // Set fallback stats
+        if (!stats) {
+          setStats({
+            totalMatches: 0,
+            totalMessages: 0,
+            activeChats: 0,
+            profileCompletion: 50
+          });
+        }
+      }
+    }, 2000); // 2 second timeout - very aggressive
+
+    return () => clearTimeout(aggressiveTimeout);
+  }, [loading, user, profile, stats]);
 
   // Add a timeout to prevent infinite loading
   useEffect(() => {
@@ -221,6 +276,19 @@ export default function DashboardPage() {
 
     return () => clearTimeout(timeout);
   }, [loading, user, profile]);
+
+  // Cleanup effect to reset state when user changes
+  useEffect(() => {
+    return () => {
+      // Cleanup function to reset state when component unmounts or user changes
+      console.log('🧹 Dashboard cleanup - resetting state');
+      setProfile(null);
+      setRecentMatches([]);
+      setStats(null);
+      setLoading(false);
+      setAuthSettled(false);
+    };
+  }, [user?.id]); // Only run when user ID changes
 
   // Session refresh and error recovery
   useEffect(() => {
@@ -259,6 +327,18 @@ export default function DashboardPage() {
     return () => clearTimeout(emergencyTimeout);
   }, [loading, user]);
 
+  // ULTRA EMERGENCY: Force redirect if no user after auth settles
+  useEffect(() => {
+    const ultraEmergencyTimeout = setTimeout(() => {
+      if (!authLoading && !user) {
+        console.log('🚨 ULTRA EMERGENCY: No user after auth settled, forcing redirect to login');
+        window.location.href = '/auth/login';
+      }
+    }, 3000);
+
+    return () => clearTimeout(ultraEmergencyTimeout);
+  }, [authLoading, user]);
+
   // Debug logging - only log when state changes significantly
   const renderKey = `${authLoading}-${!!profile}-${loading}-${!!user}`;
   console.log('🔍 Dashboard render state:', { 
@@ -270,13 +350,45 @@ export default function DashboardPage() {
   });
   
   // Show loading only if we're still loading auth OR if we have a user but no profile and we're still loading
-  if (authLoading || (user && !profile && loading)) {
+  // But be more permissive - show dashboard even if some data is missing
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">加载中...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    // If we have user data but no profile, show loading with user info
+    if (user) {
+      return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">正在加载用户资料...</p>
+            <p className="text-sm text-gray-500 mt-2">用户: {user.user_metadata?.full_name || user.user_metadata?.name || user.email}</p>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>用户资料未找到</CardTitle>
+            <CardDescription>请完善您的个人资料</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => router.push('/profile/setup')} className="w-full">
+              设置个人资料
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -309,24 +421,6 @@ export default function DashboardPage() {
   const handleViewChats = () => {
     router.push('/chat');
   };
-
-  if (!profile) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>用户资料未找到</CardTitle>
-            <CardDescription>请完善您的个人资料</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => router.push('/profile/setup')} className="w-full">
-              设置个人资料
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

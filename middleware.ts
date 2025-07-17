@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 export async function middleware(request: NextRequest) {
   // Temporarily disable all middleware to test dashboard access
   console.log(`🔍 Middleware: ${request.nextUrl.pathname} - DISABLED FOR TESTING`);
-  return NextResponse.next();
+    return NextResponse.next();
 }
 
 export const config = {

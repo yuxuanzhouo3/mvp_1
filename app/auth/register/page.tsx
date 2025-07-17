@@ -45,7 +45,7 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
-      const { error } = await signUp(data.email, data.password, data.fullName);
+      const { error, requiresConfirmation } = await signUp(data.email, data.password, data.fullName);
       if (error) {
         toast({
           title: 'Registration failed',
@@ -54,12 +54,24 @@ export default function RegisterPage() {
         });
       } else {
         setEmailSent(true);
+        if (requiresConfirmation) {
         toast({
           title: 'Registration successful',
           description: 'Please check your email to verify your account',
         });
+        } else {
+          toast({
+            title: 'Registration successful',
+            description: 'Welcome! Redirecting to dashboard...',
+          });
+          // Redirect to dashboard if no confirmation needed
+          setTimeout(() => {
+            router.push('/dashboard');
+          }, 1500);
+        }
       }
     } catch (error) {
+      console.error('Registration error:', error);
       toast({
         title: 'Error',
         description: 'An unexpected error occurred',
@@ -234,12 +246,12 @@ export default function RegisterPage() {
           <CardHeader className="text-center space-y-4 pb-8">
             <div className="flex items-center justify-center space-x-3 mb-6">
               <Link href="/" className="flex items-center space-x-3 hover:scale-105 transition-transform duration-200">
-                <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl shadow-lg">
-                  <Sparkles className="h-8 w-8 text-white" />
-                </div>
-                <h1 className="text-3xl font-bold text-white drop-shadow-lg">
-                  PersonaLink
-                </h1>
+              <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl shadow-lg">
+                <Sparkles className="h-8 w-8 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-white drop-shadow-lg">
+                PersonaLink
+              </h1>
               </Link>
             </div>
             <CardTitle className="text-3xl font-bold text-white mb-2">
@@ -248,7 +260,7 @@ export default function RegisterPage() {
             <CardDescription className="text-white text-lg font-medium drop-shadow-sm">
               Join PersonaLink to find your perfect AI friend match
             </CardDescription>
-            
+          
             {/* Google Sign-in Button - Moved to header */}
             <Button
               type="button"
@@ -285,7 +297,7 @@ export default function RegisterPage() {
               </div>
             </div>
           </CardHeader>
-          
+
           <CardContent className="space-y-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 bg-white/10 backdrop-blur-sm border border-white/20">

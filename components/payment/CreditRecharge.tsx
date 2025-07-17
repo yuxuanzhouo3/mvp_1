@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +14,8 @@ import {
   Check,
   Star,
   Zap,
-  Crown
+  Crown,
+  ArrowLeft
 } from 'lucide-react';
 
 interface CreditPackage {
@@ -97,9 +99,14 @@ const paymentMethods: PaymentMethod[] = [
 
 export default function CreditRecharge() {
   const { toast } = useToast();
+  const router = useRouter();
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleBackToDashboard = () => {
+    router.push('/dashboard');
+  };
 
   const handlePackageSelect = (pkg: CreditPackage) => {
     setSelectedPackage(pkg);
@@ -176,6 +183,18 @@ export default function CreditRecharge() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Back Button */}
+      <div className="mb-6">
+        <Button
+          variant="ghost"
+          onClick={handleBackToDashboard}
+          className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>返回仪表板</span>
+        </Button>
+      </div>
+
       {/* Header */}
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">

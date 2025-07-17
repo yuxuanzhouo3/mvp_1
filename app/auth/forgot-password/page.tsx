@@ -201,12 +201,12 @@ export default function ForgotPasswordPage() {
           <CardHeader className="text-center space-y-4 pb-8">
             <div className="flex items-center justify-center space-x-3 mb-6">
               <Link href="/" className="flex items-center space-x-3 hover:scale-105 transition-transform duration-200">
-                <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl shadow-lg">
-                  <Sparkles className="h-8 w-8 text-white" />
-                </div>
-                <h1 className="text-3xl font-bold text-white drop-shadow-lg">
-                  PersonaLink
-                </h1>
+              <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl shadow-lg">
+                <Sparkles className="h-8 w-8 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold text-white drop-shadow-lg">
+                PersonaLink
+              </h1>
               </Link>
             </div>
             <CardTitle className="text-3xl font-bold text-white mb-2">

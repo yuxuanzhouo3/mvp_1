@@ -3,18 +3,18 @@
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config({ path: '.env.local' });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 console.log('🔍 Testing Supabase Connection...');
 console.log('URL:', supabaseUrl);
 console.log('Key length:', supabaseKey ? supabaseKey.length : 'undefined');
 console.log('Key preview:', supabaseKey ? supabaseKey.substring(0, 20) : 'undefined');
 
-if (!supabaseUrl || !supabaseKey) {
+  if (!supabaseUrl || !supabaseKey) {
   console.error('❌ Missing Supabase URL or key');
-  process.exit(1);
-}
+    process.exit(1);
+  }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 

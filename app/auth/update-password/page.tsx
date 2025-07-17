@@ -87,24 +87,24 @@ function UpdatePasswordContent() {
             <CardHeader className="text-center space-y-4 pb-8">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-green-500 to-emerald-500 shadow-glow">
                 <CheckCircle className="h-8 w-8 text-white" />
-              </div>
+            </div>
               <CardTitle className="text-3xl font-bold text-white mb-2">Password Updated</CardTitle>
               <CardDescription className="text-gray-300 text-lg">
-                Your password has been successfully updated. You can now sign in with your new password.
-              </CardDescription>
-            </CardHeader>
+              Your password has been successfully updated. You can now sign in with your new password.
+            </CardDescription>
+          </CardHeader>
             <CardContent className="text-center space-y-6">
-              <Link href="/auth/login">
+            <Link href="/auth/login">
                 <Button 
                   variant="outline" 
                   className="w-full border-white/20 text-white hover:bg-white/10 transition-all duration-300"
                 >
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Sign in
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Sign in
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
         </div>
       </div>
     );
@@ -137,51 +137,51 @@ function UpdatePasswordContent() {
               Update Password
             </CardTitle>
             <CardDescription className="text-white text-lg font-medium drop-shadow-sm">
-              Enter your new password below
-            </CardDescription>
-          </CardHeader>
+            Enter your new password below
+          </CardDescription>
+        </CardHeader>
           
           <CardContent className="space-y-6">
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-gray-800 group-focus-within:text-purple-500 transition-colors" />
                   </div>
-                  <Input
-                    {...form.register('password')}
-                    type="password"
-                    placeholder="New password"
+              <Input
+                {...form.register('password')}
+                type="password"
+                placeholder="New password"
                     className="pl-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500/50 focus:bg-white transition-all duration-300 shadow-lg"
-                    autoComplete="new-password"
-                  />
+                autoComplete="new-password"
+              />
                 </div>
-                {form.formState.errors.password && (
+              {form.formState.errors.password && (
                   <p className="text-sm text-red-400">
-                    {form.formState.errors.password.message}
-                  </p>
-                )}
-              </div>
+                  {form.formState.errors.password.message}
+                </p>
+              )}
+            </div>
               
-              <div className="space-y-2">
+            <div className="space-y-2">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-gray-800 group-focus-within:text-purple-500 transition-colors" />
                   </div>
-                  <Input
-                    {...form.register('confirmPassword')}
-                    type="password"
-                    placeholder="Confirm new password"
+              <Input
+                {...form.register('confirmPassword')}
+                type="password"
+                placeholder="Confirm new password"
                     className="pl-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500/50 focus:bg-white transition-all duration-300 shadow-lg"
-                    autoComplete="new-password"
-                  />
+                autoComplete="new-password"
+              />
                 </div>
-                {form.formState.errors.confirmPassword && (
+              {form.formState.errors.confirmPassword && (
                   <p className="text-sm text-red-400">
-                    {form.formState.errors.confirmPassword.message}
-                  </p>
-                )}
-              </div>
+                  {form.formState.errors.confirmPassword.message}
+                </p>
+              )}
+            </div>
               
               <Button 
                 type="submit" 
@@ -196,23 +196,23 @@ function UpdatePasswordContent() {
                 ) : (
                   <span>Update password</span>
                 )}
-              </Button>
-            </form>
+            </Button>
+          </form>
 
             <div className="text-center pt-4">
               <p className="text-sm text-gray-300">
-                Remember your password?{' '}
+              Remember your password?{' '}
                 <Link 
                   href="/auth/login" 
                   className="text-purple-300 hover:text-purple-200 transition-colors duration-200 underline-offset-4 hover:underline font-medium"
                 >
-                  Sign in
-                </Link>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                Sign in
+              </Link>
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
     </div>
   );
 }
