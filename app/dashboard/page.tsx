@@ -148,6 +148,7 @@ export default function DashboardPage() {
   useEffect(() => {
     console.log('🔄 Dashboard useEffect - user:', !!user, 'user id:', user?.id, 'authLoading:', authLoading);
     console.log('🔍 Full user object:', user);
+    console.log('📊 Current state:', { authLoading, profile: !!profile, loading, user: !!user });
     
     // Wait for auth state to settle
     if (authLoading) {
@@ -167,7 +168,34 @@ export default function DashboardPage() {
       console.log('👤 User details:', { id: user.id, email: user.email });
       loadDashboardData();
     }
-  }, [user, authLoading]); // Remove router from dependencies
+  }, [user, authLoading]);
+
+  // Add a timeout to prevent infinite loading
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading && user) {
+        console.log('⏰ Dashboard loading timeout - forcing display');
+        setLoading(false);
+        // Create a fallback profile if none exists
+        if (!profile && user) {
+          const fallbackProfile: UserProfile = {
+            id: user.id,
+            email: user.email || '',
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
+            avatar_url: user.user_metadata?.avatar_url || '',
+            bio: '',
+            location: '',
+            interests: [],
+            credits: 100, // Default credit balance
+            created_at: new Date().toISOString()
+          };
+          setProfile(fallbackProfile);
+        }
+      }
+    }, 5000); // 5 second timeout
+
+    return () => clearTimeout(timeout);
+  }, [loading, user, profile]);
 
   // Debug logging - only log when state changes significantly
   const renderKey = `${authLoading}-${!!profile}-${loading}-${!!user}`;
