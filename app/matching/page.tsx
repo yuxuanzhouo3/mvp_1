@@ -1,569 +1,383 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useToast } from '@/hooks/use-toast';
+import { 
+  Container, 
+  Row, 
+  Col, 
+  Card, 
+  Button, 
+  Badge, 
+  Navbar,
+  ProgressBar,
+  Alert,
+  Spinner,
+  Modal
+} from 'react-bootstrap';
 import { 
   Heart, 
   X, 
-  Star, 
-  MapPin, 
-  Calendar, 
-  Users, 
-  Filter,
-  RefreshCw,
-  MessageSquare,
-  User
+  ArrowLeft,
+  Star,
+  MapPin,
+  User,
+  MessageSquare
 } from 'lucide-react';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
-interface MatchCandidate {
+interface Candidate {
   id: string;
   full_name: string;
   avatar_url?: string;
-  age: number;
-  location: string;
-  bio: string;
+  bio?: string;
+  location?: string;
+  age?: number;
   interests: string[];
-  industry: string;
-  communication_style: string;
   compatibility_score: number;
-  common_interests: string[];
-  match_reasons: string[];
+  industry?: string;
+  communication_style?: string;
+  personality_traits?: string[];
 }
 
 export default function MatchingPage() {
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { user } = useAuth();
-  const { toast } = useToast();
-  
-  const [candidates, setCandidates] = useState<MatchCandidate[]>([]);
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({
-    minAge: 18,
-    maxAge: 65,
-    location: '',
-    interests: [] as string[],
-  });
-
-  const cardRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [matching, setMatching] = useState(false);
+  const [showMatchModal, setShowMatchModal] = useState(false);
+  const [matchedUser, setMatchedUser] = useState<Candidate | null>(null);
 
   useEffect(() => {
+    if (authLoading) return;
+    
     if (!user) {
       router.push('/auth/login');
       return;
     }
 
     loadCandidates();
-  }, [user]);
+  }, [user, authLoading]);
 
-  const loadCandidates = async (isRefresh = false) => {
+  const loadCandidates = async () => {
     try {
-      setIsLoading(true);
-      
-      // Check if we're in mock mode
-      const isMockMode = !process.env.NEXT_PUBLIC_SUPABASE_URL || 
-                        process.env.NEXT_PUBLIC_SUPABASE_URL === 'your_supabase_url_here' ||
-                        process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
-      
-      if (isMockMode) {
-        // Use mock data in mock mode
-        console.log('🎭 Mock mode: Using mock candidates');
-        
-        const mockCandidates: MatchCandidate[] = [
-          {
-            id: '1',
-            full_name: 'Alice Johnson',
-            avatar_url: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face',
-            age: 28,
-            location: 'San Francisco, CA',
-            bio: 'Software engineer passionate about AI and machine learning. Love hiking, reading sci-fi novels, and trying new restaurants.',
-            interests: ['Technology', 'AI', 'Hiking', 'Reading', 'Food'],
-            industry: 'Technology',
-            communication_style: 'Direct and thoughtful',
-            compatibility_score: 0.95,
-            common_interests: ['Technology', 'AI'],
-            match_reasons: ['Shared interest in technology', 'Similar communication style', 'Compatible lifestyle']
-          },
-          {
-            id: '2',
-            full_name: 'Bob Smith',
-            avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
-            age: 32,
-            location: 'New York, NY',
-            bio: 'Product manager with a background in design. Enjoy traveling, photography, and building things that matter.',
-            interests: ['Product Management', 'Design', 'Travel', 'Photography', 'Innovation'],
-            industry: 'Technology',
-            communication_style: 'Collaborative and creative',
-            compatibility_score: 0.87,
-            common_interests: ['Technology', 'Innovation'],
-            match_reasons: ['Professional alignment', 'Creative mindset', 'Growth-oriented']
-          },
-          {
-            id: '3',
-            full_name: 'Carol Davis',
-            avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face',
-            age: 26,
-            location: 'Austin, TX',
-            bio: 'Data scientist working on healthcare applications. Love yoga, cooking, and exploring new cultures through food.',
-            interests: ['Data Science', 'Healthcare', 'Yoga', 'Cooking', 'Travel'],
-            industry: 'Healthcare',
-            communication_style: 'Analytical and empathetic',
-            compatibility_score: 0.92,
-            common_interests: ['Technology', 'Innovation'],
-            match_reasons: ['Data-driven approach', 'Health-conscious lifestyle', 'Cultural curiosity']
-          }
-        ];
-        
-        setCandidates(mockCandidates);
-        return;
-      }
-      
-      // Get the current session for the auth token
-      const { supabase } = await import('@/lib/supabase/client');
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        console.error('No access token available');
-        return;
-      }
-
-      const headers = {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json'
-      };
-      
-      // Add timestamp for refresh functionality
-      const url = isRefresh 
-        ? `/api/matching/candidates?refresh=true&t=${Date.now()}`
-        : '/api/matching/candidates';
-      
-      const response = await fetch(url, { headers });
+      setLoading(true);
+      const response = await fetch('/api/matching/candidates');
       if (response.ok) {
         const data = await response.json();
-        setCandidates(data.candidates);
-      } else {
-        console.error('Candidates API error:', response.status);
-        toast({
-          title: '加载失败',
-          description: '无法加载匹配候选人',
-          variant: 'destructive',
-        });
+        setCandidates(data);
       }
     } catch (error) {
-      console.error('Candidates loading error:', error);
-      toast({
-        title: '加载失败',
-        description: '无法加载匹配候选人',
-        variant: 'destructive',
-      });
+      console.error('Error loading candidates:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   const handleLike = async () => {
-    if (isProcessing || currentIndex >= candidates.length) return;
+    if (currentIndex >= candidates.length) return;
     
-    setIsProcessing(true);
     const candidate = candidates[currentIndex];
+    setMatching(true);
     
     try {
-      const response = await fetch('/api/matching/like', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ candidateId: candidate.id }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (data.isMatch) {
-          toast({
-            title: '🎉 匹配成功！',
-            description: `您与 ${candidate.full_name} 互相喜欢！`,
-          });
-          
-          // Show match modal or redirect to chat
-          setTimeout(() => {
-            router.push(`/chat/${data.chatId}`);
-          }, 2000);
-        } else {
-          toast({
-            title: '已喜欢',
-            description: `您喜欢了 ${candidate.full_name}`,
-          });
-        }
+      // Simulate API call for like
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Check if it's a match (random for demo)
+      const isMatch = Math.random() > 0.7;
+      
+      if (isMatch) {
+        setMatchedUser(candidate);
+        setShowMatchModal(true);
       }
-    } catch (error) {
-      toast({
-        title: '操作失败',
-        description: '请稍后重试',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsProcessing(false);
+      
       setCurrentIndex(prev => prev + 1);
+    } catch (error) {
+      console.error('Error liking candidate:', error);
+    } finally {
+      setMatching(false);
     }
   };
 
-  const handlePass = async () => {
-    if (isProcessing || currentIndex >= candidates.length) return;
-    
-    setIsProcessing(true);
-    const candidate = candidates[currentIndex];
-    
-    try {
-      await fetch('/api/matching/pass', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ candidateId: candidate.id }),
-      });
-
-      toast({
-        title: '已跳过',
-        description: `您跳过了 ${candidate.full_name}`,
-      });
-    } catch (error) {
-      toast({
-        title: '操作失败',
-        description: '请稍后重试',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsProcessing(false);
-      setCurrentIndex(prev => prev + 1);
-    }
+  const handlePass = () => {
+    setCurrentIndex(prev => prev + 1);
   };
 
-  const handleSuperLike = async () => {
-    if (isProcessing || currentIndex >= candidates.length) return;
-    
-    setIsProcessing(true);
-    const candidate = candidates[currentIndex];
-    
-    try {
-      const response = await fetch('/api/matching/super-like', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ candidateId: candidate.id }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (data.isMatch) {
-          toast({
-            title: '🌟 超级匹配！',
-            description: `您与 ${candidate.full_name} 超级匹配！`,
-          });
-          
-          setTimeout(() => {
-            router.push(`/chat/${data.chatId}`);
-          }, 2000);
-        } else {
-          toast({
-            title: '超级喜欢已发送',
-            description: `您超级喜欢了 ${candidate.full_name}`,
-          });
-        }
-      }
-    } catch (error) {
-      toast({
-        title: '操作失败',
-        description: '请稍后重试',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsProcessing(false);
-      setCurrentIndex(prev => prev + 1);
-    }
-  };
-
-  const handleRefresh = () => {
-    setCurrentIndex(0);
-    // Force reload with new candidates
-    loadCandidates(true);
-  };
-
-  const handleGoToDashboard = () => {
+  const handleBackToDashboard = () => {
     router.push('/dashboard');
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">正在寻找匹配...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (candidates.length === 0 || currentIndex >= candidates.length) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="text-center py-12">
-            <Heart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              暂时没有更多推荐
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              我们已经为您展示了所有可用的匹配。请稍后再来查看新的推荐！
-            </p>
-            <div className="space-y-3">
-              <Button onClick={handleRefresh} className="w-full">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                刷新推荐
-              </Button>
-              <Button variant="outline" onClick={() => router.push('/dashboard')} className="w-full">
-                返回仪表盘
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const handleStartChat = () => {
+    if (matchedUser) {
+      router.push(`/chat/${matchedUser.id}`);
+    }
+    setShowMatchModal(false);
+  };
 
   const currentCandidate = candidates[currentIndex];
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-md mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              发现
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              找到您的理想匹配
-            </p>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-            >
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleGoToDashboard}
-            >
-              <User className="h-4 w-4" />
-            </Button>
-          </div>
+  if (authLoading || loading) {
+    return (
+      <Container fluid className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
+        <div className="text-center">
+          <Spinner animation="border" variant="primary" />
+          <p className="mt-3 text-muted">加载匹配中...</p>
         </div>
+      </Container>
+    );
+  }
 
-        {/* Filters */}
-        {showFilters && (
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="text-lg">筛选条件</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">年龄范围</label>
-                <div className="flex items-center space-x-2 mt-1">
-                  <input
-                    type="number"
-                    value={filters.minAge}
-                    onChange={(e) => setFilters(prev => ({ ...prev, minAge: parseInt(e.target.value) }))}
-                    className="w-20 px-2 py-1 border rounded text-sm"
-                    min="18"
-                    max="100"
-                  />
-                  <span>至</span>
-                  <input
-                    type="number"
-                    value={filters.maxAge}
-                    onChange={(e) => setFilters(prev => ({ ...prev, maxAge: parseInt(e.target.value) }))}
-                    className="w-20 px-2 py-1 border rounded text-sm"
-                    min="18"
-                    max="100"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium">位置</label>
-                <input
-                  type="text"
-                  value={filters.location}
-                  onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
-                  placeholder="输入城市名称"
-                  className="w-full px-3 py-2 border rounded mt-1"
-                />
-              </div>
-            </CardContent>
+  if (candidates.length === 0) {
+    return (
+      <div className="bg-light min-vh-100">
+        <Navbar bg="white" className="shadow-sm border-bottom">
+          <Container fluid>
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              onClick={handleBackToDashboard}
+              className="me-2"
+            >
+              <ArrowLeft size={20} />
+            </Button>
+            
+            <Navbar.Brand className="fw-bold text-primary">匹配</Navbar.Brand>
+          </Container>
+        </Navbar>
+
+        <Container fluid className="py-5">
+          <Card className="border-0 shadow-sm">
+            <Card.Body className="text-center py-5">
+              <Heart size={48} className="text-muted mb-3" />
+              <h5 className="text-muted mb-2">暂时没有更多推荐</h5>
+              <p className="text-muted mb-3">请稍后再试或完善您的个人资料</p>
+              <Button 
+                variant="primary"
+                onClick={() => router.push('/profile/edit')}
+              >
+                完善资料
+              </Button>
+            </Card.Body>
           </Card>
-        )}
-
-        {/* Match Card */}
-        <Card 
-          ref={cardRef}
-          className="relative overflow-hidden cursor-pointer transition-transform hover:scale-105"
-        >
-          <div className="relative">
-            {/* Profile Image */}
-            <div className="aspect-square bg-gradient-to-br from-blue-400 to-purple-600 relative">
-              {currentCandidate.avatar_url ? (
-                <img
-                  src={currentCandidate.avatar_url}
-                  alt={currentCandidate.full_name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Avatar className="h-32 w-32">
-                    <AvatarFallback className="text-4xl">
-                      {currentCandidate.full_name?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-              )}
-              
-              {/* Compatibility Score */}
-              <div className="absolute top-4 right-4">
-                <Badge className="bg-white/90 text-gray-900">
-                  {Math.round(currentCandidate.compatibility_score * 100)}% 匹配
-                </Badge>
-              </div>
-            </div>
-
-            {/* Profile Info */}
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {currentCandidate.full_name}, {currentCandidate.age}
-                  </h2>
-                  <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-400">
-                    <MapPin className="h-4 w-4" />
-                    <span>{currentCandidate.location}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Bio */}
-              <p className="text-gray-700 dark:text-gray-300 mb-4">
-                {currentCandidate.bio}
-              </p>
-
-              {/* Interests */}
-              <div className="mb-4">
-                <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                  兴趣爱好
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {currentCandidate.interests.slice(0, 5).map((interest, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
-                      {interest}
-                    </Badge>
-                  ))}
-                  {currentCandidate.interests.length > 5 && (
-                    <Badge variant="outline" className="text-xs">
-                      +{currentCandidate.interests.length - 5}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-
-              {/* Common Interests */}
-              {currentCandidate.common_interests.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="text-sm font-medium text-green-600 mb-2">
-                    共同兴趣
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {currentCandidate.common_interests.map((interest, index) => (
-                      <Badge key={index} className="bg-green-100 text-green-800 text-xs">
-                        {interest}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Match Reasons */}
-              {currentCandidate.match_reasons.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-blue-600 mb-2">
-                    匹配理由
-                  </h3>
-                  <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                    {currentCandidate.match_reasons.map((reason, index) => (
-                      <li key={index} className="flex items-center">
-                        <Star className="h-3 w-3 text-blue-500 mr-2" />
-                        {reason}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </CardContent>
-          </div>
-        </Card>
-
-        {/* Action Buttons */}
-        <div className="flex justify-center items-center space-x-4 mt-6">
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={handlePass}
-            disabled={isProcessing}
-            className="w-16 h-16 rounded-full border-2 border-gray-300 hover:border-red-500 hover:bg-red-50"
-          >
-            <X className="h-8 w-8 text-gray-600" />
-          </Button>
-
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={handleSuperLike}
-            disabled={isProcessing}
-            className="w-16 h-16 rounded-full border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50"
-          >
-            <Star className="h-8 w-8 text-purple-600" />
-          </Button>
-
-          <Button
-            size="lg"
-            onClick={handleLike}
-            disabled={isProcessing}
-            className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600"
-          >
-            <Heart className="h-8 w-8 text-white" />
-          </Button>
-        </div>
-
-        {/* Progress */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {currentIndex + 1} / {candidates.length}
-          </p>
-        </div>
+        </Container>
       </div>
+    );
+  }
+
+  if (currentIndex >= candidates.length) {
+    return (
+      <div className="bg-light min-vh-100">
+        <Navbar bg="white" className="shadow-sm border-bottom">
+          <Container fluid>
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              onClick={handleBackToDashboard}
+              className="me-2"
+            >
+              <ArrowLeft size={20} />
+            </Button>
+            
+            <Navbar.Brand className="fw-bold text-primary">匹配</Navbar.Brand>
+          </Container>
+        </Navbar>
+
+        <Container fluid className="py-5">
+          <Card className="border-0 shadow-sm">
+            <Card.Body className="text-center py-5">
+              <Heart size={48} className="text-muted mb-3" />
+              <h5 className="text-muted mb-2">已浏览完所有推荐</h5>
+              <p className="text-muted mb-3">稍后会有更多推荐，或查看您的匹配历史</p>
+              <div className="d-grid gap-2">
+                <Button 
+                  variant="primary"
+                  onClick={() => window.location.reload()}
+                >
+                  刷新推荐
+                </Button>
+                <Button 
+                  variant="outline-primary"
+                  onClick={() => router.push('/matching/history')}
+                >
+                  查看历史
+                </Button>
+              </div>
+            </Card.Body>
+          </Card>
+        </Container>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-light min-vh-100">
+      {/* Mobile Header */}
+      <Navbar bg="white" className="shadow-sm border-bottom">
+        <Container fluid>
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={handleBackToDashboard}
+            className="me-2"
+          >
+            <ArrowLeft size={20} />
+          </Button>
+          
+          <Navbar.Brand className="fw-bold text-primary">匹配</Navbar.Brand>
+          
+          <div className="ms-auto">
+            <small className="text-muted">
+              {currentIndex + 1} / {candidates.length}
+            </small>
+          </div>
+        </Container>
+      </Navbar>
+
+      <Container fluid className="py-3">
+        <Row>
+          <Col>
+            {/* Candidate Card */}
+            <Card className="border-0 shadow-sm">
+              <div className="position-relative">
+                {/* Profile Image */}
+                <div 
+                  className="bg-primary d-flex align-items-center justify-content-center"
+                  style={{ height: '300px' }}
+                >
+                  <div 
+                    className="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center"
+                    style={{ width: '120px', height: '120px', fontSize: '48px' }}
+                  >
+                    {currentCandidate.full_name?.charAt(0).toUpperCase()}
+                  </div>
+                </div>
+                
+                {/* Compatibility Score */}
+                <div className="position-absolute top-0 end-0 m-3">
+                  <Badge bg="success" className="fs-6">
+                    {Math.round(currentCandidate.compatibility_score)}% 匹配
+                  </Badge>
+                </div>
+              </div>
+
+              <Card.Body>
+                {/* Basic Info */}
+                <div className="d-flex justify-content-between align-items-start mb-3">
+                  <div>
+                    <h4 className="mb-1">{currentCandidate.full_name}</h4>
+                    {currentCandidate.age && (
+                      <p className="text-muted mb-0">{currentCandidate.age} 岁</p>
+                    )}
+                  </div>
+                  <Star size={20} className="text-warning" />
+                </div>
+
+                {/* Location */}
+                {currentCandidate.location && (
+                  <p className="text-muted small mb-2">
+                    <MapPin size={14} className="me-1" />
+                    {currentCandidate.location}
+                  </p>
+                )}
+
+                {/* Bio */}
+                {currentCandidate.bio && (
+                  <p className="mb-3">{currentCandidate.bio}</p>
+                )}
+
+                {/* Interests */}
+                {currentCandidate.interests && currentCandidate.interests.length > 0 && (
+                  <div className="mb-3">
+                    <h6 className="mb-2">兴趣爱好</h6>
+                    <div>
+                      {currentCandidate.interests.slice(0, 5).map((interest, index) => (
+                        <Badge key={index} bg="secondary" className="me-1 mb-1">
+                          {interest}
+                        </Badge>
+                      ))}
+                      {currentCandidate.interests.length > 5 && (
+                        <Badge bg="light" text="dark">
+                          +{currentCandidate.interests.length - 5}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Compatibility Progress */}
+                <div className="mb-3">
+                  <div className="d-flex justify-content-between align-items-center mb-1">
+                    <small className="text-muted">匹配度</small>
+                    <small className="text-muted">{Math.round(currentCandidate.compatibility_score)}%</small>
+                  </div>
+                  <ProgressBar 
+                    now={currentCandidate.compatibility_score} 
+                    variant="success"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="d-flex gap-2">
+                  <Button 
+                    variant="outline-danger" 
+                    size="lg"
+                    className="flex-fill"
+                    onClick={handlePass}
+                    disabled={matching}
+                  >
+                    <X size={24} />
+                  </Button>
+                  <Button 
+                    variant="success" 
+                    size="lg"
+                    className="flex-fill"
+                    onClick={handleLike}
+                    disabled={matching}
+                  >
+                    {matching ? (
+                      <Spinner animation="border" size="sm" />
+                    ) : (
+                      <Heart size={24} />
+                    )}
+                  </Button>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      </Container>
+
+      {/* Match Modal */}
+      <Modal show={showMatchModal} onHide={() => setShowMatchModal(false)} centered>
+        <Modal.Body className="text-center py-4">
+          <div className="mb-3">
+            <Heart size={48} className="text-danger" />
+          </div>
+          <h4 className="mb-2">恭喜！你们匹配了！</h4>
+          <p className="text-muted mb-3">
+            你和 {matchedUser?.full_name} 很合拍，开始聊天吧！
+          </p>
+          <div className="d-grid gap-2">
+            <Button 
+              variant="primary"
+              onClick={handleStartChat}
+            >
+              <MessageSquare size={16} className="me-2" />
+              开始聊天
+            </Button>
+            <Button 
+              variant="outline-secondary"
+              onClick={() => setShowMatchModal(false)}
+            >
+              继续浏览
+            </Button>
+          </div>
+        </Modal.Body>
+      </Modal>
     </div>
   );
 } 

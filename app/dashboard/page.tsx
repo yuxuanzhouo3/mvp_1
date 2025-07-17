@@ -2,12 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  Container, 
+  Row, 
+  Col, 
+  Card, 
+  Button, 
+  Badge, 
+  Navbar, 
+  Nav, 
+  NavDropdown,
+  Offcanvas,
+  ListGroup,
+  ProgressBar,
+  Alert
+} from 'react-bootstrap';
 import { 
   Heart, 
   MessageSquare, 
@@ -17,9 +28,13 @@ import {
   Plus, 
   Settings, 
   User, 
-  MapPin 
+  MapPin,
+  Bell,
+  LogOut,
+  Menu,
+  Home
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 interface UserProfile {
   id: string;
@@ -61,120 +76,37 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [authSettled, setAuthSettled] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   const loadDashboardData = async () => {
+    if (!user?.id) return;
+
     try {
       setLoading(true);
-      console.log('🔄 Loading dashboard data for user:', user?.id);
       
-      // Get the current session for the auth token
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        console.error('❌ No access token available');
-        return;
-      }
-
-      const headers = {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json'
-      };
-      
-      // Load user profile
-      console.log('📊 Loading user profile...');
-      try {
-        const profileResponse = await fetch(`/api/user/profile`, { 
-          headers,
-          // Add timeout to prevent hanging requests
-          signal: AbortSignal.timeout(5000)
-        });
-        if (profileResponse.ok) {
-          const profileData = await profileResponse.json();
-          console.log('✅ Profile loaded:', profileData.profile);
-          setProfile(profileData.profile);
-        } else {
-          console.error('❌ Profile API error:', profileResponse.status);
-          throw new Error(`Profile API failed: ${profileResponse.status}`);
-        }
-      } catch (error) {
-        console.error('❌ Profile loading failed:', error);
-        // Fallback to basic user data if profile API fails
-        const fallbackProfile: UserProfile = {
-          id: user?.id || '',
-          email: user?.email || '',
-          full_name: user?.user_metadata?.full_name || user?.user_metadata?.name || 'User',
-          avatar_url: user?.user_metadata?.avatar_url,
-          credits: 100,
-          bio: '',
-          location: '',
-          interests: [],
-          created_at: new Date().toISOString()
-        };
-        setProfile(fallbackProfile);
+      // Load profile
+      const profileRes = await fetch('/api/user/profile');
+      if (profileRes.ok) {
+        const profileData = await profileRes.json();
+        setProfile(profileData);
       }
 
       // Load recent matches
-      console.log('💕 Loading recent matches...');
-      const matchesResponse = await fetch('/api/user/matches?limit=5', { headers });
-      if (matchesResponse.ok) {
-        const matchesData = await matchesResponse.json();
-        console.log('✅ Matches loaded:', matchesData.matches);
-        setRecentMatches(matchesData.matches);
-      } else {
-        console.error('❌ Matches API error:', matchesResponse.status);
-        setRecentMatches([]);
+      const matchesRes = await fetch('/api/user/matches');
+      if (matchesRes.ok) {
+        const matchesData = await matchesRes.json();
+        setRecentMatches(matchesData.slice(0, 5));
       }
 
-      // Load dashboard stats
-      console.log('📈 Loading dashboard stats...');
-      const statsResponse = await fetch('/api/user/stats', { headers });
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        console.log('✅ Stats loaded:', statsData.stats);
-        setStats(statsData.stats);
-      } else {
-        console.error('❌ Stats API error:', statsResponse.status);
-        // Fallback stats
-        setStats({
-          totalMatches: 0,
-          totalMessages: 0,
-          activeChats: 0,
-          profileCompletion: 50
-        });
+      // Load stats
+      const statsRes = await fetch('/api/user/stats');
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setStats(statsData);
       }
     } catch (error) {
-      console.error('❌ Dashboard data loading error:', error);
-      
-      // Create fallback data if API calls fail
-      if (!profile && user) {
-        const fallbackProfile: UserProfile = {
-          id: user.id,
-          email: user.email || '',
-          full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
-          avatar_url: user.user_metadata?.avatar_url || '',
-          bio: '',
-          location: '',
-          interests: [],
-          credits: 100,
-          created_at: new Date().toISOString()
-        };
-        setProfile(fallbackProfile);
-      }
-      
-      // Set fallback stats
-      setStats({
-        totalMatches: 0,
-        totalMessages: 0,
-        activeChats: 0,
-        profileCompletion: 50
-      });
-      
-      toast({
-        title: '加载失败',
-        description: '无法加载仪表盘数据，显示基础信息',
-        variant: 'destructive',
-      });
+      console.error('Error loading dashboard data:', error);
     } finally {
-      console.log('✅ Dashboard data loading complete, setting loading to false');
       setLoading(false);
     }
   };
@@ -182,7 +114,6 @@ export default function DashboardPage() {
   useEffect(() => {
     console.log('🔄 Dashboard useEffect - user:', !!user, 'user id:', user?.id, 'authLoading:', authLoading);
     
-    // Wait for auth state to settle
     if (authLoading) {
       console.log('⏳ Auth still loading, waiting...');
       return;
@@ -192,7 +123,6 @@ export default function DashboardPage() {
     
     if (!user || !user.id) {
       console.log('❌ No user found in dashboard, redirecting to login');
-      // Reset all state when no user
       setProfile(null);
       setRecentMatches([]);
       setStats(null);
@@ -201,113 +131,40 @@ export default function DashboardPage() {
       return;
     } else {
       console.log('✅ User authenticated, loading dashboard data');
-      console.log('👤 User details:', { id: user.id, email: user.email });
-      // Reset loading state when user is authenticated
-      setLoading(true);
       loadDashboardData();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, authSettled]);
 
-  // Add a timeout to prevent infinite loading
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (loading && user) {
-        console.log('⏰ Dashboard loading timeout - forcing display');
-        setLoading(false);
-        // Create a fallback profile if none exists
-        if (!profile && user) {
-          const fallbackProfile: UserProfile = {
-            id: user.id,
-            email: user.email || '',
-            full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
-            avatar_url: user.user_metadata?.avatar_url || '',
-            bio: '',
-            location: '',
-            interests: [],
-            credits: 100, // Default credit balance
-            created_at: new Date().toISOString()
-          };
-          setProfile(fallbackProfile);
-        }
-      }
-    }, 5000); // 5 second timeout
-
-    return () => clearTimeout(timeout);
-  }, [loading, user, profile]);
-
-  // Cleanup effect to reset state when user changes
-  useEffect(() => {
-    return () => {
-      // Cleanup function to reset state when component unmounts or user changes
-      console.log('🧹 Dashboard cleanup - resetting state');
-      setProfile(null);
-      setRecentMatches([]);
-      setStats(null);
-      setLoading(false);
-      setAuthSettled(false);
-    };
-  }, [user?.id]); // Only run when user ID changes
-
-
-
-  // Debug logging - only log when state changes significantly
-  const renderKey = `${authLoading}-${!!profile}-${loading}-${!!user}`;
-  console.log('🔍 Dashboard render state:', { 
-    authLoading, 
-    profile: !!profile, 
-    loading, 
-    user: !!user,
-    renderKey
-  });
-  
-  // Show loading only if we're still loading auth OR if we have a user but no profile and we're still loading
-  // But be more permissive - show dashboard even if some data is missing
-  if (authLoading) {
+  if (loading || authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <Container fluid className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">加载中...</p>
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <p className="mt-3 text-muted">加载中...</p>
         </div>
-      </div>
+      </Container>
     );
   }
 
   if (!profile) {
-    // If we have user data but no profile, show loading with user info
-    if (user) {
-      return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-400">正在加载用户资料...</p>
-            <p className="text-sm text-gray-500 mt-2">用户: {user.user_metadata?.full_name || user.user_metadata?.name || user.email}</p>
-          </div>
-        </div>
-      );
-    }
-    
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>用户资料未找到</CardTitle>
-            <CardDescription>请完善您的个人资料</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => router.push('/profile/setup')} className="w-full">
-              设置个人资料
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <Container fluid className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
+        <Alert variant="warning" className="text-center">
+          <Alert.Heading>无法加载用户资料</Alert.Heading>
+          <p>请稍后重试或联系客服。</p>
+          <Button variant="outline-warning" onClick={() => window.location.reload()}>
+            刷新页面
+          </Button>
+        </Alert>
+      </Container>
     );
   }
 
   const handleSignOut = async () => {
     try {
       await signOut();
-      // Force redirect to login page and clear all state
       window.location.href = '/auth/login';
       toast({
         title: '已退出登录',
@@ -336,316 +193,313 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
-        {pathname !== '/settings' && (
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                欢迎回来，{profile.full_name}！
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                发现新的朋友，开始有趣的对话
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="outline" onClick={handleViewChats}>
-                <MessageSquare className="h-4 w-4 mr-2" />
-                查看聊天
-              </Button>
-              <Button variant="outline" onClick={() => router.push('/settings')}>
-                <Settings className="h-4 w-4 mr-2" />
-                设置
-              </Button>
-              <Button variant="outline" onClick={handleSignOut}>
-                退出登录
-              </Button>
-            </div>
-          </div>
+    <div className="bg-light min-vh-100">
+      {/* Mobile Header */}
+      <Navbar bg="white" expand="lg" className="shadow-sm border-bottom">
+        <Container fluid>
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={() => setShowSidebar(true)}
+            className="me-2"
+          >
+            <Menu size={20} />
+          </Button>
+          
+          <Navbar.Brand className="fw-bold text-primary">PersonaLink</Navbar.Brand>
+          
+          <NavDropdown 
+            title={
+              <div className="d-flex align-items-center">
+                <div 
+                  className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2"
+                  style={{ width: '32px', height: '32px', fontSize: '14px' }}
+                >
+                  {profile.full_name?.charAt(0).toUpperCase()}
+                </div>
+              </div>
+            } 
+            id="user-dropdown"
+          >
+            <NavDropdown.Item onClick={() => router.push('/dashboard/settings')}>
+              <Settings size={16} className="me-2" />
+              设置
+            </NavDropdown.Item>
+            <NavDropdown.Item onClick={() => router.push('/dashboard/notifications')}>
+              <Bell size={16} className="me-2" />
+              通知
+            </NavDropdown.Item>
+            <NavDropdown.Divider />
+            <NavDropdown.Item onClick={handleSignOut} className="text-danger">
+              <LogOut size={16} className="me-2" />
+              退出登录
+            </NavDropdown.Item>
+          </NavDropdown>
+        </Container>
+      </Navbar>
+
+      {/* Mobile Sidebar */}
+      <Offcanvas show={showSidebar} onHide={() => setShowSidebar(false)} placement="start">
+        <Offcanvas.Header closeButton>
+          <Offcanvas.Title>PersonaLink</Offcanvas.Title>
+        </Offcanvas.Header>
+        <Offcanvas.Body>
+          <ListGroup variant="flush">
+            <ListGroup.Item action onClick={() => { router.push('/dashboard'); setShowSidebar(false); }}>
+              <Home size={16} className="me-2" />
+              首页
+            </ListGroup.Item>
+            <ListGroup.Item action onClick={() => { router.push('/chat'); setShowSidebar(false); }}>
+              <MessageSquare size={16} className="me-2" />
+              聊天
+            </ListGroup.Item>
+            <ListGroup.Item action onClick={() => { router.push('/matching'); setShowSidebar(false); }}>
+              <Heart size={16} className="me-2" />
+              匹配
+            </ListGroup.Item>
+            <ListGroup.Item action onClick={() => { router.push('/payment/recharge'); setShowSidebar(false); }}>
+              <CreditCard size={16} className="me-2" />
+              充值
+            </ListGroup.Item>
+            <ListGroup.Item action onClick={() => { router.push('/dashboard/settings'); setShowSidebar(false); }}>
+              <Settings size={16} className="me-2" />
+              设置
+            </ListGroup.Item>
+          </ListGroup>
+        </Offcanvas.Body>
+      </Offcanvas>
+
+      <Container fluid className="py-3">
+        {/* Welcome Section */}
+        <Row className="mb-4">
+          <Col>
+            <Card className="border-0 shadow-sm">
+              <Card.Body className="text-center">
+                <h4 className="fw-bold text-primary mb-2">
+                  欢迎回来，{profile.full_name}！
+                </h4>
+                <p className="text-muted mb-0">发现新的朋友，开始有趣的对话</p>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Quick Actions */}
+        <Row className="mb-4">
+          <Col>
+            <Card className="border-0 shadow-sm">
+              <Card.Header className="bg-white border-0">
+                <h6 className="mb-0 fw-bold">快速操作</h6>
+              </Card.Header>
+              <Card.Body>
+                <Row>
+                  <Col xs={6} className="mb-2">
+                    <Button 
+                      variant="primary" 
+                      className="w-100"
+                      onClick={handleStartMatching}
+                    >
+                      <Heart size={16} className="me-1" />
+                      开始匹配
+                    </Button>
+                  </Col>
+                  <Col xs={6} className="mb-2">
+                    <Button 
+                      variant="outline-primary" 
+                      className="w-100"
+                      onClick={handleViewChats}
+                    >
+                      <MessageSquare size={16} className="me-1" />
+                      查看聊天
+                    </Button>
+                  </Col>
+                </Row>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+
+        {/* Stats Cards */}
+        {stats && (
+          <Row className="mb-4">
+            <Col>
+              <Card className="border-0 shadow-sm">
+                <Card.Header className="bg-white border-0">
+                  <h6 className="mb-0 fw-bold">数据统计</h6>
+                </Card.Header>
+                <Card.Body>
+                  <Row>
+                    <Col xs={6} className="mb-3">
+                      <div className="text-center">
+                        <div className="h4 text-primary mb-1">{stats.totalMatches}</div>
+                        <small className="text-muted">总匹配数</small>
+                      </div>
+                    </Col>
+                    <Col xs={6} className="mb-3">
+                      <div className="text-center">
+                        <div className="h4 text-success mb-1">{stats.totalMessages}</div>
+                        <small className="text-muted">消息数量</small>
+                      </div>
+                    </Col>
+                    <Col xs={6} className="mb-3">
+                      <div className="text-center">
+                        <div className="h4 text-info mb-1">{stats.activeChats}</div>
+                        <small className="text-muted">活跃聊天</small>
+                      </div>
+                    </Col>
+                    <Col xs={6} className="mb-3">
+                      <div className="text-center">
+                        <div className="h4 text-warning mb-1">{stats.profileCompletion}%</div>
+                        <small className="text-muted">资料完整度</small>
+                      </div>
+                    </Col>
+                  </Row>
+                  <ProgressBar 
+                    now={stats.profileCompletion} 
+                    variant="warning" 
+                    className="mt-2"
+                  />
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Profile & Quick Actions */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Profile Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <User className="h-5 w-5 mr-2" />
+        {/* Profile & Credits */}
+        <Row className="mb-4">
+          <Col xs={12} md={6} className="mb-3">
+            <Card className="border-0 shadow-sm h-100">
+              <Card.Header className="bg-white border-0">
+                <h6 className="mb-0 fw-bold">
+                  <User size={16} className="me-2" />
                   个人资料
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <Avatar className="h-16 w-16">
-                    <AvatarImage src={profile.avatar_url} />
-                    <AvatarFallback>
-                      {profile.full_name?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                </h6>
+              </Card.Header>
+              <Card.Body>
+                <div className="d-flex align-items-center mb-3">
+                  <div 
+                    className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-3"
+                    style={{ width: '48px', height: '48px', fontSize: '18px' }}
+                  >
+                    {profile.full_name?.charAt(0).toUpperCase()}
+                  </div>
                   <div>
-                    <h3 className="font-semibold">{profile.full_name}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {profile.email}
-                    </p>
-                    {profile.location && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
-                        <MapPin className="h-3 w-3 mr-1" />
-                        {profile.location}
-                      </p>
-                    )}
+                    <h6 className="mb-1">{profile.full_name}</h6>
+                    <small className="text-muted">{profile.email}</small>
                   </div>
                 </div>
-                
-                {profile.bio && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {profile.bio}
+                {profile.location && (
+                  <p className="text-muted small mb-2">
+                    <MapPin size={14} className="me-1" />
+                    {profile.location}
                   </p>
                 )}
-
                 {profile.interests && profile.interests.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">兴趣爱好</p>
-                    <div className="flex flex-wrap gap-1">
-                      {profile.interests.slice(0, 5).map((interest, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
+                  <div className="mb-3">
+                    <small className="text-muted d-block mb-1">兴趣爱好</small>
+                    <div>
+                      {profile.interests.slice(0, 3).map((interest, index) => (
+                        <Badge key={index} bg="secondary" className="me-1">
                           {interest}
                         </Badge>
                       ))}
-                      {profile.interests.length > 5 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{profile.interests.length - 5}
+                      {profile.interests.length > 3 && (
+                        <Badge bg="light" text="dark">
+                          +{profile.interests.length - 3}
                         </Badge>
                       )}
                     </div>
                   </div>
                 )}
-
                 <Button 
-                  variant="outline" 
-                  className="w-full"
+                  variant="outline-primary" 
+                  size="sm" 
+                  className="w-100"
                   onClick={() => router.push('/profile/edit')}
                 >
                   编辑资料
                 </Button>
-              </CardContent>
+              </Card.Body>
             </Card>
-
-            {/* Credit Balance */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <CreditCard className="h-5 w-5 mr-2" />
+          </Col>
+          
+          <Col xs={12} md={6} className="mb-3">
+            <Card className="border-0 shadow-sm h-100">
+              <Card.Header className="bg-white border-0">
+                <h6 className="mb-0 fw-bold">
+                  <CreditCard size={16} className="me-2" />
                   积分余额
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center">
-                  <div className="text-3xl font-bold text-blue-600 mb-2">
-                    {profile.credits}
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    可用积分
-                  </p>
-                  <Button onClick={handleRechargeCredits} className="w-full">
-                    <Plus className="h-4 w-4 mr-2" />
-                    充值积分
-                  </Button>
-                </div>
-              </CardContent>
+                </h6>
+              </Card.Header>
+              <Card.Body className="text-center">
+                <div className="h2 text-primary mb-2">{profile.credits}</div>
+                <p className="text-muted small mb-3">可用积分</p>
+                <Button 
+                  variant="success" 
+                  className="w-100"
+                  onClick={handleRechargeCredits}
+                >
+                  <Plus size={16} className="me-1" />
+                  充值积分
+                </Button>
+              </Card.Body>
             </Card>
+          </Col>
+        </Row>
 
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>快速操作</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button onClick={handleStartMatching} className="w-full">
-                  <Heart className="h-4 w-4 mr-2" />
-                  开始匹配
-                </Button>
-                <Button variant="outline" onClick={handleViewChats} className="w-full">
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  查看聊天
-                </Button>
-                <Button variant="outline" onClick={() => router.push('/matching/history')} className="w-full">
-                  <Users className="h-4 w-4 mr-2" />
-                  匹配历史
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column - Stats & Recent Matches */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Stats Grid */}
-            {stats && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center">
-                      <Heart className="h-8 w-8 text-red-500 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          总匹配数
-                        </p>
-                        <p className="text-2xl font-bold">{stats.totalMatches}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center">
-                      <MessageSquare className="h-8 w-8 text-blue-500 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          消息数量
-                        </p>
-                        <p className="text-2xl font-bold">{stats.totalMessages}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center">
-                      <Users className="h-8 w-8 text-green-500 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          活跃聊天
-                        </p>
-                        <p className="text-2xl font-bold">{stats.activeChats}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex items-center">
-                      <TrendingUp className="h-8 w-8 text-purple-500 mr-3" />
-                      <div>
-                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          资料完整度
-                        </p>
-                        <p className="text-2xl font-bold">{stats.profileCompletion}%</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            {/* Recent Matches */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between">
-                  <span className="flex items-center">
-                    <Heart className="h-5 w-5 mr-2" />
+        {/* Recent Matches */}
+        {recentMatches.length > 0 && (
+          <Row>
+            <Col>
+              <Card className="border-0 shadow-sm">
+                <Card.Header className="bg-white border-0 d-flex justify-content-between align-items-center">
+                  <h6 className="mb-0 fw-bold">
+                    <Heart size={16} className="me-2" />
                     最近匹配
-                  </span>
+                  </h6>
                   <Button 
-                    variant="outline" 
-                    size="sm"
+                    variant="link" 
+                    size="sm" 
+                    className="p-0 text-decoration-none"
                     onClick={() => router.push('/matching/history')}
                   >
                     查看全部
                   </Button>
-                </CardTitle>
-                <CardDescription>
-                  您最近的匹配对象
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {!recentMatches || recentMatches.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Heart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
-                      还没有匹配记录
-                    </p>
-                    <Button onClick={handleStartMatching}>
-                      开始匹配
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
+                </Card.Header>
+                <Card.Body className="p-0">
+                  <ListGroup variant="flush">
                     {recentMatches.map((match) => (
-                      <div 
-                        key={match.id} 
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                        onClick={() => router.push(`/chat/${match.id}`)}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <Avatar>
-                            <AvatarImage src={match.matched_user.avatar_url} />
-                            <AvatarFallback>
-                              {match.matched_user.full_name?.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">{match.matched_user.full_name}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              匹配于 {new Date(match.matched_at).toLocaleDateString()}
-                            </p>
+                      <ListGroup.Item key={match.id} className="border-0">
+                        <div className="d-flex align-items-center">
+                          <div 
+                            className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-3"
+                            style={{ width: '40px', height: '40px', fontSize: '14px' }}
+                          >
+                            {match.matched_user.full_name?.charAt(0).toUpperCase()}
                           </div>
+                          <div className="flex-grow-1">
+                            <h6 className="mb-1">{match.matched_user.full_name}</h6>
+                            <small className="text-muted">
+                              匹配度: {match.compatibility_score}%
+                            </small>
+                          </div>
+                          <Button 
+                            variant="outline-primary" 
+                            size="sm"
+                            onClick={() => router.push(`/chat/${match.id}`)}
+                          >
+                            聊天
+                          </Button>
                         </div>
-                        <div className="text-right">
-                          <Badge variant="secondary">
-                            {Math.round(match.compatibility_score * 100)}% 匹配
-                          </Badge>
-                        </div>
-                      </div>
+                      </ListGroup.Item>
                     ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Activity Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Calendar className="h-5 w-5 mr-2" />
-                  活动摘要
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      本周新匹配
-                    </span>
-                    <span className="font-medium">
-                      {recentMatches.filter(m => 
-                        new Date(m.matched_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-                      ).length}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      活跃天数
-                    </span>
-                    <span className="font-medium">
-                      {Math.floor((Date.now() - new Date(profile.created_at).getTime()) / (1000 * 60 * 60 * 24))}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      平均响应时间
-                    </span>
-                    <span className="font-medium">2.3 小时</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
+                  </ListGroup>
+                </Card.Body>
+              </Card>
+            </Col>
+          </Row>
+        )}
+      </Container>
     </div>
   );
 } 
