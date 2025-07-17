@@ -31,37 +31,19 @@ export default function LoginPage() {
   // Immediate redirect if user is already authenticated
   useEffect(() => {
     console.log('🚀 Login page mounted - user:', !!user, 'user id:', user?.id);
-    if (user && user.id) {
+    if (user && user.id && !hasRedirectedRef.current) {
       console.log('✅ User already authenticated, redirecting immediately');
-      // Force redirect with window.location to bypass any routing issues
-      window.location.href = '/dashboard';
-    }
-  }, [user]);
-
-  // Also check on every render if user becomes authenticated
-  if (user && user.id) {
-    console.log('🚀 User authenticated during render, redirecting');
-    // Use setTimeout to avoid React state update during render
-    setTimeout(() => {
-      window.location.href = '/dashboard';
-    }, 0);
-  }
-
-  // Redirect if already logged in - Simplified logic to prevent infinite loops
-  useEffect(() => {
-    console.log('🔄 Login page useEffect - user:', !!user, 'isLoading:', isLoading, 'hasRedirected:', hasRedirectedRef.current);
-    
-    if (user && !hasRedirectedRef.current) {
       hasRedirectedRef.current = true;
-      console.log('✅ User authenticated, redirecting to dashboard');
-      // Force redirect immediately
-      router.replace('/dashboard');
+      router.push('/dashboard');
     }
-    // Reset redirect ref if user logs out
+  }, [user, router]);
+
+  // Reset redirect ref if user logs out
+  useEffect(() => {
     if (!user && hasRedirectedRef.current) {
       hasRedirectedRef.current = false;
     }
-  }, [user, router]);
+  }, [user]);
 
   // Reset loading state if user state changes
   useEffect(() => {

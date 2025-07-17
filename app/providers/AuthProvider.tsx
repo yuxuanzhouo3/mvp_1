@@ -1,220 +1,112 @@
-'use client';
+"use client";
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { User, Session } from '@supabase/supabase-js';
-import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
+
+// Create a singleton Supabase client
+let supabaseClient: ReturnType<typeof createClient> | null = null;
+
+function getSupabaseClient() {
+  if (!supabaseClient) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
+    
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined
+      }
+    });
+  }
+  
+  return supabaseClient;
+}
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any; requiresConfirmation?: boolean }>;
-  signOut: () => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<{ error: any }>;
   signInWithPhone: (phone: string) => Promise<{ error: any }>;
-  verifyPhoneOTP: (phone: string, token: string) => Promise<{ error: any }>;
-  resetPassword: (email: string) => Promise<{ error: any }>;
-  updatePassword: (password: string) => Promise<{ error: any }>;
-  updateProfile: (updates: any) => Promise<{ error: any }>;
+  verifyPhoneOTP: (phone: string, otp: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string) => Promise<{ error: any }>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Only log once per mount to reduce console spam
-  console.log('🚀 AuthProvider component loaded!');
-  
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const userRef = useRef<User | null>(null);
   const isInitializedRef = useRef(false);
+  const userRef = useRef<User | null>(null);
 
-  // Use singleton Supabase client
-  console.log('🌐 Using singleton Supabase client');
+  const supabase = getSupabaseClient();
 
-  // Capture user metadata to database
-  const captureUserMetadata = useCallback(async (user: User) => {
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email,
-          full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
-          avatar_url: user.user_metadata?.avatar_url || '',
-          updated_at: new Date().toISOString(),
-        });
-
-      if (error) {
-        console.error('Error capturing user metadata:', error);
-      }
-    } catch (error) {
-      console.error('Error in captureUserMetadata:', error);
-    }
-  }, []);
-
-  // Log user session information
-  const logUserSession = useCallback(async (user: User, session: Session, loginMethod: string = 'email') => {
-    try {
-      // Get client information
-      const userAgent = navigator.userAgent;
-      const deviceType = getDeviceType(userAgent);
-      const browser = getBrowser(userAgent);
-      const os = getOS(userAgent);
-      
-      // Get IP address (this would need to be passed from the server in a real app)
-      const ipAddress = null; // Will be set by server-side logging
-      
-      // Log the session using the database function
-      const { data, error } = await supabase.rpc('log_user_login', {
-        p_user_id: user.id,
-        p_session_id: session.access_token,
-        p_ip_address: ipAddress,
-        p_user_agent: userAgent,
-        p_device_type: deviceType,
-        p_browser: browser,
-        p_os: os,
-        p_location: null, // Could be determined by IP geolocation
-        p_login_method: loginMethod,
-        p_login_status: 'success',
-        p_failure_reason: null
-      });
-
-      if (error) {
-        // Don't log as error if function doesn't exist (404)
-        if (error.code === 'PGRST116' || error.message?.includes('404')) {
-          console.log('ℹ️ User session logging not available (function not created yet)');
-        } else {
-          console.error('Error logging user session:', error);
-        }
-      } else {
-        console.log('✅ User session logged successfully');
-      }
-    } catch (error) {
-      // Don't log as error if function doesn't exist
-      if (error instanceof Error && error.message?.includes('404')) {
-        console.log('ℹ️ User session logging not available (function not created yet)');
-      } else {
-        console.error('Error in logUserSession:', error);
-      }
-    }
-  }, []);
-
-  // Helper functions to detect device and browser information
-  const getDeviceType = (userAgent: string): string => {
-    if (/Mobile|Android|iPhone|iPad/.test(userAgent)) {
-      return /iPad/.test(userAgent) ? 'tablet' : 'mobile';
-    }
-    return 'desktop';
-  };
-
-  const getBrowser = (userAgent: string): string => {
-    if (userAgent.includes('Chrome')) return 'Chrome';
-    if (userAgent.includes('Firefox')) return 'Firefox';
-    if (userAgent.includes('Safari')) return 'Safari';
-    if (userAgent.includes('Edge')) return 'Edge';
-    return 'Unknown';
-  };
-
-  const getOS = (userAgent: string): string => {
-    if (userAgent.includes('Windows')) return 'Windows';
-    if (userAgent.includes('Mac')) return 'macOS';
-    if (userAgent.includes('Linux')) return 'Linux';
-    if (userAgent.includes('Android')) return 'Android';
-    if (userAgent.includes('iOS')) return 'iOS';
-    return 'Unknown';
-  };
-
+  // Initialize auth state only once
   useEffect(() => {
-    // Prevent multiple initializations
     if (isInitializedRef.current) {
-      console.log('⚠️ AuthProvider already initialized, skipping...');
       return;
     }
     
-    console.log('🚀 AuthProvider useEffect started');
+    console.log('🚀 AuthProvider initializing...');
     isInitializedRef.current = true;
 
-    // Get initial session
-    const getInitialSession = async () => {
+    const initializeAuth = async () => {
       try {
+        // Get initial session
         const { data: { session }, error } = await supabase.auth.getSession();
+        
         if (error) {
           console.error('Error getting initial session:', error);
         } else if (session) {
           console.log('📋 Initial session found:', session.user.email);
           setSession(session);
           setUser(session.user);
-          
-          // Log the session if user is authenticated
-          if (session.user) {
-            await logUserSession(session.user, session, 'email');
-          }
+          userRef.current = session.user;
         }
       } catch (error) {
-        console.error('Error in getInitialSession:', error);
+        console.error('Error in initializeAuth:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    getInitialSession();
+    initializeAuth();
 
-    // Listen for auth changes
-    console.log('👂 Setting up auth state change listener...');
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 Auth state changed:', event, session?.user?.email);
         
-        // Set loading state for auth transitions
         setLoading(true);
         
         try {
           if (event === 'SIGNED_IN' && session) {
-            console.log('✅ User signed in, updating state...');
-          setSession(session);
+            console.log('✅ User signed in');
+            setSession(session);
             setUser(session.user);
             userRef.current = session.user;
-            
-            // Capture user metadata
-            await captureUserMetadata(session.user);
-            
-            // Log the session
-            await logUserSession(session.user, session, 'email');
-            
           } else if (event === 'SIGNED_OUT') {
-            console.log('🚪 User signed out, clearing state...');
-            // Store the current user before clearing it
-            const currentUser = userRef.current;
-            
-            // Clear state immediately
+            console.log('🚪 User signed out');
             setSession(null);
             setUser(null);
             userRef.current = null;
-            
-            // Log logout if we have the previous user info
-            if (currentUser && session) {
-              try {
-                await supabase.rpc('log_user_logout', {
-                  p_user_id: currentUser.id,
-                  p_session_id: session.access_token,
-                  p_reason: 'user_logout'
-                });
-                console.log('✅ User logout logged successfully');
-              } catch (error) {
-                console.error('Error logging logout:', error);
-              }
-            }
           } else if (event === 'TOKEN_REFRESHED' && session) {
-            console.log('🔄 Token refreshed, updating session...');
+            console.log('🔄 Token refreshed');
             setSession(session);
             setUser(session.user);
           } else if (event === 'INITIAL_SESSION') {
-            console.log('📋 Initial session event, updating state...');
+            console.log('📋 Initial session event');
             if (session) {
               setSession(session);
               setUser(session.user);
@@ -228,129 +120,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (error) {
           console.error('❌ Error in auth state change handler:', error);
         } finally {
-          // Always set loading to false after state changes
           setLoading(false);
         }
       }
     );
 
     return () => {
-      console.log('🧹 AuthProvider cleanup - unmounting');
+      console.log('🧹 AuthProvider cleanup');
       subscription.unsubscribe();
     };
-  }, []); // Remove dependencies to prevent infinite loop
+  }, []); // Empty dependency array to run only once
 
-  // Memoize all auth functions to prevent unnecessary re-renders
   const signIn = useCallback(async (email: string, password: string) => {
-    console.log('🔐 AuthProvider.signIn called with:', { email });
-    console.log('📊 Current user state before signIn:', user);
+    console.log('🔐 SignIn called with:', email);
     
-    console.log('🌐 Real mode: Calling Supabase auth...');
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    console.log('🌐 Supabase auth result:', { error });
-    return { error };
-  }, []);
-
-  const signUp = useCallback(async (email: string, password: string, fullName: string) => {
-    console.log('📝 AuthProvider.signUp called with:', { email, fullName });
-    
-    try {
-      const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    
-      console.log('🌐 Supabase signup result:', { data, error });
-      
-      if (error) {
-        console.error('❌ Signup error:', error);
-    return { error };
-      }
-      
-      if (data.user && !data.session) {
-        // User created but needs email confirmation
-        console.log('📧 User created, email confirmation required');
-        return { error: null, requiresConfirmation: true };
-      }
-      
-      if (data.user && data.session) {
-        // User created and automatically signed in
-        console.log('✅ User created and signed in automatically');
-        return { error: null, requiresConfirmation: false };
-      }
-      
-      return { error: null };
-    } catch (error) {
-      console.error('💥 Unexpected error during signup:', error);
-      return { error: { message: 'An unexpected error occurred during registration' } };
-    }
-  }, []);
-
-  const signOut = useCallback(async () => {
-    console.log('🚪 AuthProvider.signOut called');
-    
-    // Reset initialization flag to allow fresh auth state
-    isInitializedRef.current = false;
-    
-    // Don't manually set state here - let the auth state change listener handle it
-    const { error } = await supabase.auth.signOut();
-    
-    // The auth state change listener will automatically handle the state cleanup
-    console.log('🚪 SignOut completed, auth state listener will handle cleanup');
     
     return { error };
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
+    console.log('🔐 SignInWithGoogle called');
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+        redirectTo: `${window.location.origin}/auth/callback`
+      }
     });
+    
     return { error };
   }, []);
 
   const signInWithPhone = useCallback(async (phone: string) => {
+    console.log('🔐 SignInWithPhone called');
+    
     const { error } = await supabase.auth.signInWithOtp({
       phone,
     });
+    
     return { error };
   }, []);
 
-  const verifyPhoneOTP = useCallback(async (phone: string, token: string) => {
+  const verifyPhoneOTP = useCallback(async (phone: string, otp: string) => {
+    console.log('🔐 VerifyPhoneOTP called');
+    
     const { error } = await supabase.auth.verifyOtp({
       phone,
-      token,
-      type: 'sms',
+      token: otp,
+      type: 'sms'
     });
+    
     return { error };
   }, []);
 
-  const resetPassword = useCallback(async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/update-password`,
+  const signUp = useCallback(async (email: string, password: string) => {
+    console.log('🔐 SignUp called');
+    
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
     });
+    
     return { error };
   }, []);
 
-  const updatePassword = useCallback(async (password: string) => {
-    const { error } = await supabase.auth.updateUser({ password });
-    return { error };
-  }, []);
-
-  const updateProfile = useCallback(async (updates: any) => {
-    const { error } = await supabase.auth.updateUser(updates);
-    return { error };
+  const signOut = useCallback(async () => {
+    console.log('🚪 SignOut called');
+    
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('SignOut error:', error);
+      }
+    } catch (error) {
+      console.error('SignOut error:', error);
+    }
   }, []);
 
   const value = {
@@ -358,17 +206,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     loading,
     signIn,
-    signUp,
-    signOut,
     signInWithGoogle,
     signInWithPhone,
     verifyPhoneOTP,
-    resetPassword,
-    updatePassword,
-    updateProfile,
+    signUp,
+    signOut,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

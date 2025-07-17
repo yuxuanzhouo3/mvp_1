@@ -181,8 +181,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     console.log('🔄 Dashboard useEffect - user:', !!user, 'user id:', user?.id, 'authLoading:', authLoading);
-    console.log('🔍 Full user object:', user);
-    console.log('📊 Current state:', { authLoading, profile: !!profile, loading, user: !!user });
     
     // Wait for auth state to settle
     if (authLoading) {
@@ -194,14 +192,12 @@ export default function DashboardPage() {
     
     if (!user || !user.id) {
       console.log('❌ No user found in dashboard, redirecting to login');
-      console.log('🔍 User check failed - user:', user, 'user.id:', user?.id);
       // Reset all state when no user
       setProfile(null);
       setRecentMatches([]);
       setStats(null);
       setLoading(false);
-      // Use window.location.href to force a full page reload and avoid routing issues
-      window.location.href = '/auth/login';
+      router.push('/auth/login');
       return;
     } else {
       console.log('✅ User authenticated, loading dashboard data');
@@ -211,44 +207,6 @@ export default function DashboardPage() {
       loadDashboardData();
     }
   }, [user, authLoading]);
-
-  // AGGRESSIVE TIMEOUT: Force display after 2 seconds regardless of loading state
-  useEffect(() => {
-    const aggressiveTimeout = setTimeout(() => {
-      if (user && loading) {
-        console.log('⚡ AGGRESSIVE: Dashboard loading timeout - forcing display with fallback data');
-        setLoading(false);
-        
-        // Create a fallback profile if none exists
-        if (!profile && user) {
-          const fallbackProfile: UserProfile = {
-            id: user.id,
-            email: user.email || '',
-            full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
-            avatar_url: user.user_metadata?.avatar_url || '',
-            bio: '',
-            location: '',
-            interests: [],
-            credits: 100,
-            created_at: new Date().toISOString()
-          };
-          setProfile(fallbackProfile);
-        }
-        
-        // Set fallback stats
-        if (!stats) {
-          setStats({
-            totalMatches: 0,
-            totalMessages: 0,
-            activeChats: 0,
-            profileCompletion: 50
-          });
-        }
-      }
-    }, 2000); // 2 second timeout - very aggressive
-
-    return () => clearTimeout(aggressiveTimeout);
-  }, [loading, user, profile, stats]);
 
   // Add a timeout to prevent infinite loading
   useEffect(() => {
@@ -272,7 +230,7 @@ export default function DashboardPage() {
           setProfile(fallbackProfile);
         }
       }
-    }, 3000); // 3 second timeout - more aggressive
+    }, 5000); // 5 second timeout
 
     return () => clearTimeout(timeout);
   }, [loading, user, profile]);
@@ -290,54 +248,7 @@ export default function DashboardPage() {
     };
   }, [user?.id]); // Only run when user ID changes
 
-  // Session refresh and error recovery
-  useEffect(() => {
-    const sessionCheck = setInterval(async () => {
-      if (user && !loading) {
-        try {
-          // Check if session is still valid
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) {
-            console.log('🔄 Session expired, refreshing...');
-            // Try to refresh the session
-            const { data, error } = await supabase.auth.refreshSession();
-            if (error) {
-              console.log('❌ Session refresh failed, redirecting to login');
-              window.location.href = '/auth/login';
-            }
-          }
-        } catch (error) {
-          console.log('❌ Session check failed:', error);
-        }
-      }
-    }, 25000); // Check every 25 seconds
 
-    return () => clearInterval(sessionCheck);
-  }, [user, loading]);
-
-  // EMERGENCY FIX: Force redirect if still loading after 5 seconds
-  useEffect(() => {
-    const emergencyTimeout = setTimeout(() => {
-      if (loading && user) {
-        console.log('🚨 EMERGENCY: Dashboard still loading after 5s, forcing redirect to login');
-        window.location.href = '/auth/login';
-      }
-    }, 5000);
-
-    return () => clearTimeout(emergencyTimeout);
-  }, [loading, user]);
-
-  // ULTRA EMERGENCY: Force redirect if no user after auth settles
-  useEffect(() => {
-    const ultraEmergencyTimeout = setTimeout(() => {
-      if (!authLoading && !user) {
-        console.log('🚨 ULTRA EMERGENCY: No user after auth settled, forcing redirect to login');
-        window.location.href = '/auth/login';
-      }
-    }, 3000);
-
-    return () => clearTimeout(ultraEmergencyTimeout);
-  }, [authLoading, user]);
 
   // Debug logging - only log when state changes significantly
   const renderKey = `${authLoading}-${!!profile}-${loading}-${!!user}`;
