@@ -17,7 +17,8 @@ import {
   Filter,
   MoreVertical,
   Phone,
-  Video
+  Video,
+  ArrowLeft
 } from 'lucide-react';
 
 interface ChatPreview {
@@ -117,6 +118,10 @@ export default function ChatListPage() {
     router.push('/matching');
   };
 
+  const handleBackToDashboard = () => {
+    router.push('/dashboard');
+  };
+
   const formatLastMessage = (message: ChatPreview['last_message']) => {
     if (message.message_type === 'image') {
       return '📷 图片';
@@ -159,13 +164,24 @@ export default function ChatListPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              聊天
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              与您的匹配对象保持联系
-            </p>
+          <div className="flex items-center space-x-4">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleBackToDashboard}
+              className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              返回仪表板
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                聊天
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                与您的匹配对象保持联系
+              </p>
+            </div>
           </div>
           <Button onClick={handleStartMatching}>
             <Plus className="h-4 w-4 mr-2" />

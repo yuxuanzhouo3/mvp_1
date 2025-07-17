@@ -10,7 +10,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: any; requiresConfirmation?: boolean }>;
   signOut: () => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<{ error: any }>;
   signInWithPhone: (phone: string) => Promise<{ error: any }>;
@@ -138,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     console.log('🚀 AuthProvider useEffect started');
     isInitializedRef.current = true;
-    
+
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -170,46 +170,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event, session) => {
         console.log('🔄 Auth state changed:', event, session?.user?.email);
         
+        // Set loading state for auth transitions
         setLoading(true);
         
-        if (event === 'SIGNED_IN' && session) {
+        try {
+          if (event === 'SIGNED_IN' && session) {
+            console.log('✅ User signed in, updating state...');
           setSession(session);
-          setUser(session.user);
-          userRef.current = session.user;
-          
-          // Capture user metadata
-          await captureUserMetadata(session.user);
-          
-          // Log the session
-          await logUserSession(session.user, session, 'email');
-          
-        } else if (event === 'SIGNED_OUT') {
-          // Store the current user before clearing it
-          const currentUser = userRef.current;
-          
-          setSession(null);
-          setUser(null);
-          userRef.current = null;
-          
-          // Log logout if we have the previous user info
-          if (currentUser && session) {
-            try {
-              await supabase.rpc('log_user_logout', {
-                p_user_id: currentUser.id,
-                p_session_id: session.access_token,
-                p_reason: 'user_logout'
-              });
-              console.log('✅ User logout logged successfully');
-            } catch (error) {
-              console.error('Error logging logout:', error);
+            setUser(session.user);
+            userRef.current = session.user;
+            
+            // Capture user metadata
+            await captureUserMetadata(session.user);
+            
+            // Log the session
+            await logUserSession(session.user, session, 'email');
+            
+          } else if (event === 'SIGNED_OUT') {
+            console.log('🚪 User signed out, clearing state...');
+            // Store the current user before clearing it
+            const currentUser = userRef.current;
+            
+            // Clear state immediately
+            setSession(null);
+            setUser(null);
+            userRef.current = null;
+            
+            // Log logout if we have the previous user info
+            if (currentUser && session) {
+              try {
+                await supabase.rpc('log_user_logout', {
+                  p_user_id: currentUser.id,
+                  p_session_id: session.access_token,
+                  p_reason: 'user_logout'
+                });
+                console.log('✅ User logout logged successfully');
+              } catch (error) {
+                console.error('Error logging logout:', error);
+              }
+            }
+          } else if (event === 'TOKEN_REFRESHED' && session) {
+            console.log('🔄 Token refreshed, updating session...');
+            setSession(session);
+            setUser(session.user);
+          } else if (event === 'INITIAL_SESSION') {
+            console.log('📋 Initial session event, updating state...');
+            if (session) {
+              setSession(session);
+              setUser(session.user);
+              userRef.current = session.user;
+            } else {
+              setSession(null);
+              setUser(null);
+              userRef.current = null;
             }
           }
-        } else if (event === 'TOKEN_REFRESHED' && session) {
-          setSession(session);
-          setUser(session.user);
+        } catch (error) {
+          console.error('❌ Error in auth state change handler:', error);
+        } finally {
+          // Always set loading to false after state changes
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
 
@@ -236,29 +257,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = useCallback(async (email: string, password: string, fullName: string) => {
     console.log('📝 AuthProvider.signUp called with:', { email, fullName });
     
-    const { error } = await supabase.auth.signUp({
+    try {
+      const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName,
         },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     });
     
-    console.log('🌐 Supabase signup result:', { error });
+      console.log('🌐 Supabase signup result:', { data, error });
+      
+      if (error) {
+        console.error('❌ Signup error:', error);
     return { error };
+      }
+      
+      if (data.user && !data.session) {
+        // User created but needs email confirmation
+        console.log('📧 User created, email confirmation required');
+        return { error: null, requiresConfirmation: true };
+      }
+      
+      if (data.user && data.session) {
+        // User created and automatically signed in
+        console.log('✅ User created and signed in automatically');
+        return { error: null, requiresConfirmation: false };
+      }
+      
+      return { error: null };
+    } catch (error) {
+      console.error('💥 Unexpected error during signup:', error);
+      return { error: { message: 'An unexpected error occurred during registration' } };
+    }
   }, []);
 
   const signOut = useCallback(async () => {
     console.log('🚪 AuthProvider.signOut called');
     
+    // Reset initialization flag to allow fresh auth state
+    isInitializedRef.current = false;
+    
+    // Don't manually set state here - let the auth state change listener handle it
     const { error } = await supabase.auth.signOut();
     
-    if (!error) {
-      setUser(null);
-      setSession(null);
-    }
+    // The auth state change listener will automatically handle the state cleanup
+    console.log('🚪 SignOut completed, auth state listener will handle cleanup');
     
     return { error };
   }, []);

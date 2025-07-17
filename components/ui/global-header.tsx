@@ -2,16 +2,20 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Heart, Settings, Globe, Sun, Moon, ChevronDown } from 'lucide-react';
+import { Heart, Settings, Globe, Sun, Moon, ChevronDown, LogOut } from 'lucide-react';
 import { useTheme } from '@/context/ThemeProvider';
 import { getTranslation } from '@/lib/translations';
 import Link from 'next/link';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { useRouter } from 'next/navigation';
 
 export function GlobalHeader() {
   const [showSettings, setShowSettings] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
 
   // Handle theme context safely
   let theme: 'blue' = 'blue';
@@ -32,19 +36,24 @@ export function GlobalHeader() {
     // Values are already set above
   }
 
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const t = (key: string) => getTranslation(language, key);
 
-  // Function to get user display name
-  const getUserDisplayName = () => {
-    if (!user) return 'Dashboard';
-    
-    // Priority order: email > phone > full_name > name > fallback
-    return user.email || 
-           user.phone || 
-           user.user_metadata?.full_name || 
-           user.user_metadata?.name || 
-           'Dashboard';
+  // Handle logout with proper error handling
+  const handleSignOut = async () => {
+    try {
+      console.log('🚪 Attempting to sign out...');
+      const { error } = await signOut();
+      setShowUserMenu(false);
+      if (error) {
+        console.error('❌ Sign out error:', error);
+      } else {
+        console.log('✅ Sign out successful, redirecting to login...');
+        router.push('/auth/login');
+      }
+    } catch (error) {
+      console.error('💥 Unexpected error during sign out:', error);
+    }
   };
 
   // Set mounted state
@@ -62,6 +71,9 @@ export function GlobalHeader() {
     function handleClickOutside(event: MouseEvent) {
       if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
         setShowSettings(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false);
       }
     }
 
@@ -195,11 +207,54 @@ export function GlobalHeader() {
                 </Link>
               </>
             ) : (
-              <Link href="/dashboard">
-                <Button variant="ghost" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
-                  {getUserDisplayName()}
-                </Button>
-              </Link>
+              <div className="flex items-center space-x-3">
+                {/* User Info Dropdown */}
+                <div className="relative" ref={userMenuRef}>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  >
+                    <span className="mr-2">
+                      {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
+                    </span>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                  </Button>
+                  
+                  {/* User Dropdown Menu */}
+                  {showUserMenu && (
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
+                      <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {user.user_metadata?.full_name || 'User'}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {user.email}
+                        </div>
+                      </div>
+                      <div className="p-1">
+                        <Link href="/dashboard">
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            Dashboard
+                          </Button>
+                        </Link>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={handleSignOut}
+                          className="w-full justify-start text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <LogOut className="h-4 w-4 mr-2" />
+                          Logout
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </nav>
