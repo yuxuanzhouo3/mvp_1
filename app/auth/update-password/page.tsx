@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, CheckCircle, ArrowLeft, Sparkles } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 
 const updatePasswordSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters'),
@@ -28,7 +29,7 @@ function UpdatePasswordContent() {
   const [passwordUpdated, setPasswordUpdated] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { updatePassword } = useAuth();
+  const { } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<UpdatePasswordFormData>({
@@ -47,7 +48,15 @@ function UpdatePasswordContent() {
   const onSubmit = async (data: UpdatePasswordFormData) => {
     setIsLoading(true);
     try {
-      const { error } = await updatePassword(data.password);
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      
+      const { error } = await supabase.auth.updateUser({
+        password: data.password
+      });
+      
       if (error) {
         toast({
           title: 'Update failed',

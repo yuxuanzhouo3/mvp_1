@@ -3,31 +3,21 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { 
-  Container, 
-  Row, 
-  Col, 
-  Card, 
-  Button, 
-  ListGroup, 
-  Badge, 
-  Navbar,
-  Form,
-  InputGroup,
-  Alert,
-  Spinner
-} from 'react-bootstrap';
+import { useToast } from '@/hooks/use-toast';
 import { 
   MessageSquare, 
-  Search, 
+  Send, 
   ArrowLeft,
-  Send,
   User,
-  Clock
+  Settings,
+  LogOut,
+  Menu,
+  Home,
+  Heart,
+  CreditCard
 } from 'lucide-react';
-import 'bootstrap/dist/css/bootstrap.min.css';
 
-interface ChatPreview {
+interface Chat {
   id: string;
   matched_user: {
     id: string;
@@ -40,180 +30,268 @@ interface ChatPreview {
     sender_id: string;
   };
   unread_count: number;
-  updated_at: string;
+  created_at: string;
 }
 
 export default function ChatPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [chats, setChats] = useState<ChatPreview[]>([]);
+  const { toast } = useToast();
+  const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    if (authLoading) return;
-    
-    if (!user) {
-      router.push('/auth/login');
-      return;
-    }
-
-    loadChats();
-  }, [user, authLoading]);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   const loadChats = async () => {
+    if (!user?.id) return;
+
     try {
       setLoading(true);
       const response = await fetch('/api/chat/list');
       if (response.ok) {
         const data = await response.json();
         setChats(data);
+      } else {
+        console.error('Failed to load chats');
+        toast({
+          title: '加载失败',
+          description: '无法加载聊天列表',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
       console.error('Error loading chats:', error);
+      toast({
+        title: '加载失败',
+        description: '网络错误，请稍后重试',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBackToDashboard = () => {
-    router.push('/dashboard');
+  useEffect(() => {
+    if (authLoading) return;
+    
+    if (!user || !user.id) {
+      router.push('/auth/login');
+      return;
+    }
+    
+    loadChats();
+  }, [user, authLoading]);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      window.location.href = '/auth/login';
+      toast({
+        title: '已退出登录',
+        description: '期待您的再次光临！',
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        title: '退出失败',
+        description: '请稍后重试',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const filteredChats = chats.filter(chat =>
-    chat.matched_user.full_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  if (authLoading || loading) {
+  if (loading || authLoading) {
     return (
-      <Container fluid className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Spinner animation="border" variant="primary" />
-          <p className="mt-3 text-muted">加载中...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">加载中...</p>
         </div>
-      </Container>
+      </div>
     );
   }
 
   return (
-    <div className="bg-light min-vh-100">
-      {/* Mobile Header */}
-      <Navbar bg="white" className="shadow-sm border-bottom">
-        <Container fluid>
-          <Button
-            variant="outline-secondary"
-            size="sm"
-            onClick={handleBackToDashboard}
-            className="me-2"
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Back Button */}
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              返回
+            </button>
+
+            {/* Title */}
+            <h1 className="text-xl font-bold text-gray-900">聊天</h1>
+
+            {/* User Menu */}
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                  {user?.user_metadata?.full_name?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <span className="text-sm font-medium text-gray-700 hidden sm:block">
+                  {user?.user_metadata?.full_name || 'User'}
+                </span>
+              </div>
+              
+              <div className="relative">
+                <button className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 transition-colors">
+                  <Settings className="h-4 w-4" />
+                </button>
+                
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden group-hover:block">
+                  <button
+                    onClick={() => router.push('/dashboard/settings')}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    设置
+                  </button>
+                  <hr className="my-1" />
+                  <button
+                    onClick={handleSignOut}
+                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                  >
+                    退出登录
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${showSidebar ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-lg font-semibold text-gray-900">PersonaLink</h2>
+          <button
+            onClick={() => setShowSidebar(false)}
+            className="text-gray-500 hover:text-gray-700"
           >
-            <ArrowLeft size={20} />
-          </Button>
-          
-          <Navbar.Brand className="fw-bold text-primary">聊天</Navbar.Brand>
-        </Container>
-      </Navbar>
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        </div>
+        
+        <nav className="mt-4">
+          <div className="px-4 space-y-2">
+            <button
+              onClick={() => { router.push('/dashboard'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <Home className="mr-3 h-5 w-5" />
+              首页
+            </button>
+            <button
+              onClick={() => { router.push('/chat'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-blue-600 rounded-md bg-blue-50"
+            >
+              <MessageSquare className="mr-3 h-5 w-5" />
+              聊天
+            </button>
+            <button
+              onClick={() => { router.push('/matching'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <Heart className="mr-3 h-5 w-5" />
+              匹配
+            </button>
+            <button
+              onClick={() => { router.push('/payment/recharge'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <CreditCard className="mr-3 h-5 w-5" />
+              充值
+            </button>
+            <button
+              onClick={() => { router.push('/dashboard/settings'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <Settings className="mr-3 h-5 w-5" />
+              设置
+            </button>
+          </div>
+        </nav>
+      </div>
 
-      <Container fluid className="py-3">
-        {/* Search Bar */}
-        <Row className="mb-3">
-          <Col>
-            <InputGroup>
-              <InputGroup.Text>
-                <Search size={16} />
-              </InputGroup.Text>
-              <Form.Control
-                type="text"
-                placeholder="搜索聊天..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </InputGroup>
-          </Col>
-        </Row>
+      {/* Overlay */}
+      {showSidebar && (
+        <div
+          className="fixed inset-0 z-30 bg-black bg-opacity-50"
+          onClick={() => setShowSidebar(false)}
+        />
+      )}
 
-        {/* Chat List */}
-        <Row>
-          <Col>
-            {filteredChats.length === 0 ? (
-              <Card className="border-0 shadow-sm">
-                <Card.Body className="text-center py-5">
-                  <MessageSquare size={48} className="text-muted mb-3" />
-                  <h5 className="text-muted mb-2">
-                    {searchTerm ? '没有找到匹配的聊天' : '还没有聊天'}
-                  </h5>
-                  <p className="text-muted mb-3">
-                    {searchTerm 
-                      ? '尝试使用不同的搜索词' 
-                      : '开始匹配来找到新的朋友'
-                    }
-                  </p>
-                  {!searchTerm && (
-                    <Button 
-                      variant="primary"
-                      onClick={() => router.push('/matching')}
-                    >
-                      开始匹配
-                    </Button>
-                  )}
-                </Card.Body>
-              </Card>
-            ) : (
-              <Card className="border-0 shadow-sm">
-                <Card.Body className="p-0">
-                  <ListGroup variant="flush">
-                    {filteredChats.map((chat) => (
-                      <ListGroup.Item 
-                        key={chat.id} 
-                        action
-                        onClick={() => router.push(`/chat/${chat.id}`)}
-                        className="border-0 py-3"
-                      >
-                        <div className="d-flex align-items-center">
-                          <div 
-                            className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-3"
-                            style={{ width: '48px', height: '48px', fontSize: '18px' }}
-                          >
-                            {chat.matched_user.full_name?.charAt(0).toUpperCase()}
-                          </div>
-                          
-                          <div className="flex-grow-1 min-w-0">
-                            <div className="d-flex justify-content-between align-items-start mb-1">
-                              <h6 className="mb-0 text-truncate">
-                                {chat.matched_user.full_name}
-                              </h6>
-                              <small className="text-muted ms-2">
-                                {new Date(chat.updated_at).toLocaleDateString()}
-                              </small>
-                            </div>
-                            
-                            {chat.last_message ? (
-                              <div className="d-flex justify-content-between align-items-center">
-                                <p className="text-muted small mb-0 text-truncate me-2">
-                                  {chat.last_message.sender_id === user?.id ? '你: ' : ''}
-                                  {chat.last_message.content}
-                                </p>
-                                {chat.unread_count > 0 && (
-                                  <Badge bg="danger" className="ms-auto">
-                                    {chat.unread_count}
-                                  </Badge>
-                                )}
-                              </div>
-                            ) : (
-                              <p className="text-muted small mb-0">
-                                开始新的对话
-                              </p>
-                            )}
-                          </div>
+      {/* Main Content */}
+      <div className="pt-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {chats.length === 0 ? (
+            <div className="text-center py-12">
+              <MessageSquare className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">还没有聊天</h3>
+              <p className="text-gray-600 mb-6">开始匹配来找到新的朋友吧！</p>
+              <button
+                onClick={() => router.push('/matching')}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                开始匹配
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-sm">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">聊天列表</h2>
+              </div>
+              <div className="divide-y divide-gray-200">
+                {chats.map((chat) => (
+                  <div
+                    key={chat.id}
+                    onClick={() => router.push(`/chat/${chat.id}`)}
+                    className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center text-white font-semibold">
+                          {chat.matched_user.full_name?.charAt(0).toUpperCase()}
                         </div>
-                      </ListGroup.Item>
-                    ))}
-                  </ListGroup>
-                </Card.Body>
-              </Card>
-            )}
-          </Col>
-        </Row>
-      </Container>
+                        <div>
+                          <h3 className="font-medium text-gray-900">
+                            {chat.matched_user.full_name}
+                          </h3>
+                          {chat.last_message && (
+                            <p className="text-sm text-gray-600 truncate max-w-xs">
+                              {chat.last_message.content}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        {chat.last_message && (
+                          <p className="text-xs text-gray-500">
+                            {new Date(chat.last_message.created_at).toLocaleDateString()}
+                          </p>
+                        )}
+                        {chat.unread_count > 0 && (
+                          <div className="mt-1">
+                            <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                              {chat.unread_count}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 } 

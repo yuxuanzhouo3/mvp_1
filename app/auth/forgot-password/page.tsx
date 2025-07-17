@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, ArrowLeft, CheckCircle, Sparkles, Shield, Phone } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -29,7 +30,7 @@ export default function ForgotPasswordPage() {
   const [otp, setOtp] = useState('');
   const [activeTab, setActiveTab] = useState('email');
   const router = useRouter();
-  const { resetPassword, signInWithPhone, verifyPhoneOTP } = useAuth();
+  const { signInWithPhone, verifyPhoneOTP } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<ForgotPasswordFormData>({
@@ -39,7 +40,15 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setIsLoading(true);
     try {
-      const { error } = await resetPassword(data.email);
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
+        redirectTo: `${window.location.origin}/auth/update-password`
+      });
+      
       if (error) {
         toast({
           title: 'Reset failed',

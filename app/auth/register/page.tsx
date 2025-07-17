@@ -45,7 +45,7 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
-      const { error, requiresConfirmation } = await signUp(data.email, data.password, data.fullName);
+      const { error } = await signUp(data.email, data.password);
       if (error) {
         toast({
           title: 'Registration failed',
@@ -54,21 +54,10 @@ export default function RegisterPage() {
         });
       } else {
         setEmailSent(true);
-        if (requiresConfirmation) {
         toast({
           title: 'Registration successful',
           description: 'Please check your email to verify your account',
         });
-        } else {
-          toast({
-            title: 'Registration successful',
-            description: 'Welcome! Redirecting to dashboard...',
-          });
-          // Redirect to dashboard if no confirmation needed
-          setTimeout(() => {
-            router.push('/dashboard');
-          }, 1500);
-        }
       }
     } catch (error) {
       console.error('Registration error:', error);
@@ -171,7 +160,7 @@ export default function RegisterPage() {
         description: 'Phone verification successful!',
       });
       // Mock successful registration
-      const { error } = await signUp('test@personalink.ai', 'test123', 'Test User');
+      const { error } = await signUp('test@personalink.ai', 'test123');
       if (!error) {
         // The redirect will happen automatically via useEffect
       }

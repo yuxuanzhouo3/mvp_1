@@ -4,21 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Container, 
-  Row, 
-  Col, 
-  Card, 
-  Button, 
-  Badge, 
-  Navbar, 
-  Nav, 
-  NavDropdown,
-  Offcanvas,
-  ListGroup,
-  ProgressBar,
-  Alert
-} from 'react-bootstrap';
+import { createClient } from '@supabase/supabase-js';
 import { 
   Heart, 
   MessageSquare, 
@@ -32,9 +18,10 @@ import {
   Bell,
   LogOut,
   Menu,
-  Home
+  Home,
+  ArrowLeft
 } from 'lucide-react';
-import 'bootstrap/dist/css/bootstrap.min.css';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 
 interface UserProfile {
   id: string;
@@ -71,6 +58,12 @@ export default function DashboardPage() {
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
+  
+  // Create Supabase client
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -84,25 +77,45 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       
+      // Get the current session token
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      
+      if (!token) {
+        console.error('No session token available');
+        return;
+      }
+
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+      
       // Load profile
-      const profileRes = await fetch('/api/user/profile');
+      const profileRes = await fetch('/api/user/profile', { headers });
       if (profileRes.ok) {
         const profileData = await profileRes.json();
-        setProfile(profileData);
+        setProfile(profileData.profile);
+      } else {
+        console.error('Failed to load profile:', profileRes.status);
       }
 
       // Load recent matches
-      const matchesRes = await fetch('/api/user/matches');
+      const matchesRes = await fetch('/api/user/matches', { headers });
       if (matchesRes.ok) {
         const matchesData = await matchesRes.json();
-        setRecentMatches(matchesData.slice(0, 5));
+        setRecentMatches(matchesData.matches?.slice(0, 5) || []);
+      } else {
+        console.error('Failed to load matches:', matchesRes.status);
       }
 
       // Load stats
-      const statsRes = await fetch('/api/user/stats');
+      const statsRes = await fetch('/api/user/stats', { headers });
       if (statsRes.ok) {
         const statsData = await statsRes.json();
-        setStats(statsData);
+        setStats(statsData.stats);
+      } else {
+        console.error('Failed to load stats:', statsRes.status);
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -137,28 +150,29 @@ export default function DashboardPage() {
 
   if (loading || authLoading) {
     return (
-      <Container fluid className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-          <p className="mt-3 text-muted">加载中...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">加载中...</p>
         </div>
-      </Container>
+      </div>
     );
   }
 
   if (!profile) {
     return (
-      <Container fluid className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
-        <Alert variant="warning" className="text-center">
-          <Alert.Heading>无法加载用户资料</Alert.Heading>
-          <p>请稍后重试或联系客服。</p>
-          <Button variant="outline-warning" onClick={() => window.location.reload()}>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">无法加载用户资料</h3>
+          <p className="text-gray-600 mb-4">请稍后重试或联系客服。</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-md transition-colors"
+          >
             刷新页面
-          </Button>
-        </Alert>
-      </Container>
+          </button>
+        </div>
+      </div>
     );
   }
 
@@ -192,314 +206,334 @@ export default function DashboardPage() {
     router.push('/chat');
   };
 
+  // Hide header on settings page
+  const isSettingsPage = pathname === '/dashboard/settings';
+
   return (
-    <div className="bg-light min-vh-100">
-      {/* Mobile Header */}
-      <Navbar bg="white" expand="lg" className="shadow-sm border-bottom">
-        <Container fluid>
-          <Button
-            variant="outline-secondary"
-            size="sm"
-            onClick={() => setShowSidebar(true)}
-            className="me-2"
-          >
-            <Menu size={20} />
-          </Button>
-          
-          <Navbar.Brand className="fw-bold text-primary">PersonaLink</Navbar.Brand>
-          
-          <NavDropdown 
-            title={
-              <div className="d-flex align-items-center">
-                <div 
-                  className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2"
-                  style={{ width: '32px', height: '32px', fontSize: '14px' }}
-                >
-                  {profile.full_name?.charAt(0).toUpperCase()}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header - Hidden on settings page */}
+      {!isSettingsPage && (
+        <header className="bg-white shadow-sm border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              {/* Sidebar Toggle Button */}
+              <button
+                onClick={() => setShowSidebar(!showSidebar)}
+                className="absolute left-2 top-1/2 transform -translate-y-1/2 z-50 p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+                style={{ left: '1%' }}
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+
+              {/* Logo */}
+              <div className="flex-1 flex justify-center">
+                <h1 className="text-xl font-bold text-blue-600">PersonaLink</h1>
+              </div>
+
+              {/* User Menu */}
+              <div className="relative">
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                      {profile.full_name?.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 hidden sm:block">
+                      {profile.full_name}
+                    </span>
+                  </div>
+                  
+                  <div className="relative">
+                    <button className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 transition-colors">
+                      <Settings className="h-4 w-4" />
+                    </button>
+                    
+                    {/* Dropdown Menu */}
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden group-hover:block">
+                      <button
+                        onClick={() => router.push('/dashboard/settings')}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        设置
+                      </button>
+                      <button
+                        onClick={() => router.push('/dashboard/notifications')}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        通知
+                      </button>
+                      <hr className="my-1" />
+                      <button
+                        onClick={handleSignOut}
+                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                      >
+                        退出登录
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
-            } 
-            id="user-dropdown"
+            </div>
+          </div>
+        </header>
+      )}
+
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${showSidebar ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-lg font-semibold text-gray-900">PersonaLink</h2>
+          <button
+            onClick={() => setShowSidebar(false)}
+            className="text-gray-500 hover:text-gray-700"
           >
-            <NavDropdown.Item onClick={() => router.push('/dashboard/settings')}>
-              <Settings size={16} className="me-2" />
-              设置
-            </NavDropdown.Item>
-            <NavDropdown.Item onClick={() => router.push('/dashboard/notifications')}>
-              <Bell size={16} className="me-2" />
-              通知
-            </NavDropdown.Item>
-            <NavDropdown.Divider />
-            <NavDropdown.Item onClick={handleSignOut} className="text-danger">
-              <LogOut size={16} className="me-2" />
-              退出登录
-            </NavDropdown.Item>
-          </NavDropdown>
-        </Container>
-      </Navbar>
-
-      {/* Mobile Sidebar */}
-      <Offcanvas show={showSidebar} onHide={() => setShowSidebar(false)} placement="start">
-        <Offcanvas.Header closeButton>
-          <Offcanvas.Title>PersonaLink</Offcanvas.Title>
-        </Offcanvas.Header>
-        <Offcanvas.Body>
-          <ListGroup variant="flush">
-            <ListGroup.Item action onClick={() => { router.push('/dashboard'); setShowSidebar(false); }}>
-              <Home size={16} className="me-2" />
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        </div>
+        
+        <nav className="mt-4">
+          <div className="px-4 space-y-2">
+            <button
+              onClick={() => { router.push('/dashboard'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <Home className="mr-3 h-5 w-5" />
               首页
-            </ListGroup.Item>
-            <ListGroup.Item action onClick={() => { router.push('/chat'); setShowSidebar(false); }}>
-              <MessageSquare size={16} className="me-2" />
+            </button>
+            <button
+              onClick={() => { router.push('/chat'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <MessageSquare className="mr-3 h-5 w-5" />
               聊天
-            </ListGroup.Item>
-            <ListGroup.Item action onClick={() => { router.push('/matching'); setShowSidebar(false); }}>
-              <Heart size={16} className="me-2" />
+            </button>
+            <button
+              onClick={() => { router.push('/matching'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <Heart className="mr-3 h-5 w-5" />
               匹配
-            </ListGroup.Item>
-            <ListGroup.Item action onClick={() => { router.push('/payment/recharge'); setShowSidebar(false); }}>
-              <CreditCard size={16} className="me-2" />
+            </button>
+            <button
+              onClick={() => { router.push('/payment/recharge'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <CreditCard className="mr-3 h-5 w-5" />
               充值
-            </ListGroup.Item>
-            <ListGroup.Item action onClick={() => { router.push('/dashboard/settings'); setShowSidebar(false); }}>
-              <Settings size={16} className="me-2" />
+            </button>
+            <button
+              onClick={() => { router.push('/dashboard/settings'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <Settings className="mr-3 h-5 w-5" />
               设置
-            </ListGroup.Item>
-          </ListGroup>
-        </Offcanvas.Body>
-      </Offcanvas>
+            </button>
+          </div>
+        </nav>
+      </div>
 
-      <Container fluid className="py-3">
-        {/* Welcome Section */}
-        <Row className="mb-4">
-          <Col>
-            <Card className="border-0 shadow-sm">
-              <Card.Body className="text-center">
-                <h4 className="fw-bold text-primary mb-2">
-                  欢迎回来，{profile.full_name}！
-                </h4>
-                <p className="text-muted mb-0">发现新的朋友，开始有趣的对话</p>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+      {/* Overlay */}
+      {showSidebar && (
+        <div
+          className="fixed inset-0 z-30 bg-black bg-opacity-50"
+          onClick={() => setShowSidebar(false)}
+        />
+      )}
 
-        {/* Quick Actions */}
-        <Row className="mb-4">
-          <Col>
-            <Card className="border-0 shadow-sm">
-              <Card.Header className="bg-white border-0">
-                <h6 className="mb-0 fw-bold">快速操作</h6>
-              </Card.Header>
-              <Card.Body>
-                <Row>
-                  <Col xs={6} className="mb-2">
-                    <Button 
-                      variant="primary" 
-                      className="w-100"
-                      onClick={handleStartMatching}
-                    >
-                      <Heart size={16} className="me-1" />
-                      开始匹配
-                    </Button>
-                  </Col>
-                  <Col xs={6} className="mb-2">
-                    <Button 
-                      variant="outline-primary" 
-                      className="w-100"
-                      onClick={handleViewChats}
-                    >
-                      <MessageSquare size={16} className="me-1" />
-                      查看聊天
-                    </Button>
-                  </Col>
-                </Row>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+      {/* Main Content */}
+      <div className={`${!isSettingsPage ? 'pt-16' : ''} transition-all duration-300`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Welcome Section */}
+          <div className="mb-6">
+            <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+              <h2 className="text-2xl font-bold text-blue-600 mb-2">
+                欢迎回来，{profile.full_name}！
+              </h2>
+              <p className="text-gray-600">发现新的朋友，开始有趣的对话</p>
+            </div>
+          </div>
 
-        {/* Stats Cards */}
-        {stats && (
-          <Row className="mb-4">
-            <Col>
-              <Card className="border-0 shadow-sm">
-                <Card.Header className="bg-white border-0">
-                  <h6 className="mb-0 fw-bold">数据统计</h6>
-                </Card.Header>
-                <Card.Body>
-                  <Row>
-                    <Col xs={6} className="mb-3">
-                      <div className="text-center">
-                        <div className="h4 text-primary mb-1">{stats.totalMatches}</div>
-                        <small className="text-muted">总匹配数</small>
-                      </div>
-                    </Col>
-                    <Col xs={6} className="mb-3">
-                      <div className="text-center">
-                        <div className="h4 text-success mb-1">{stats.totalMessages}</div>
-                        <small className="text-muted">消息数量</small>
-                      </div>
-                    </Col>
-                    <Col xs={6} className="mb-3">
-                      <div className="text-center">
-                        <div className="h4 text-info mb-1">{stats.activeChats}</div>
-                        <small className="text-muted">活跃聊天</small>
-                      </div>
-                    </Col>
-                    <Col xs={6} className="mb-3">
-                      <div className="text-center">
-                        <div className="h4 text-warning mb-1">{stats.profileCompletion}%</div>
-                        <small className="text-muted">资料完整度</small>
-                      </div>
-                    </Col>
-                  </Row>
-                  <ProgressBar 
-                    now={stats.profileCompletion} 
-                    variant="warning" 
-                    className="mt-2"
-                  />
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-        )}
-
-        {/* Profile & Credits */}
-        <Row className="mb-4">
-          <Col xs={12} md={6} className="mb-3">
-            <Card className="border-0 shadow-sm h-100">
-              <Card.Header className="bg-white border-0">
-                <h6 className="mb-0 fw-bold">
-                  <User size={16} className="me-2" />
-                  个人资料
-                </h6>
-              </Card.Header>
-              <Card.Body>
-                <div className="d-flex align-items-center mb-3">
-                  <div 
-                    className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-3"
-                    style={{ width: '48px', height: '48px', fontSize: '18px' }}
+          {/* Quick Actions */}
+          <div className="mb-6">
+            <div className="bg-white rounded-lg shadow-sm">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">快速操作</h3>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    onClick={handleStartMatching}
+                    className="flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
+                    <Heart className="mr-2 h-5 w-5" />
+                    开始匹配
+                  </button>
+                  <button
+                    onClick={handleViewChats}
+                    className="flex items-center justify-center px-4 py-3 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                  >
+                    <MessageSquare className="mr-2 h-5 w-5" />
+                    查看聊天
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          {stats && (
+            <div className="mb-6">
+              <div className="bg-white rounded-lg shadow-sm">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">数据统计</h3>
+                </div>
+                <div className="p-6">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">{stats.totalMatches}</div>
+                      <div className="text-sm text-gray-600">总匹配数</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">{stats.totalMessages}</div>
+                      <div className="text-sm text-gray-600">消息数量</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-indigo-600">{stats.activeChats}</div>
+                      <div className="text-sm text-gray-600">活跃聊天</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-600">{stats.profileCompletion}%</div>
+                      <div className="text-sm text-gray-600">资料完整度</div>
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${stats.profileCompletion}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Profile & Credits */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Profile Card */}
+            <div className="bg-white rounded-lg shadow-sm">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <User className="mr-2 h-5 w-5" />
+                  个人资料
+                </h3>
+              </div>
+              <div className="p-6">
+                <div className="flex items-center mb-4">
+                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-lg font-semibold mr-4">
                     {profile.full_name?.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h6 className="mb-1">{profile.full_name}</h6>
-                    <small className="text-muted">{profile.email}</small>
+                    <h4 className="font-semibold text-gray-900">{profile.full_name}</h4>
+                    <p className="text-sm text-gray-600">{profile.email}</p>
                   </div>
                 </div>
+                
                 {profile.location && (
-                  <p className="text-muted small mb-2">
-                    <MapPin size={14} className="me-1" />
+                  <p className="text-sm text-gray-600 mb-3 flex items-center">
+                    <MapPin className="mr-1 h-4 w-4" />
                     {profile.location}
                   </p>
                 )}
+                
                 {profile.interests && profile.interests.length > 0 && (
-                  <div className="mb-3">
-                    <small className="text-muted d-block mb-1">兴趣爱好</small>
-                    <div>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600 mb-2">兴趣爱好</p>
+                    <div className="flex flex-wrap gap-2">
                       {profile.interests.slice(0, 3).map((interest, index) => (
-                        <Badge key={index} bg="secondary" className="me-1">
+                        <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
                           {interest}
-                        </Badge>
+                        </span>
                       ))}
                       {profile.interests.length > 3 && (
-                        <Badge bg="light" text="dark">
+                        <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
                           +{profile.interests.length - 3}
-                        </Badge>
+                        </span>
                       )}
                     </div>
                   </div>
                 )}
-                <Button 
-                  variant="outline-primary" 
-                  size="sm" 
-                  className="w-100"
+                
+                <button
                   onClick={() => router.push('/profile/edit')}
+                  className="w-full px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
                 >
                   编辑资料
-                </Button>
-              </Card.Body>
-            </Card>
-          </Col>
-          
-          <Col xs={12} md={6} className="mb-3">
-            <Card className="border-0 shadow-sm h-100">
-              <Card.Header className="bg-white border-0">
-                <h6 className="mb-0 fw-bold">
-                  <CreditCard size={16} className="me-2" />
-                  积分余额
-                </h6>
-              </Card.Header>
-              <Card.Body className="text-center">
-                <div className="h2 text-primary mb-2">{profile.credits}</div>
-                <p className="text-muted small mb-3">可用积分</p>
-                <Button 
-                  variant="success" 
-                  className="w-100"
-                  onClick={handleRechargeCredits}
-                >
-                  <Plus size={16} className="me-1" />
-                  充值积分
-                </Button>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
+                </button>
+              </div>
+            </div>
 
-        {/* Recent Matches */}
-        {recentMatches.length > 0 && (
-          <Row>
-            <Col>
-              <Card className="border-0 shadow-sm">
-                <Card.Header className="bg-white border-0 d-flex justify-content-between align-items-center">
-                  <h6 className="mb-0 fw-bold">
-                    <Heart size={16} className="me-2" />
-                    最近匹配
-                  </h6>
-                  <Button 
-                    variant="link" 
-                    size="sm" 
-                    className="p-0 text-decoration-none"
-                    onClick={() => router.push('/matching/history')}
-                  >
-                    查看全部
-                  </Button>
-                </Card.Header>
-                <Card.Body className="p-0">
-                  <ListGroup variant="flush">
-                    {recentMatches.map((match) => (
-                      <ListGroup.Item key={match.id} className="border-0">
-                        <div className="d-flex align-items-center">
-                          <div 
-                            className="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-3"
-                            style={{ width: '40px', height: '40px', fontSize: '14px' }}
-                          >
-                            {match.matched_user.full_name?.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex-grow-1">
-                            <h6 className="mb-1">{match.matched_user.full_name}</h6>
-                            <small className="text-muted">
-                              匹配度: {match.compatibility_score}%
-                            </small>
-                          </div>
-                          <Button 
-                            variant="outline-primary" 
-                            size="sm"
-                            onClick={() => router.push(`/chat/${match.id}`)}
-                          >
-                            聊天
-                          </Button>
+            {/* Credits Card */}
+            <div className="bg-white rounded-lg shadow-sm">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <CreditCard className="mr-2 h-5 w-5" />
+                  积分余额
+                </h3>
+              </div>
+              <div className="p-6 text-center">
+                <div className="text-4xl font-bold text-blue-600 mb-2">{profile.credits}</div>
+                <p className="text-sm text-gray-600 mb-4">可用积分</p>
+                <button
+                  onClick={handleRechargeCredits}
+                  className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
+                >
+                  <Plus className="mr-2 h-5 w-5" />
+                  充值积分
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Matches */}
+          {recentMatches.length > 0 && (
+            <div className="bg-white rounded-lg shadow-sm">
+              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <Heart className="mr-2 h-5 w-5" />
+                  最近匹配
+                </h3>
+                <button
+                  onClick={() => router.push('/matching/history')}
+                  className="text-sm text-blue-600 hover:text-blue-700"
+                >
+                  查看全部
+                </button>
+              </div>
+              <div className="divide-y divide-gray-200">
+                {recentMatches.map((match) => (
+                  <div key={match.id} className="px-6 py-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center text-white text-sm font-semibold mr-3">
+                          {match.matched_user.full_name?.charAt(0).toUpperCase()}
                         </div>
-                      </ListGroup.Item>
-                    ))}
-                  </ListGroup>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-        )}
-      </Container>
+                        <div>
+                          <h4 className="font-semibold text-gray-900">{match.matched_user.full_name}</h4>
+                          <p className="text-sm text-gray-600">匹配度: {match.compatibility_score}%</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => router.push(`/chat/${match.id}`)}
+                        className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                      >
+                        聊天
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 } 

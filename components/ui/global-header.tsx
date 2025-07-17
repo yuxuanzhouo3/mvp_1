@@ -43,14 +43,10 @@ export function GlobalHeader() {
   const handleSignOut = async () => {
     try {
       console.log('🚪 Attempting to sign out...');
-      const { error } = await signOut();
+      await signOut();
       setShowUserMenu(false);
-      if (error) {
-        console.error('❌ Sign out error:', error);
-      } else {
-        console.log('✅ Sign out successful, redirecting to login...');
-        router.push('/auth/login');
-      }
+      console.log('✅ Sign out successful, redirecting to login...');
+      router.push('/auth/login');
     } catch (error) {
       console.error('💥 Unexpected error during sign out:', error);
     }

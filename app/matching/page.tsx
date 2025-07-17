@@ -3,29 +3,22 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { 
-  Container, 
-  Row, 
-  Col, 
-  Card, 
-  Button, 
-  Badge, 
-  Navbar,
-  ProgressBar,
-  Alert,
-  Spinner,
-  Modal
-} from 'react-bootstrap';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Heart, 
   X, 
+  Check, 
   ArrowLeft,
-  Star,
-  MapPin,
   User,
-  MessageSquare
+  Settings,
+  LogOut,
+  Menu,
+  Home,
+  MessageSquare,
+  CreditCard,
+  MapPin,
+  Star
 } from 'lucide-react';
-import 'bootstrap/dist/css/bootstrap.min.css';
 
 interface Candidate {
   id: string;
@@ -36,44 +29,72 @@ interface Candidate {
   age?: number;
   interests: string[];
   compatibility_score: number;
-  industry?: string;
-  communication_style?: string;
-  personality_traits?: string[];
 }
 
 export default function MatchingPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [matching, setMatching] = useState(false);
-  const [showMatchModal, setShowMatchModal] = useState(false);
-  const [matchedUser, setMatchedUser] = useState<Candidate | null>(null);
-
-  useEffect(() => {
-    if (authLoading) return;
-    
-    if (!user) {
-      router.push('/auth/login');
-      return;
-    }
-
-    loadCandidates();
-  }, [user, authLoading]);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   const loadCandidates = async () => {
+    if (!user?.id) return;
+
     try {
       setLoading(true);
       const response = await fetch('/api/matching/candidates');
       if (response.ok) {
         const data = await response.json();
         setCandidates(data);
+      } else {
+        console.error('Failed to load candidates');
+        toast({
+          title: '加载失败',
+          description: '无法加载匹配候选人',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
       console.error('Error loading candidates:', error);
+      toast({
+        title: '加载失败',
+        description: '网络错误，请稍后重试',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (authLoading) return;
+    
+    if (!user || !user.id) {
+      router.push('/auth/login');
+      return;
+    }
+    
+    loadCandidates();
+  }, [user, authLoading]);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      window.location.href = '/auth/login';
+      toast({
+        title: '已退出登录',
+        description: '期待您的再次光临！',
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast({
+        title: '退出失败',
+        description: '请稍后重试',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -81,26 +102,26 @@ export default function MatchingPage() {
     if (currentIndex >= candidates.length) return;
     
     const candidate = candidates[currentIndex];
-    setMatching(true);
-    
     try {
-      // Simulate API call for like
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch('/api/matching/like', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ candidate_id: candidate.id }),
+      });
       
-      // Check if it's a match (random for demo)
-      const isMatch = Math.random() > 0.7;
-      
-      if (isMatch) {
-        setMatchedUser(candidate);
-        setShowMatchModal(true);
+      if (response.ok) {
+        toast({
+          title: '喜欢成功',
+          description: `你已喜欢 ${candidate.full_name}`,
+        });
       }
-      
-      setCurrentIndex(prev => prev + 1);
     } catch (error) {
       console.error('Error liking candidate:', error);
-    } finally {
-      setMatching(false);
     }
+    
+    setCurrentIndex(prev => prev + 1);
   };
 
   const handlePass = () => {
@@ -111,273 +132,259 @@ export default function MatchingPage() {
     router.push('/dashboard');
   };
 
-  const handleStartChat = () => {
-    if (matchedUser) {
-      router.push(`/chat/${matchedUser.id}`);
-    }
-    setShowMatchModal(false);
-  };
+  if (loading || authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">加载中...</p>
+        </div>
+      </div>
+    );
+  }
 
   const currentCandidate = candidates[currentIndex];
 
-  if (authLoading || loading) {
-    return (
-      <Container fluid className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
-        <div className="text-center">
-          <Spinner animation="border" variant="primary" />
-          <p className="mt-3 text-muted">加载匹配中...</p>
-        </div>
-      </Container>
-    );
-  }
-
-  if (candidates.length === 0) {
-    return (
-      <div className="bg-light min-vh-100">
-        <Navbar bg="white" className="shadow-sm border-bottom">
-          <Container fluid>
-            <Button
-              variant="outline-secondary"
-              size="sm"
-              onClick={handleBackToDashboard}
-              className="me-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            
-            <Navbar.Brand className="fw-bold text-primary">匹配</Navbar.Brand>
-          </Container>
-        </Navbar>
-
-        <Container fluid className="py-5">
-          <Card className="border-0 shadow-sm">
-            <Card.Body className="text-center py-5">
-              <Heart size={48} className="text-muted mb-3" />
-              <h5 className="text-muted mb-2">暂时没有更多推荐</h5>
-              <p className="text-muted mb-3">请稍后再试或完善您的个人资料</p>
-              <Button 
-                variant="primary"
-                onClick={() => router.push('/profile/edit')}
-              >
-                完善资料
-              </Button>
-            </Card.Body>
-          </Card>
-        </Container>
-      </div>
-    );
-  }
-
-  if (currentIndex >= candidates.length) {
-    return (
-      <div className="bg-light min-vh-100">
-        <Navbar bg="white" className="shadow-sm border-bottom">
-          <Container fluid>
-            <Button
-              variant="outline-secondary"
-              size="sm"
-              onClick={handleBackToDashboard}
-              className="me-2"
-            >
-              <ArrowLeft size={20} />
-            </Button>
-            
-            <Navbar.Brand className="fw-bold text-primary">匹配</Navbar.Brand>
-          </Container>
-        </Navbar>
-
-        <Container fluid className="py-5">
-          <Card className="border-0 shadow-sm">
-            <Card.Body className="text-center py-5">
-              <Heart size={48} className="text-muted mb-3" />
-              <h5 className="text-muted mb-2">已浏览完所有推荐</h5>
-              <p className="text-muted mb-3">稍后会有更多推荐，或查看您的匹配历史</p>
-              <div className="d-grid gap-2">
-                <Button 
-                  variant="primary"
-                  onClick={() => window.location.reload()}
-                >
-                  刷新推荐
-                </Button>
-                <Button 
-                  variant="outline-primary"
-                  onClick={() => router.push('/matching/history')}
-                >
-                  查看历史
-                </Button>
-              </div>
-            </Card.Body>
-          </Card>
-        </Container>
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-light min-vh-100">
-      {/* Mobile Header */}
-      <Navbar bg="white" className="shadow-sm border-bottom">
-        <Container fluid>
-          <Button
-            variant="outline-secondary"
-            size="sm"
-            onClick={handleBackToDashboard}
-            className="me-2"
-          >
-            <ArrowLeft size={20} />
-          </Button>
-          
-          <Navbar.Brand className="fw-bold text-primary">匹配</Navbar.Brand>
-          
-          <div className="ms-auto">
-            <small className="text-muted">
-              {currentIndex + 1} / {candidates.length}
-            </small>
-          </div>
-        </Container>
-      </Navbar>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            {/* Back Button */}
+            <button
+              onClick={handleBackToDashboard}
+              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              返回
+            </button>
 
-      <Container fluid className="py-3">
-        <Row>
-          <Col>
-            {/* Candidate Card */}
-            <Card className="border-0 shadow-sm">
-              <div className="position-relative">
-                {/* Profile Image */}
-                <div 
-                  className="bg-primary d-flex align-items-center justify-content-center"
-                  style={{ height: '300px' }}
-                >
-                  <div 
-                    className="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center"
-                    style={{ width: '120px', height: '120px', fontSize: '48px' }}
-                  >
-                    {currentCandidate.full_name?.charAt(0).toUpperCase()}
-                  </div>
+            {/* Title */}
+            <h1 className="text-xl font-bold text-gray-900">匹配</h1>
+
+            {/* User Menu */}
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                  {user?.user_metadata?.full_name?.charAt(0).toUpperCase() || 'U'}
                 </div>
+                <span className="text-sm font-medium text-gray-700 hidden sm:block">
+                  {user?.user_metadata?.full_name || 'User'}
+                </span>
+              </div>
+              
+              <div className="relative">
+                <button className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 transition-colors">
+                  <Settings className="h-4 w-4" />
+                </button>
                 
-                {/* Compatibility Score */}
-                <div className="position-absolute top-0 end-0 m-3">
-                  <Badge bg="success" className="fs-6">
-                    {Math.round(currentCandidate.compatibility_score)}% 匹配
-                  </Badge>
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden group-hover:block">
+                  <button
+                    onClick={() => router.push('/dashboard/settings')}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    设置
+                  </button>
+                  <hr className="my-1" />
+                  <button
+                    onClick={handleSignOut}
+                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
+                  >
+                    退出登录
+                  </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </header>
 
-              <Card.Body>
-                {/* Basic Info */}
-                <div className="d-flex justify-content-between align-items-start mb-3">
-                  <div>
-                    <h4 className="mb-1">{currentCandidate.full_name}</h4>
-                    {currentCandidate.age && (
-                      <p className="text-muted mb-0">{currentCandidate.age} 岁</p>
-                    )}
-                  </div>
-                  <Star size={20} className="text-warning" />
-                </div>
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${showSidebar ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-lg font-semibold text-gray-900">PersonaLink</h2>
+          <button
+            onClick={() => setShowSidebar(false)}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        </div>
+        
+        <nav className="mt-4">
+          <div className="px-4 space-y-2">
+            <button
+              onClick={() => { router.push('/dashboard'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <Home className="mr-3 h-5 w-5" />
+              首页
+            </button>
+            <button
+              onClick={() => { router.push('/chat'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <MessageSquare className="mr-3 h-5 w-5" />
+              聊天
+            </button>
+            <button
+              onClick={() => { router.push('/matching'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-blue-600 rounded-md bg-blue-50"
+            >
+              <Heart className="mr-3 h-5 w-5" />
+              匹配
+            </button>
+            <button
+              onClick={() => { router.push('/payment/recharge'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <CreditCard className="mr-3 h-5 w-5" />
+              充值
+            </button>
+            <button
+              onClick={() => { router.push('/dashboard/settings'); setShowSidebar(false); }}
+              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
+            >
+              <Settings className="mr-3 h-5 w-5" />
+              设置
+            </button>
+          </div>
+        </nav>
+      </div>
 
-                {/* Location */}
-                {currentCandidate.location && (
-                  <p className="text-muted small mb-2">
-                    <MapPin size={14} className="me-1" />
-                    {currentCandidate.location}
-                  </p>
-                )}
+      {/* Overlay */}
+      {showSidebar && (
+        <div
+          className="fixed inset-0 z-30 bg-black bg-opacity-50"
+          onClick={() => setShowSidebar(false)}
+        />
+      )}
 
-                {/* Bio */}
-                {currentCandidate.bio && (
-                  <p className="mb-3">{currentCandidate.bio}</p>
-                )}
+      {/* Main Content */}
+      <div className="pt-16">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {candidates.length === 0 ? (
+            <div className="text-center py-12">
+              <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">暂时没有更多候选人</h3>
+              <p className="text-gray-600 mb-6">请稍后再来查看新的匹配！</p>
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                返回首页
+              </button>
+            </div>
+          ) : currentIndex >= candidates.length ? (
+            <div className="text-center py-12">
+              <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">已查看所有候选人</h3>
+              <p className="text-gray-600 mb-6">请稍后再来查看新的匹配！</p>
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                返回首页
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Progress */}
+              <div className="text-center">
+                <p className="text-sm text-gray-600">
+                  {currentIndex + 1} / {candidates.length}
+                </p>
+              </div>
 
-                {/* Interests */}
-                {currentCandidate.interests && currentCandidate.interests.length > 0 && (
-                  <div className="mb-3">
-                    <h6 className="mb-2">兴趣爱好</h6>
-                    <div>
-                      {currentCandidate.interests.slice(0, 5).map((interest, index) => (
-                        <Badge key={index} bg="secondary" className="me-1 mb-1">
-                          {interest}
-                        </Badge>
-                      ))}
-                      {currentCandidate.interests.length > 5 && (
-                        <Badge bg="light" text="dark">
-                          +{currentCandidate.interests.length - 5}
-                        </Badge>
-                      )}
+              {/* Candidate Card */}
+              <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+                <div className="relative">
+                  {/* Avatar */}
+                  <div className="w-full h-64 bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center">
+                    <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center text-4xl font-bold text-gray-700">
+                      {currentCandidate.full_name?.charAt(0).toUpperCase()}
                     </div>
                   </div>
-                )}
-
-                {/* Compatibility Progress */}
-                <div className="mb-3">
-                  <div className="d-flex justify-content-between align-items-center mb-1">
-                    <small className="text-muted">匹配度</small>
-                    <small className="text-muted">{Math.round(currentCandidate.compatibility_score)}%</small>
+                  
+                  {/* Compatibility Score */}
+                  <div className="absolute top-4 right-4 bg-white rounded-full px-3 py-1 shadow-md">
+                    <div className="flex items-center">
+                      <Star className="h-4 w-4 text-yellow-500 mr-1" />
+                      <span className="text-sm font-semibold text-gray-700">
+                        {currentCandidate.compatibility_score}%
+                      </span>
+                    </div>
                   </div>
-                  <ProgressBar 
-                    now={currentCandidate.compatibility_score} 
-                    variant="success"
-                  />
                 </div>
 
-                {/* Action Buttons */}
-                <div className="d-flex gap-2">
-                  <Button 
-                    variant="outline-danger" 
-                    size="lg"
-                    className="flex-fill"
-                    onClick={handlePass}
-                    disabled={matching}
-                  >
-                    <X size={24} />
-                  </Button>
-                  <Button 
-                    variant="success" 
-                    size="lg"
-                    className="flex-fill"
-                    onClick={handleLike}
-                    disabled={matching}
-                  >
-                    {matching ? (
-                      <Spinner animation="border" size="sm" />
-                    ) : (
-                      <Heart size={24} />
+                <div className="p-6">
+                  {/* Name and Age */}
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-2xl font-bold text-gray-900">
+                      {currentCandidate.full_name}
+                    </h2>
+                    {currentCandidate.age && (
+                      <span className="text-lg text-gray-600">{currentCandidate.age}岁</span>
                     )}
-                  </Button>
-                </div>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      </Container>
+                  </div>
 
-      {/* Match Modal */}
-      <Modal show={showMatchModal} onHide={() => setShowMatchModal(false)} centered>
-        <Modal.Body className="text-center py-4">
-          <div className="mb-3">
-            <Heart size={48} className="text-danger" />
-          </div>
-          <h4 className="mb-2">恭喜！你们匹配了！</h4>
-          <p className="text-muted mb-3">
-            你和 {matchedUser?.full_name} 很合拍，开始聊天吧！
-          </p>
-          <div className="d-grid gap-2">
-            <Button 
-              variant="primary"
-              onClick={handleStartChat}
-            >
-              <MessageSquare size={16} className="me-2" />
-              开始聊天
-            </Button>
-            <Button 
-              variant="outline-secondary"
-              onClick={() => setShowMatchModal(false)}
-            >
-              继续浏览
-            </Button>
-          </div>
-        </Modal.Body>
-      </Modal>
+                  {/* Location */}
+                  {currentCandidate.location && (
+                    <div className="flex items-center text-gray-600 mb-4">
+                      <MapPin className="h-4 w-4 mr-2" />
+                      {currentCandidate.location}
+                    </div>
+                  )}
+
+                  {/* Bio */}
+                  {currentCandidate.bio && (
+                    <p className="text-gray-700 mb-4 leading-relaxed">
+                      {currentCandidate.bio}
+                    </p>
+                  )}
+
+                  {/* Interests */}
+                  {currentCandidate.interests && currentCandidate.interests.length > 0 && (
+                    <div className="mb-6">
+                      <h3 className="text-sm font-semibold text-gray-900 mb-2">兴趣爱好</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {currentCandidate.interests.map((interest, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
+                          >
+                            {interest}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex space-x-4">
+                    <button
+                      onClick={handlePass}
+                      className="flex-1 flex items-center justify-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <X className="h-5 w-5 mr-2" />
+                      跳过
+                    </button>
+                    <button
+                      onClick={handleLike}
+                      className="flex-1 flex items-center justify-center px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+                    >
+                      <Heart className="h-5 w-5 mr-2" />
+                      喜欢
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 } 
