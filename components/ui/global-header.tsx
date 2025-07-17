@@ -35,6 +35,18 @@ export function GlobalHeader() {
   const { user } = useAuth();
   const t = (key: string) => getTranslation(language, key);
 
+  // Function to get user display name
+  const getUserDisplayName = () => {
+    if (!user) return 'Dashboard';
+    
+    // Priority order: email > phone > full_name > name > fallback
+    return user.email || 
+           user.phone || 
+           user.user_metadata?.full_name || 
+           user.user_metadata?.name || 
+           'Dashboard';
+  };
+
   // Set mounted state
   useEffect(() => {
     setMounted(true);
@@ -185,7 +197,7 @@ export function GlobalHeader() {
             ) : (
               <Link href="/dashboard">
                 <Button variant="ghost" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
-                  {user.email || 'Dashboard'}
+                  {getUserDisplayName()}
                 </Button>
               </Link>
             )}
