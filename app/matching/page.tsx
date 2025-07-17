@@ -110,18 +110,18 @@ export default function MatchingPage() {
         },
         body: JSON.stringify({ candidate_id: candidate.id }),
       });
-      
+
       if (response.ok) {
-        toast({
+          toast({
           title: '喜欢成功',
           description: `你已喜欢 ${candidate.full_name}`,
-        });
+          });
       }
     } catch (error) {
       console.error('Error liking candidate:', error);
     }
     
-    setCurrentIndex(prev => prev + 1);
+      setCurrentIndex(prev => prev + 1);
   };
 
   const handlePass = () => {
@@ -147,7 +147,7 @@ export default function MatchingPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+        {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -252,7 +252,7 @@ export default function MatchingPage() {
             </button>
           </div>
         </nav>
-      </div>
+        </div>
 
       {/* Overlay */}
       {showSidebar && (
@@ -288,7 +288,7 @@ export default function MatchingPage() {
               >
                 返回首页
               </button>
-            </div>
+                </div>
           ) : (
             <div className="space-y-6">
               {/* Progress */}
@@ -297,17 +297,17 @@ export default function MatchingPage() {
                   {currentIndex + 1} / {candidates.length}
                 </p>
               </div>
-
+              
               {/* Candidate Card */}
               <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-                <div className="relative">
+          <div className="relative">
                   {/* Avatar */}
                   <div className="w-full h-64 bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center">
                     <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center text-4xl font-bold text-gray-700">
                       {currentCandidate.full_name?.charAt(0).toUpperCase()}
-                    </div>
-                  </div>
-                  
+              </div>
+            </div>
+
                   {/* Compatibility Score */}
                   <div className="absolute top-4 right-4 bg-white rounded-full px-3 py-1 shadow-md">
                     <div className="flex items-center">
@@ -328,7 +328,7 @@ export default function MatchingPage() {
                     {currentCandidate.age && (
                       <span className="text-lg text-gray-600">{currentCandidate.age}岁</span>
                     )}
-                  </div>
+              </div>
 
                   {/* Location */}
                   {currentCandidate.location && (
@@ -338,29 +338,29 @@ export default function MatchingPage() {
                     </div>
                   )}
 
-                  {/* Bio */}
+              {/* Bio */}
                   {currentCandidate.bio && (
                     <p className="text-gray-700 mb-4 leading-relaxed">
-                      {currentCandidate.bio}
-                    </p>
+                {currentCandidate.bio}
+              </p>
                   )}
 
-                  {/* Interests */}
+              {/* Interests */}
                   {currentCandidate.interests && currentCandidate.interests.length > 0 && (
                     <div className="mb-6">
                       <h3 className="text-sm font-semibold text-gray-900 mb-2">兴趣爱好</h3>
-                      <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
                         {currentCandidate.interests.map((interest, index) => (
                           <span
                             key={index}
                             className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
                           >
-                            {interest}
+                        {interest}
                           </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                    ))}
+                  </div>
+                </div>
+              )}
 
                   {/* Action Buttons */}
                   <div className="flex space-x-4">
@@ -380,8 +380,8 @@ export default function MatchingPage() {
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
+          </div>
+        </div>
           )}
         </div>
       </div>
