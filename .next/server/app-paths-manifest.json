@@ -1,5 +1,8 @@
 {
+  "/payment/recharge/page": "app/payment/recharge/page.js",
   "/page": "app/page.js",
-  "/auth/forgot-password/page": "app/auth/forgot-password/page.js",
+  "/matching/history/page": "app/matching/history/page.js",
+  "/not-found": "app/not-found.js",
+  "/dashboard/page": "app/dashboard/page.js",
   "/auth/login/page": "app/auth/login/page.js"
 }

@@ -26,6 +26,21 @@ const updatePasswordSchema = z.object({
 
 type UpdatePasswordFormData = z.infer<typeof updatePasswordSchema>;
 
+// Helper function to parse URL hash parameters
+function parseHashParams() {
+  if (typeof window === 'undefined') return {};
+  
+  const hash = window.location.hash.substring(1); // Remove the #
+  const params = new URLSearchParams(hash);
+  const result: Record<string, string> = {};
+  
+  for (const [key, value] of params.entries()) {
+    result[key] = value;
+  }
+  
+  return result;
+}
+
 function UpdatePasswordContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [passwordUpdated, setPasswordUpdated] = useState(false);
@@ -64,9 +79,11 @@ function UpdatePasswordContent() {
         }
 
         if (!session) {
-          // Check if we have access_token in URL params (from email link)
-          const accessToken = searchParams.get('access_token');
-          const refreshToken = searchParams.get('refresh_token');
+          // Check both URL search params and hash params
+          const accessToken = searchParams.get('access_token') || parseHashParams().access_token;
+          const refreshToken = searchParams.get('refresh_token') || parseHashParams().refresh_token;
+          
+          console.log('Checking for tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken });
           
           if (accessToken && refreshToken) {
             // Set the session from URL params
@@ -84,6 +101,11 @@ function UpdatePasswordContent() {
               });
               router.push('/auth/forgot-password');
               return;
+            }
+            
+            // Clear the hash from URL after processing
+            if (window.location.hash) {
+              window.history.replaceState(null, '', window.location.pathname);
             }
           } else {
             toast({
@@ -249,14 +271,13 @@ function UpdatePasswordContent() {
             <div className="space-y-2">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-800 group-focus-within:text-purple-500 transition-colors" />
+                    <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
                   </div>
                   <Input
                     {...form.register('password')}
                     type={showPassword ? 'text' : 'password'}
                     placeholder="New password"
-                    className="pl-10 pr-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500/50 focus:bg-white transition-all duration-300 shadow-lg"
-                    autoComplete="new-password"
+                    className="pl-10 pr-10 bg-white/5 border-white/20 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500"
                   />
                   <button
                     type="button"
@@ -264,41 +285,27 @@ function UpdatePasswordContent() {
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   >
                     {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-white transition-colors" />
                     ) : (
-                      <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                      <Eye className="h-5 w-5 text-gray-400 hover:text-white transition-colors" />
                     )}
                   </button>
                 </div>
-              {form.formState.errors.password && (
-                  <p className="text-sm text-red-400">
-                  {form.formState.errors.password.message}
-                </p>
-              )}
-              <div className="bg-white/10 rounded-lg p-3 border border-white/20">
-                <p className="text-xs text-gray-300 mb-2">
-                  <strong>Password requirements:</strong>
-                </p>
-                <ul className="text-xs text-gray-300 space-y-1">
-                  <li>• At least 8 characters</li>
-                  <li>• One uppercase letter</li>
-                  <li>• One lowercase letter</li>
-                  <li>• One number</li>
-                </ul>
+                {form.formState.errors.password && (
+                  <p className="text-red-400 text-sm">{form.formState.errors.password.message}</p>
+                )}
               </div>
-            </div>
-              
-            <div className="space-y-2">
+
+              <div className="space-y-2">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-800 group-focus-within:text-purple-500 transition-colors" />
+                    <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
                   </div>
                   <Input
                     {...form.register('confirmPassword')}
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="Confirm new password"
-                    className="pl-10 pr-10 bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500 focus:ring-purple-500/50 focus:bg-white transition-all duration-300 shadow-lg"
-                    autoComplete="new-password"
+                    className="pl-10 pr-10 bg-white/5 border-white/20 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500"
                   />
                   <button
                     type="button"
@@ -306,23 +313,21 @@ function UpdatePasswordContent() {
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-white transition-colors" />
                     ) : (
-                      <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                      <Eye className="h-5 w-5 text-gray-400 hover:text-white transition-colors" />
                     )}
                   </button>
                 </div>
-              {form.formState.errors.confirmPassword && (
-                  <p className="text-sm text-red-400">
-                  {form.formState.errors.confirmPassword.message}
-                </p>
-              )}
-            </div>
-              
-              <Button 
-                type="submit" 
-                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                {form.formState.errors.confirmPassword && (
+                  <p className="text-red-400 text-sm">{form.formState.errors.confirmPassword.message}</p>
+                )}
+              </div>
+
+              <Button
+                type="submit"
                 disabled={isLoading}
+                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
               >
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
@@ -330,25 +335,19 @@ function UpdatePasswordContent() {
                     <span>Updating...</span>
                   </div>
                 ) : (
-                  <span>Update password</span>
+                  'Update password'
                 )}
-            </Button>
-          </form>
+              </Button>
+            </form>
 
-            <div className="text-center pt-4">
-              <p className="text-sm text-gray-300">
-              Remember your password?{' '}
-                <Link 
-                  href="/auth/login" 
-                  className="text-purple-300 hover:text-purple-200 transition-colors duration-200 underline-offset-4 hover:underline font-medium"
-                >
-                Sign in
+            <div className="text-center">
+              <Link href="/auth/login" className="text-purple-300 hover:text-white transition-colors text-sm">
+                Remember your password? Sign in
               </Link>
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -356,8 +355,8 @@ function UpdatePasswordContent() {
 export default function UpdatePasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-        <div className="text-white text-lg">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
       </div>
     }>
       <UpdatePasswordContent />
