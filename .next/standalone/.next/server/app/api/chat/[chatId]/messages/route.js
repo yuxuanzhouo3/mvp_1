@@ -1,0 +1,21 @@
+(()=>{var e={};e.id=5498,e.ids=[5498,8181],e.modules={72934:e=>{"use strict";e.exports=require("next/dist/client/components/action-async-storage.external.js")},54580:e=>{"use strict";e.exports=require("next/dist/client/components/request-async-storage.external.js")},45869:e=>{"use strict";e.exports=require("next/dist/client/components/static-generation-async-storage.external.js")},30517:e=>{"use strict";e.exports=require("next/dist/compiled/next-server/app-route.runtime.prod.js")},14300:e=>{"use strict";e.exports=require("buffer")},6113:e=>{"use strict";e.exports=require("crypto")},82361:e=>{"use strict";e.exports=require("events")},13685:e=>{"use strict";e.exports=require("http")},95687:e=>{"use strict";e.exports=require("https")},41808:e=>{"use strict";e.exports=require("net")},85477:e=>{"use strict";e.exports=require("punycode")},12781:e=>{"use strict";e.exports=require("stream")},24404:e=>{"use strict";e.exports=require("tls")},57310:e=>{"use strict";e.exports=require("url")},59796:e=>{"use strict";e.exports=require("zlib")},58359:()=>{},93739:()=>{},4423:(e,t,r)=>{"use strict";r.r(t),r.d(t,{headerHooks:()=>g,originalPathname:()=>I,patchFetch:()=>_,requestAsyncStorage:()=>l,routeModule:()=>p,serverHooks:()=>h,staticGenerationAsyncStorage:()=>m,staticGenerationBailout:()=>x});var s={};r.r(s),r.d(s,{GET:()=>c,POST:()=>d});var a=r(10884),i=r(16132),o=r(21040),n=r(95798),u=r(69978);async function c(e,{params:t}){try{let e=(0,u.e)(),{data:{user:r},error:s}=await e.auth.getUser();if(s||!r)return n.Z.json({error:"Unauthorized"},{status:401});let{data:a,error:i}=await e.from("messages").select(`
+        id,
+        content,
+        message_type,
+        created_at,
+        sender:profiles!messages_sender_id_fkey(
+          id,
+          full_name,
+          avatar_url
+        )
+      `).eq("chat_id",t.chatId).order("created_at",{ascending:!0});if(i)return n.Z.json({error:"Failed to fetch messages"},{status:500});return n.Z.json({messages:a||[]})}catch(e){return n.Z.json({error:"Internal server error"},{status:500})}}async function d(e,{params:t}){try{let r=(0,u.e)(),{content:s,messageType:a="text"}=await e.json(),{data:{user:i},error:o}=await r.auth.getUser();if(o||!i)return n.Z.json({error:"Unauthorized"},{status:401});let{data:c,error:d}=await r.from("messages").insert({chat_id:t.chatId,sender_id:i.id,content:s,message_type:a}).select(`
+        id,
+        content,
+        message_type,
+        created_at,
+        sender:profiles!messages_sender_id_fkey(
+          id,
+          full_name,
+          avatar_url
+        )
+      `).single();if(d)return n.Z.json({error:"Failed to create message"},{status:500});return n.Z.json({message:c})}catch(e){return n.Z.json({error:"Internal server error"},{status:500})}}let p=new a.AppRouteRouteModule({definition:{kind:i.x.APP_ROUTE,page:"/api/chat/[chatId]/messages/route",pathname:"/api/chat/[chatId]/messages",filename:"route",bundlePath:"app/api/chat/[chatId]/messages/route"},resolvedPagePath:"/Users/mac-guest1/Downloads/Git/mvp_projects/mvp_1/app/api/chat/[chatId]/messages/route.ts",nextConfigOutput:"standalone",userland:s}),{requestAsyncStorage:l,staticGenerationAsyncStorage:m,serverHooks:h,headerHooks:g,staticGenerationBailout:x}=p,I="/api/chat/[chatId]/messages/route";function _(){return(0,o.patchFetch)({serverHooks:h,staticGenerationAsyncStorage:m})}},69978:(e,t,r)=>{"use strict";r.d(t,{e:()=>i});var s=r(74280),a=r(24596);let i=()=>{let e=(0,a.cookies)();return(0,s.createServerClient)("https://bamratexknmqvdbalzen.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhbXJhdGV4a25tcXZkYmFsemVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1MTM4NzEsImV4cCI6MjA2ODA4OTg3MX0.yYa98ioJLLouUgHWITGb7U_VjNCTUuM-5NcraM7f3zA",{cookies:{get:t=>e.get(t)?.value,set(t,r,s){e.set({name:t,value:r,...s})},remove(t,r){e.set({name:t,value:"",...r})}}})}}};var t=require("../../../../../webpack-runtime.js");t.C(e);var r=e=>t(t.s=e),s=t.X(0,[3271,8107,6163,782],()=>r(4423));module.exports=s})();

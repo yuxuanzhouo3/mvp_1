@@ -34,9 +34,10 @@ function parseHashParams() {
   const params = new URLSearchParams(hash);
   const result: Record<string, string> = {};
   
-  for (const [key, value] of params.entries()) {
+  // Use Array.from to avoid iteration issues
+  Array.from(params.entries()).forEach(([key, value]) => {
     result[key] = value;
-  }
+  });
   
   return result;
 }
