@@ -680,6 +680,9 @@ video {
 .-bottom-40 {
   bottom: -10rem;
 }
+.-left-12 {
+  left: -3rem;
+}
 .-left-40 {
   left: -10rem;
 }
@@ -970,6 +973,9 @@ video {
 .min-h-screen {
   min-height: 100vh;
 }
+.w-0 {
+  width: 0px;
+}
 .w-0\.5 {
   width: 0.125rem;
 }
@@ -1036,9 +1042,6 @@ video {
 }
 .w-full {
   width: 100%;
-}
-.w-0 {
-  width: 0px;
 }
 .min-w-0 {
   min-width: 0px;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 
@@ -12,6 +12,10 @@ export default function DashboardLayout({
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Check if we're on the settings page
+  const isSettingsPage = pathname === '/dashboard/settings';
 
   useEffect(() => {
     if (!loading && !user) {
@@ -41,7 +45,7 @@ export default function DashboardLayout({
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardSidebar user={user} />
       <main className="flex-1 overflow-y-auto">
-        <div className="p-6">
+        <div className={`${isSettingsPage ? 'p-0' : 'p-6'}`}>
           {children}
         </div>
       </main>

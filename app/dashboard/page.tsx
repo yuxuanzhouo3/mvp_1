@@ -1,24 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/app/providers/AuthProvider';
-import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { 
-  User, 
-  CreditCard, 
-  MessageSquare, 
   Heart, 
+  MessageSquare, 
+  Users, 
+  TrendingUp, 
+  CreditCard, 
+  Plus, 
   Settings, 
-  Plus,
-  TrendingUp,
-  Users,
-  Calendar,
-  MapPin
+  User, 
+  MapPin 
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 
@@ -55,6 +54,7 @@ interface DashboardStats {
 export default function DashboardPage() {
   const { user, signOut, loading: authLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>([]);
@@ -337,29 +337,31 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              欢迎回来，{profile.full_name}！
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              发现新的朋友，开始有趣的对话
-            </p>
+        {pathname !== '/settings' && (
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                欢迎回来，{profile.full_name}！
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                发现新的朋友，开始有趣的对话
+              </p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button variant="outline" onClick={handleViewChats}>
+                <MessageSquare className="h-4 w-4 mr-2" />
+                查看聊天
+              </Button>
+              <Button variant="outline" onClick={() => router.push('/settings')}>
+                <Settings className="h-4 w-4 mr-2" />
+                设置
+              </Button>
+              <Button variant="outline" onClick={handleSignOut}>
+                退出登录
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" onClick={handleViewChats}>
-              <MessageSquare className="h-4 w-4 mr-2" />
-              查看聊天
-            </Button>
-            <Button variant="outline" onClick={() => router.push('/settings')}>
-              <Settings className="h-4 w-4 mr-2" />
-              设置
-            </Button>
-            <Button variant="outline" onClick={handleSignOut}>
-              退出登录
-            </Button>
-          </div>
-        </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Profile & Quick Actions */}
