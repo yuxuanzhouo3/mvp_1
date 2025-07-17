@@ -134,9 +134,34 @@ export default function DashboardPage() {
       }
     } catch (error) {
       console.error('❌ Dashboard data loading error:', error);
+      
+      // Create fallback data if API calls fail
+      if (!profile && user) {
+        const fallbackProfile: UserProfile = {
+          id: user.id,
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
+          avatar_url: user.user_metadata?.avatar_url || '',
+          bio: '',
+          location: '',
+          interests: [],
+          credits: 100,
+          created_at: new Date().toISOString()
+        };
+        setProfile(fallbackProfile);
+      }
+      
+      // Set fallback stats
+      setStats({
+        totalMatches: 0,
+        totalMessages: 0,
+        activeChats: 0,
+        profileCompletion: 50
+      });
+      
       toast({
         title: '加载失败',
-        description: '无法加载仪表盘数据',
+        description: '无法加载仪表盘数据，显示基础信息',
         variant: 'destructive',
       });
     } finally {
@@ -196,6 +221,31 @@ export default function DashboardPage() {
 
     return () => clearTimeout(timeout);
   }, [loading, user, profile]);
+
+  // Session refresh and error recovery
+  useEffect(() => {
+    const sessionCheck = setInterval(async () => {
+      if (user && !loading) {
+        try {
+          // Check if session is still valid
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            console.log('🔄 Session expired, refreshing...');
+            // Try to refresh the session
+            const { data, error } = await supabase.auth.refreshSession();
+            if (error) {
+              console.log('❌ Session refresh failed, redirecting to login');
+              window.location.href = '/auth/login';
+            }
+          }
+        } catch (error) {
+          console.log('❌ Session check failed:', error);
+        }
+      }
+    }, 25000); // Check every 25 seconds
+
+    return () => clearInterval(sessionCheck);
+  }, [user, loading]);
 
   // EMERGENCY FIX: Force redirect if still loading after 5 seconds
   useEffect(() => {
@@ -292,33 +342,6 @@ export default function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center space-x-4">
-            {/* User Info Display */}
-            <div className="flex items-center space-x-3 bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={profile.avatar_url} />
-                <AvatarFallback>
-                  {profile.full_name?.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {profile.full_name}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {profile.email}
-                </p>
-              </div>
-            </div>
-            
-            {/* Quick Stats */}
-            <div className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
-              <CreditCard className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
-                {profile.credits} 积分
-              </span>
-            </div>
-            
-            {/* Action Buttons */}
             <Button variant="outline" onClick={handleViewChats}>
               <MessageSquare className="h-4 w-4 mr-2" />
               查看聊天
