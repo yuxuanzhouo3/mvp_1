@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useAuth } from '@/context/AuthProvider'
+import { useAuth } from '@/app/providers/AuthProvider'
 import { RealtimeChannel } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase/client'
 
@@ -44,7 +44,7 @@ export default function useChatChannel(chatId: string) {
         return
       }
       
-      setMessages(data || [])
+      setMessages((data as unknown as Message[]) || [])
     } catch (error) {
       console.error('Failed to load chat history:', error)
     } finally {
