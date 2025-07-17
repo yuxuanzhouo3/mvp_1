@@ -63,7 +63,7 @@ export default function HomePage() {
                   <ArrowRight className="ml-3 h-6 w-6" />
                 </Button>
               </Link>
-              <Link href="/features">
+              <Link href="/about">
                 <Button variant="outline" size="lg" className="border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-8 py-4 rounded-lg text-lg">
                   Learn More
                 </Button>
