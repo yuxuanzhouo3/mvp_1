@@ -1,0 +1,11 @@
+.vercel
+node_modules
+.env*.local
+.env
+.env.local
+.next
+
+.claude
+.vscode
+database
+.DS_Store
