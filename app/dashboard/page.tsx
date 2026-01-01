@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -19,7 +19,12 @@ import {
   LogOut,
   Menu,
   Home,
-  ArrowLeft
+  ArrowLeft,
+  Calendar,
+  Ruler,
+  GraduationCap,
+  Briefcase,
+  Brain
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { useLanguage } from '@/components/language-provider';
@@ -35,6 +40,14 @@ interface UserProfile {
   location?: string;
   interests: string[];
   created_at: string;
+  // Extended profile fields
+  gender?: 'male' | 'female' | 'other';
+  birth_date?: string;
+  height_cm?: number;
+  weight_kg?: number;
+  education_level?: string;
+  occupation?: string;
+  mbti?: string;
 }
 
 interface RecentMatch {
@@ -69,11 +82,16 @@ export default function DashboardPage() {
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [authSettled, setAuthSettled] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
 
-  const loadDashboardData = async () => {
-    if (!user?.id) return;
+  // Use refs to prevent multiple calls and track initialization
+  const hasLoadedRef = useRef(false);
+  const isRedirectingRef = useRef(false);
+
+  const loadDashboardData = useCallback(async (userId: string) => {
+    // Prevent multiple simultaneous calls
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
 
     try {
       setLoading(true);
@@ -84,6 +102,7 @@ export default function DashboardPage() {
 
       if (!token) {
         console.error('No session token available');
+        setLoading(false);
         return;
       }
 
@@ -123,31 +142,57 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase.auth]);
 
+  // Main auth effect - only runs once when auth settles
   useEffect(() => {
-    console.log('🔄 Dashboard useEffect - user:', !!user, 'user id:', user?.id, 'authLoading:', authLoading);
-
+    // Wait for auth to finish loading
     if (authLoading) {
-      console.log('⏳ Auth still loading, waiting...');
       return;
     }
 
-    setAuthSettled(true);
+    // Prevent duplicate redirects
+    if (isRedirectingRef.current) {
+      return;
+    }
+
+    console.log('🔄 Dashboard useEffect - user:', !!user, 'user id:', user?.id, 'authLoading:', authLoading);
 
     if (!user || !user.id) {
       console.log('❌ No user found in dashboard, redirecting to login');
+      isRedirectingRef.current = true;
       setProfile(null);
       setRecentMatches([]);
       setStats(null);
       setLoading(false);
-      router.push('/auth/login');
+      // Use setTimeout to avoid setState during render
+      setTimeout(() => {
+        router.push('/auth/login');
+      }, 0);
       return;
-    } else {
-      console.log('✅ User authenticated, loading dashboard data');
-      loadDashboardData();
     }
-  }, [user, authLoading, authSettled]);
+
+    console.log('✅ User authenticated, loading dashboard data');
+    loadDashboardData(user.id);
+  }, [user?.id, authLoading, loadDashboardData, router]);
+
+  // Separate effect for profile setup redirect - with debounce
+  useEffect(() => {
+    // Only check after loading is complete and we have a user
+    if (loading || authLoading || !user || isRedirectingRef.current) {
+      return;
+    }
+
+    // If profile is null after loading, redirect to setup
+    if (profile === null && hasLoadedRef.current) {
+      console.log('📋 No profile found, redirecting to profile setup');
+      isRedirectingRef.current = true;
+      // Use setTimeout to avoid setState during render
+      setTimeout(() => {
+        router.push('/profile/setup');
+      }, 0);
+    }
+  }, [loading, authLoading, user, profile, router]);
 
   if (loading || authLoading) {
     return (
@@ -161,9 +206,15 @@ export default function DashboardPage() {
   }
 
   if (!profile) {
-    // Redirect to profile setup if profile doesn't exist
-    router.push('/profile/setup');
-    return null;
+    // Show loading while redirecting to profile setup
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">{t.profileSetup?.redirecting || 'Redirecting to profile setup...'}</p>
+        </div>
+      </div>
+    );
   }
 
   const handleSignOut = async () => {
@@ -426,25 +477,84 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
+                {/* Basic Info Row */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  {profile.gender && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <User className="mr-2 h-4 w-4 text-gray-400" />
+                      <span>
+                        {profile.gender === 'male' ? (t.profileSetup?.genderMale || 'Male') :
+                         profile.gender === 'female' ? (t.profileSetup?.genderFemale || 'Female') :
+                         (t.profileSetup?.genderOther || 'Other')}
+                      </span>
+                    </div>
+                  )}
+                  {profile.birth_date && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Calendar className="mr-2 h-4 w-4 text-gray-400" />
+                      <span>{Math.floor((Date.now() - new Date(profile.birth_date).getTime()) / (365.25 * 24 * 60 * 60 * 1000))} {t.profileSetup?.yearsOld || 'years old'}</span>
+                    </div>
+                  )}
+                </div>
+
                 {profile.location && (
                   <p className="text-sm text-gray-600 mb-3 flex items-center">
-                    <MapPin className="mr-1 h-4 w-4" />
+                    <MapPin className="mr-2 h-4 w-4 text-gray-400" />
                     {profile.location}
                   </p>
+                )}
+
+                {/* Physical & Professional Info */}
+                <div className="space-y-2 mb-4">
+                  {profile.height_cm && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Ruler className="mr-2 h-4 w-4 text-gray-400" />
+                      <span>{profile.height_cm} cm</span>
+                    </div>
+                  )}
+                  {profile.education_level && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <GraduationCap className="mr-2 h-4 w-4 text-gray-400" />
+                      <span>
+                        {profile.education_level === 'high_school' ? (t.profileSetup?.education_high_school || 'High School') :
+                         profile.education_level === 'associate' ? (t.profileSetup?.education_associate || 'Associate') :
+                         profile.education_level === 'bachelor' ? (t.profileSetup?.education_bachelor || 'Bachelor') :
+                         profile.education_level === 'master' ? (t.profileSetup?.education_master || 'Master') :
+                         profile.education_level === 'doctorate' ? (t.profileSetup?.education_doctorate || 'Doctorate') :
+                         profile.education_level}
+                      </span>
+                    </div>
+                  )}
+                  {profile.occupation && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Briefcase className="mr-2 h-4 w-4 text-gray-400" />
+                      <span>{profile.occupation}</span>
+                    </div>
+                  )}
+                  {profile.mbti && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Brain className="mr-2 h-4 w-4 text-gray-400" />
+                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">{profile.mbti}</span>
+                    </div>
+                  )}
+                </div>
+
+                {profile.bio && (
+                  <p className="text-sm text-gray-600 mb-4 italic">&ldquo;{profile.bio}&rdquo;</p>
                 )}
 
                 {profile.interests && profile.interests.length > 0 && (
                   <div className="mb-4">
                     <p className="text-sm text-gray-600 mb-2">{t.dashboard.profile.interests}</p>
                     <div className="flex flex-wrap gap-2">
-                      {profile.interests.slice(0, 3).map((interest, index) => (
+                      {profile.interests.slice(0, 5).map((interest, index) => (
                         <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
                           {interest}
                         </span>
                       ))}
-                      {profile.interests.length > 3 && (
+                      {profile.interests.length > 5 && (
                         <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                          +{profile.interests.length - 3}
+                          +{profile.interests.length - 5}
                         </span>
                       )}
                     </div>
@@ -461,19 +571,49 @@ export default function DashboardPage() {
             </div>
 
             {/* Credits Card */}
-            <div className="bg-white rounded-lg shadow-sm">
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                   <CreditCard className="mr-2 h-5 w-5" />
                   {t.dashboard.credits.title}
                 </h3>
               </div>
-              <div className="p-6 text-center">
-                <div className="text-4xl font-bold text-blue-600 mb-2">{profile.credits}</div>
-                <p className="text-sm text-gray-600 mb-4">{t.dashboard.credits.availableCredits}</p>
+              <div className="p-6">
+                <div className="text-center mb-6">
+                  <div className="text-5xl font-bold text-blue-600 mb-1">{profile.credits}</div>
+                  <p className="text-gray-500 text-sm">{t.dashboard.credits.availableCredits}</p>
+                </div>
+
+                {/* Credits Usage Info */}
+                <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-gray-600">{t.dashboard.credits.matchCost || 'Per Match'}</span>
+                    <span className="font-semibold text-gray-900">10 {t.dashboard.credits.creditsUnit || 'credits'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-gray-600">{t.dashboard.credits.messageCost || 'Per Message'}</span>
+                    <span className="font-semibold text-gray-900">1 {t.dashboard.credits.creditsUnit || 'credit'}</span>
+                  </div>
+                  <div className="border-t border-gray-200 mt-3 pt-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">{t.dashboard.credits.estimatedMatches || 'Estimated Matches'}</span>
+                      <span className="font-semibold text-gray-900">{Math.floor(profile.credits / 10)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Low Balance Warning */}
+                {profile.credits < 20 && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center">
+                    <span className="text-yellow-700 text-sm">
+                      ⚠️ {t.dashboard.credits.lowBalance || 'Low balance! Recharge to continue matching.'}
+                    </span>
+                  </div>
+                )}
+
                 <button
                   onClick={handleRechargeCredits}
-                  className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
+                  className="w-full px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center justify-center font-semibold border border-blue-200"
                 >
                   <Plus className="mr-2 h-5 w-5" />
                   {t.dashboard.credits.rechargeCredits}

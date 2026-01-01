@@ -12,11 +12,12 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
-import { Mail, Lock, User, CheckCircle, Sparkles, Shield } from 'lucide-react';
+import { Mail, Lock, User, CheckCircle, Sparkles, Shield, Check, X } from 'lucide-react';
 
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const { signUp, signInWithGoogle } = useAuth();
   const { toast } = useToast();
   const { language } = useLanguage();
@@ -52,6 +53,16 @@ export default function RegisterPage() {
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
+
+  // Password validation helper
+  const password = form.watch('password') || '';
+  const passwordChecks = {
+    minLength: password.length >= 8,
+    hasUppercase: /[A-Z]/.test(password),
+    hasLowercase: /[a-z]/.test(password),
+    hasNumber: /[0-9]/.test(password),
+    hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password),
+  };
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
@@ -244,8 +255,40 @@ export default function RegisterPage() {
                     placeholder={t.auth.register.passwordPlaceholder}
                     className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                     autoComplete="new-password"
+                    onFocus={() => setPasswordFocused(true)}
+                    onBlur={() => setPasswordFocused(false)}
                   />
                 </div>
+                {/* Password validation hints */}
+                {(passwordFocused || password.length > 0) && (
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                      {t.auth.validation.passwordRequirements}
+                    </p>
+                    <div className="space-y-1">
+                      <div className={`flex items-center gap-2 text-xs ${passwordChecks.minLength ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {passwordChecks.minLength ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        <span>{t.auth.validation.passwordMinChars}</span>
+                      </div>
+                      <div className={`flex items-center gap-2 text-xs ${passwordChecks.hasUppercase ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {passwordChecks.hasUppercase ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        <span>{t.auth.validation.passwordUppercase}</span>
+                      </div>
+                      <div className={`flex items-center gap-2 text-xs ${passwordChecks.hasLowercase ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {passwordChecks.hasLowercase ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        <span>{t.auth.validation.passwordLowercase}</span>
+                      </div>
+                      <div className={`flex items-center gap-2 text-xs ${passwordChecks.hasNumber ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {passwordChecks.hasNumber ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        <span>{t.auth.validation.passwordNumber}</span>
+                      </div>
+                      <div className={`flex items-center gap-2 text-xs ${passwordChecks.hasSpecial ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                        {passwordChecks.hasSpecial ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                        <span>{t.auth.validation.passwordSpecial}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {form.formState.errors.password && (
                   <p className="text-sm text-red-400">
                     {form.formState.errors.password.message}

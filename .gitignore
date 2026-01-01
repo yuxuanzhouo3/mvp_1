@@ -9,3 +9,4 @@ node_modules
 .vscode
 database
 .DS_Store
+docs

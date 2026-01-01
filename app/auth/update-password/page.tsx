@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -9,7 +9,6 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, CheckCircle, ArrowLeft, Sparkles, Eye, EyeOff } from 'lucide-react';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -28,22 +27,6 @@ const updatePasswordSchema = z.object({
 
 type UpdatePasswordFormData = z.infer<typeof updatePasswordSchema>;
 
-// Helper function to parse URL hash parameters
-function parseHashParams() {
-  if (typeof window === 'undefined') return {};
-  
-  const hash = window.location.hash.substring(1); // Remove the #
-  const params = new URLSearchParams(hash);
-  const result: Record<string, string> = {};
-  
-  // Use Array.from to avoid iteration issues
-  Array.from(params.entries()).forEach(([key, value]) => {
-    result[key] = value;
-  });
-  
-  return result;
-}
-
 function UpdatePasswordContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [passwordUpdated, setPasswordUpdated] = useState(false);
@@ -52,92 +35,100 @@ function UpdatePasswordContent() {
   const [isValidSession, setIsValidSession] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { user } = useAuth();
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslations(language);
+
+  // Use ref to track session validity across closures
+  const sessionFoundRef = useRef(false);
 
   const form = useForm<UpdatePasswordFormData>({
     resolver: zodResolver(updatePasswordSchema),
   });
 
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const supabase = getSupabaseClient();
+    const supabase = getSupabaseClient();
+    let timeoutId: NodeJS.Timeout;
+    let redirectTimeoutId: NodeJS.Timeout;
 
-        const { data: { session }, error } = await supabase.auth.getSession();
+    const markSessionValid = () => {
+      sessionFoundRef.current = true;
+      setIsValidSession(true);
+      setIsCheckingSession(false);
+    };
 
-        if (error) {
-          console.error('Session check error:', error);
-          toast({
-            title: t.auth.errors.sessionError,
-            description: t.auth.errors.sessionErrorDesc,
-            variant: 'destructive',
-          });
-          router.push('/auth/forgot-password');
-          return;
+    // Listen for auth state changes - Supabase will automatically handle the recovery token
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        // User clicked the recovery link and Supabase has validated it
+        markSessionValid();
+      } else if (event === 'SIGNED_IN' && session) {
+        // User is signed in (could be from recovery or existing session)
+        markSessionValid();
+      } else if (event === 'INITIAL_SESSION') {
+        // Check if there's already a valid session
+        if (session) {
+          markSessionValid();
         }
+      }
+    });
 
-        if (!session) {
-          // Check both URL search params and hash params
-          const hashParams = parseHashParams();
-          const accessToken = searchParams.get('access_token') || hashParams.access_token;
-          const refreshToken = searchParams.get('refresh_token') || hashParams.refresh_token;
+    // Check for recovery tokens in URL hash
+    const initializeSession = async () => {
+      const hash = window.location.hash;
+      const hasRecoveryToken = hash && hash.includes('access_token') && hash.includes('type=recovery');
 
-          console.log('Checking for tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken });
-
-          if (accessToken && refreshToken) {
-            // Set the session from URL params
-            const { error: setSessionError } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-
-            if (setSessionError) {
-              console.error('Set session error:', setSessionError);
+      if (hasRecoveryToken) {
+        // Wait for Supabase to process the recovery token
+        // The onAuthStateChange listener will handle the PASSWORD_RECOVERY event
+        timeoutId = setTimeout(async () => {
+          if (!sessionFoundRef.current) {
+            // Fallback: check session directly
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              markSessionValid();
+            } else {
               toast({
-                title: t.auth.errors.invalidResetLink,
-                description: t.auth.errors.invalidResetLinkDesc,
+                title: t.auth.errors.noValidSession,
+                description: t.auth.errors.noValidSessionDesc,
                 variant: 'destructive',
               });
               router.push('/auth/forgot-password');
-              return;
+              setIsCheckingSession(false);
             }
-
-            // Clear the hash from URL after processing
-            if (window.location.hash) {
-              window.history.replaceState(null, '', window.location.pathname);
-            }
-          } else {
-            toast({
-              title: t.auth.errors.noValidSession,
-              description: t.auth.errors.noValidSessionDesc,
-              variant: 'destructive',
-            });
-            router.push('/auth/forgot-password');
-            return;
           }
+        }, 3000);
+      } else {
+        // No recovery hash, check for existing session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          markSessionValid();
+        } else {
+          // No session and no recovery token - redirect after brief delay
+          redirectTimeoutId = setTimeout(() => {
+            if (!sessionFoundRef.current) {
+              toast({
+                title: t.auth.errors.noValidSession,
+                description: t.auth.errors.noValidSessionDesc,
+                variant: 'destructive',
+              });
+              router.push('/auth/forgot-password');
+              setIsCheckingSession(false);
+            }
+          }, 1500);
         }
-
-        setIsValidSession(true);
-      } catch (error) {
-        console.error('Session check failed:', error);
-        toast({
-          title: t.auth.errors.generalError,
-          description: t.auth.errors.generalErrorDesc,
-          variant: 'destructive',
-        });
-        router.push('/auth/forgot-password');
-      } finally {
-        setIsCheckingSession(false);
       }
     };
 
-    checkSession();
+    initializeSession();
+
+    return () => {
+      subscription.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
+      if (redirectTimeoutId) clearTimeout(redirectTimeoutId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // ✅ 只在组件挂载时执行一次，避免循环依赖
+  }, []);
 
   const onSubmit = async (data: UpdatePasswordFormData) => {
     setIsLoading(true);
@@ -147,7 +138,7 @@ function UpdatePasswordContent() {
       const { error } = await supabase.auth.updateUser({
         password: data.password
       });
-      
+
       if (error) {
         console.error('Password update error:', error);
         toast({
@@ -161,7 +152,7 @@ function UpdatePasswordContent() {
           title: t.updatePassword.passwordUpdateSuccess,
           description: t.auth.success.passwordUpdatedDesc,
         });
-        
+
         // Sign out the user after password update
         await supabase.auth.signOut();
       }
@@ -179,13 +170,13 @@ function UpdatePasswordContent() {
 
   if (isCheckingSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 dark:from-gray-900 dark:to-gray-950 relative overflow-hidden">
         <div className="relative z-10 w-full max-w-md mx-4">
-          <Card className="backdrop-blur-xl bg-white/10 border-white/20 shadow-2xl">
+          <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl">
             <CardContent className="text-center py-12">
               <div className="flex items-center justify-center space-x-2">
-                <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-white text-lg">{t.updatePassword.verifying}...</span>
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-gray-900 dark:text-white text-lg">{t.updatePassword.verifying}...</span>
               </div>
             </CardContent>
           </Card>
@@ -200,135 +191,148 @@ function UpdatePasswordContent() {
 
   if (passwordUpdated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-        {/* Animated background elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-          <div className="absolute top-40 left-40 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 dark:from-gray-900 dark:to-gray-950 relative overflow-hidden">
+        {/* Back to Home Button */}
+        <Link
+          href="/"
+          className="absolute top-6 left-6 z-20 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors duration-200"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          <span className="font-medium">{t.header.backToHome}</span>
+        </Link>
 
         <div className="relative z-10 w-full max-w-md mx-4">
-          <Card className="backdrop-blur-xl bg-white/10 border-white/20 shadow-2xl">
-            <CardHeader className="text-center space-y-4 pb-8">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-green-500 to-emerald-500 shadow-glow">
+          <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl">
+            <CardHeader className="text-center space-y-4 pb-6">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500 shadow-lg">
                 <CheckCircle className="h-8 w-8 text-white" />
-            </div>
-              <CardTitle className="text-3xl font-bold text-white mb-2">{t.updatePassword.passwordUpdateSuccess}</CardTitle>
-              <CardDescription className="text-gray-300 text-lg">
-              {t.auth.success.passwordUpdatedDesc}
-            </CardDescription>
-          </CardHeader>
+              </div>
+              <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                {t.updatePassword.passwordUpdateSuccess}
+              </CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-300 text-lg">
+                {t.auth.success.passwordUpdatedDesc}
+              </CardDescription>
+            </CardHeader>
             <CardContent className="text-center space-y-6">
-            <Link href="/auth/login">
-                <Button 
-                  variant="outline" 
-                  className="w-full border-white/20 text-white hover:bg-white/10 transition-all duration-300"
+              <Link href="/auth/login">
+                <Button
+                  variant="outline"
+                  className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-300"
                 >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                {t.auth.login.signIn}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  {t.auth.login.signIn}
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 relative overflow-hidden">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-40 left-40 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 dark:from-gray-900 dark:to-gray-950 relative overflow-hidden">
+      {/* Back to Home Button */}
+      <Link
+        href="/"
+        className="absolute top-6 left-6 z-20 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors duration-200"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        <span className="font-medium">{t.header.backToHome}</span>
+      </Link>
 
-      {/* Main content */}
       <div className="relative z-10 w-full max-w-md mx-4">
-        <Card className="backdrop-blur-xl bg-white/10 border-white/20 shadow-2xl">
-          <CardHeader className="text-center space-y-4 pb-8">
-            <div className="flex items-center justify-center space-x-3 mb-6">
+        <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl">
+          <CardHeader className="text-center space-y-4 pb-6">
+            <div className="flex items-center justify-center space-x-3 mb-4">
               <Link href="/" className="flex items-center space-x-3 hover:scale-105 transition-transform duration-200">
-                <div className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl shadow-lg">
+                <div className="p-3 bg-primary rounded-xl shadow-lg">
                   <Sparkles className="h-8 w-8 text-white" />
                 </div>
-                <h1 className="text-3xl font-bold text-white drop-shadow-lg">
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                   PersonaLink
                 </h1>
               </Link>
             </div>
-            <CardTitle className="text-3xl font-bold text-white mb-2">
+            <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               {t.updatePassword.title}
             </CardTitle>
-            <CardDescription className="text-white text-lg font-medium drop-shadow-sm">
-            {t.updatePassword.subtitle}
-          </CardDescription>
-        </CardHeader>
-          
+            <CardDescription className="text-gray-600 dark:text-gray-300 text-lg">
+              {t.updatePassword.subtitle}
+            </CardDescription>
+          </CardHeader>
+
           <CardContent className="space-y-6">
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="space-y-2">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+                    <Lock className="h-5 w-5 text-gray-500 group-focus-within:text-primary transition-colors" />
                   </div>
                   <Input
                     {...form.register('password')}
                     type={showPassword ? 'text' : 'password'}
                     placeholder={t.updatePassword.newPasswordPlaceholder}
-                    className="pl-10 pr-10 bg-white/5 border-white/20 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500"
+                    className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors"
                   >
                     {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-white transition-colors" />
+                      <EyeOff className="h-5 w-5" />
                     ) : (
-                      <Eye className="h-5 w-5 text-gray-400 hover:text-white transition-colors" />
+                      <Eye className="h-5 w-5" />
                     )}
                   </button>
                 </div>
                 {form.formState.errors.password && (
-                  <p className="text-red-400 text-sm">{t.auth.errors[form.formState.errors.password.message as keyof typeof t.auth.errors] || form.formState.errors.password.message}</p>
+                  <p className="text-red-500 text-sm">
+                    {t.auth.errors[form.formState.errors.password.message as keyof typeof t.auth.errors] || form.formState.errors.password.message}
+                  </p>
                 )}
               </div>
 
               <div className="space-y-2">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+                    <Lock className="h-5 w-5 text-gray-500 group-focus-within:text-primary transition-colors" />
                   </div>
                   <Input
                     {...form.register('confirmPassword')}
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder={t.updatePassword.confirmPasswordPlaceholder}
-                    className="pl-10 pr-10 bg-white/5 border-white/20 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500"
+                    className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors"
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-white transition-colors" />
+                      <EyeOff className="h-5 w-5" />
                     ) : (
-                      <Eye className="h-5 w-5 text-gray-400 hover:text-white transition-colors" />
+                      <Eye className="h-5 w-5" />
                     )}
                   </button>
                 </div>
                 {form.formState.errors.confirmPassword && (
-                  <p className="text-red-400 text-sm">{t.auth.errors[form.formState.errors.confirmPassword.message as keyof typeof t.auth.errors] || form.formState.errors.confirmPassword.message}</p>
+                  <p className="text-red-500 text-sm">
+                    {t.auth.errors[form.formState.errors.confirmPassword.message as keyof typeof t.auth.errors] || form.formState.errors.confirmPassword.message}
+                  </p>
                 )}
               </div>
 
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
+                className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
@@ -341,10 +345,16 @@ function UpdatePasswordContent() {
               </Button>
             </form>
 
-            <div className="text-center">
-              <Link href="/auth/login" className="text-purple-300 hover:text-white transition-colors text-sm">
-                {t.forgotPassword.rememberPassword} {t.auth.login.signIn}
-              </Link>
+            <div className="text-center pt-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {t.forgotPassword.rememberPassword}{' '}
+                <Link
+                  href="/auth/login"
+                  className="text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline font-medium"
+                >
+                  {t.auth.login.signIn}
+                </Link>
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -356,11 +366,11 @@ function UpdatePasswordContent() {
 export default function UpdatePasswordPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-        <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 dark:from-gray-900 dark:to-gray-950">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     }>
       <UpdatePasswordContent />
     </Suspense>
   );
-} 
+}

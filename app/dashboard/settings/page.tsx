@@ -40,11 +40,21 @@ interface UserSettings {
   };
 }
 
+// Helper to convert language provider format to select option format
+const languageToSelectValue = (lang: string): string => {
+  return lang === 'zh' ? 'zh-CN' : 'en-US';
+};
+
+// Helper to convert select option format to language provider format
+const selectValueToLanguage = (value: string): 'en' | 'zh' => {
+  return value === 'zh-CN' ? 'zh' : 'en';
+};
+
 export default function SettingsPage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const t = useTranslations(language);
 
   const [settings, setSettings] = useState<UserSettings>({
@@ -59,11 +69,22 @@ export default function SettingsPage() {
       allowMessages: true,
     },
     preferences: {
-      language: 'zh-CN',
+      language: languageToSelectValue(language),
       theme: 'auto',
-      timezone: 'Asia/Shanghai',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     },
   });
+
+  // Sync settings language with language provider when it changes
+  useEffect(() => {
+    setSettings(prev => ({
+      ...prev,
+      preferences: {
+        ...prev.preferences,
+        language: languageToSelectValue(language),
+      },
+    }));
+  }, [language]);
   
   const [loading, setLoading] = useState(false);
   const [authSettled, setAuthSettled] = useState(false);
@@ -301,16 +322,19 @@ export default function SettingsPage() {
                 <select
                   id="language"
                   value={settings.preferences.language}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const newValue = e.target.value;
                     setSettings(prev => ({
                       ...prev,
-                      preferences: { ...prev.preferences, language: e.target.value }
-                    }))
-                  }
+                      preferences: { ...prev.preferences, language: newValue }
+                    }));
+                    // Also update the actual language provider
+                    setLanguage(selectValueToLanguage(newValue));
+                  }}
                   className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700"
                 >
-                  <option value="zh-CN">中文 (简体)</option>
                   <option value="en-US">English</option>
+                  <option value="zh-CN">中文 (简体)</option>
                 </select>
               </div>
               <div>
