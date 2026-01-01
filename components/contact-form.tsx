@@ -1,9 +1,12 @@
 'use client';
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, Send } from 'lucide-react';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 export function ContactForm() {
   const [formData, setFormData] = useState({
@@ -15,6 +18,8 @@ export function ContactForm() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = useTranslations(language);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,8 +30,8 @@ export function ContactForm() {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       toast({
-        title: 'Message Sent!',
-        description: 'Thank you for contacting us. We\'ll get back to you soon.',
+        title: t.contactForm.messageSent,
+        description: t.contactForm.thankYou,
       });
       
       // Reset form
@@ -38,8 +43,8 @@ export function ContactForm() {
       });
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to send message. Please try again.',
+        title: t.contactForm.error,
+        description: t.contactForm.failedToSend,
         variant: 'destructive',
       });
     } finally {
@@ -52,11 +57,11 @@ export function ContactForm() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <label htmlFor="name" className="text-sm font-medium">
-            Your Name
+            {t.contactForm.yourName}
           </label>
           <Input
             id="name"
-            placeholder="Enter your full name"
+            placeholder={t.contactForm.namePlaceholder}
             value={formData.name}
             onChange={(e) => setFormData({...formData, name: e.target.value})}
             required
@@ -64,12 +69,12 @@ export function ContactForm() {
         </div>
         <div className="space-y-2">
           <label htmlFor="email" className="text-sm font-medium">
-            Email Address
+            {t.contactForm.emailAddress}
           </label>
           <Input
             id="email"
             type="email"
-            placeholder="your.email@example.com"
+            placeholder={t.contactForm.emailPlaceholder}
             value={formData.email}
             onChange={(e) => setFormData({...formData, email: e.target.value})}
             required
@@ -79,11 +84,11 @@ export function ContactForm() {
       
       <div className="space-y-2">
         <label htmlFor="subject" className="text-sm font-medium">
-          Subject
+          {t.contactForm.subject}
         </label>
         <Input
           id="subject"
-          placeholder="What is this about?"
+          placeholder={t.contactForm.subjectPlaceholder}
           value={formData.subject}
           onChange={(e) => setFormData({...formData, subject: e.target.value})}
           required
@@ -92,12 +97,12 @@ export function ContactForm() {
       
       <div className="space-y-2">
         <label htmlFor="message" className="text-sm font-medium">
-          Message
+          {t.contactForm.message}
         </label>
         <textarea
           id="message"
           className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          placeholder="Tell us more about your inquiry..."
+          placeholder={t.contactForm.messagePlaceholder}
           rows={6}
           value={formData.message}
           onChange={(e) => setFormData({...formData, message: e.target.value})}
@@ -113,12 +118,12 @@ export function ContactForm() {
         {isSubmitting ? (
           <>
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-            Sending...
+            {t.contactForm.sending}
           </>
         ) : (
           <>
             <Send className="h-4 w-4 mr-2" />
-            Send Message
+            {t.contactForm.sendMessage}
           </>
         )}
       </Button>

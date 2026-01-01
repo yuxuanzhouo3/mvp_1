@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 import { Mail, Lock, Eye, EyeOff, Sparkles, Shield } from 'lucide-react';
 
 export default function LoginPage() {
@@ -20,12 +22,12 @@ export default function LoginPage() {
   const router = useRouter();
   const { signIn, signInWithGoogle, user } = useAuth();
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = useTranslations(language);
 
   // Immediate redirect if user is already authenticated
   useEffect(() => {
-    console.log('🚀 Login page mounted - user:', !!user, 'user id:', user?.id);
     if (user && user.id && !hasRedirectedRef.current) {
-      console.log('✅ User already authenticated, redirecting immediately');
       hasRedirectedRef.current = true;
       router.push('/dashboard');
     }
@@ -41,27 +43,19 @@ export default function LoginPage() {
   // Reset loading state if user state changes
   useEffect(() => {
     if (user && isLoading) {
-      console.log('🔄 User authenticated, resetting loading state');
       setIsLoading(false);
     }
   }, [user, isLoading]);
 
   const onEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('📝 Login form submitted');
-    console.log('📧 Email:', email);
-    console.log('🔑 Password length:', password.length);
-
     setIsLoading(true);
-    console.log('⏳ Loading state set to true');
-    console.log('🔐 Attempting to sign in with email:', email);
 
     // Basic validation
     if (!email || !password) {
-      console.log('❌ Validation failed: Empty fields');
       toast({
-        title: 'Error',
-        description: 'Please fill in all fields',
+        title: t.common.error,
+        description: t.auth.validation.fillAllFields,
         variant: 'destructive',
       });
       setIsLoading(false);
@@ -69,10 +63,9 @@ export default function LoginPage() {
     }
 
     if (password.length < 6) {
-      console.log('❌ Validation failed: Password too short');
       toast({
-        title: 'Error',
-        description: 'Password must be at least 6 characters',
+        title: t.common.error,
+        description: t.auth.validation.passwordTooShort,
         variant: 'destructive',
       });
       setIsLoading(false);
@@ -80,40 +73,32 @@ export default function LoginPage() {
     }
 
     try {
-      console.log('🚀 Calling signIn function...');
       const { error } = await signIn(email, password);
-      console.log('📡 SignIn response:', { error });
 
       if (error) {
-        console.log('❌ SignIn failed:', error.message);
         toast({
-          title: 'Login failed',
+          title: t.auth.login.loginFailed,
           description: error.message,
           variant: 'destructive',
         });
         setIsLoading(false);
       } else {
-        console.log('✅ SignIn successful!');
         toast({
-          title: 'Success',
-          description: 'Welcome back!',
+          title: t.common.success,
+          description: t.auth.login.welcomeBack,
         });
-        console.log('⏳ Waiting for user state update...');
-        console.log('🔄 User state should update automatically via AuthProvider');
 
-        // Force redirect after successful login with longer delay to ensure auth state settles
+        // Force redirect after successful login
         setTimeout(() => {
-          console.log('🚀 Force redirecting to dashboard after successful login');
           window.location.href = '/dashboard';
         }, 1500);
 
         setIsLoading(false);
       }
     } catch (error) {
-      console.log('💥 Unexpected error during signIn:', error);
       toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
+        title: t.common.error,
+        description: t.auth.errors.unexpectedError,
         variant: 'destructive',
       });
       setIsLoading(false);
@@ -126,20 +111,20 @@ export default function LoginPage() {
       const { error } = await signInWithGoogle();
       if (error) {
         toast({
-          title: 'Google sign-in failed',
+          title: t.auth.errors.googleSignInFailed,
           description: error.message,
           variant: 'destructive',
         });
       } else {
         toast({
-          title: 'Success',
-          description: 'Welcome! Redirecting to dashboard...',
+          title: t.common.success,
+          description: t.auth.login.redirecting,
         });
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'An unexpected error occurred during Google sign-in',
+        title: t.common.error,
+        description: t.auth.errors.unexpectedError,
         variant: 'destructive',
       });
     } finally {
@@ -157,7 +142,7 @@ export default function LoginPage() {
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
-        <span className="font-medium">Back to Home</span>
+        <span className="font-medium">{t.header.backToHome}</span>
       </Link>
 
       {/* Main content */}
@@ -175,10 +160,10 @@ export default function LoginPage() {
               </Link>
             </div>
             <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Welcome back
+              {t.auth.login.title}
             </CardTitle>
             <CardDescription className="text-gray-600 dark:text-gray-300 text-lg">
-              Sign in to your account and start connecting
+              {t.auth.login.subtitle}
             </CardDescription>
           </CardHeader>
 
@@ -191,7 +176,7 @@ export default function LoginPage() {
                   </div>
                   <Input
                     type="email"
-                    placeholder="Enter your email"
+                    placeholder={t.auth.login.emailPlaceholder}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
@@ -209,7 +194,7 @@ export default function LoginPage() {
                   </div>
                   <Input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
+                    placeholder={t.auth.login.passwordPlaceholder}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
@@ -240,12 +225,12 @@ export default function LoginPage() {
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Signing in...</span>
+                    <span>{t.auth.login.signingIn}</span>
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2">
                     <Shield className="h-4 w-4" />
-                    <span>Sign in</span>
+                    <span>{t.auth.login.signInButton}</span>
                   </div>
                 )}
               </Button>
@@ -256,7 +241,7 @@ export default function LoginPage() {
                 href="/auth/forgot-password"
                 className="text-sm text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline"
               >
-                Forgot your password?
+                {t.auth.login.forgotPassword}
               </Link>
             </div>
 
@@ -266,7 +251,7 @@ export default function LoginPage() {
                 <span className="w-full border-t border-gray-300 dark:border-gray-600" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">or</span>
+                <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">{t.common.or}</span>
               </div>
             </div>
 
@@ -284,17 +269,17 @@ export default function LoginPage() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              Continue with Google
+              {t.auth.login.continueWithGoogle}
             </Button>
 
             <div className="text-center pt-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Don't have an account?{' '}
+                {t.auth.login.noAccount}{' '}
                 <Link
                   href="/auth/register"
                   className="text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline font-medium"
                 >
-                  Sign up
+                  {t.auth.login.signUp}
                 </Link>
               </p>
             </div>

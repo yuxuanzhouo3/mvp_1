@@ -19,6 +19,8 @@ import {
   Settings
 } from 'lucide-react';
 import Link from 'next/link';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 interface Notification {
   id: string;
@@ -39,7 +41,9 @@ export default function NotificationsPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
-  
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -65,8 +69,8 @@ export default function NotificationsPage() {
       }
     } catch (error) {
       toast({
-        title: '加载失败',
-        description: '无法加载通知',
+        title: t.dashboardNotifications.operationFailed,
+        description: t.dashboardNotifications.markAsReadFailed,
         variant: 'destructive',
       });
     } finally {
@@ -90,8 +94,8 @@ export default function NotificationsPage() {
       }
     } catch (error) {
       toast({
-        title: '操作失败',
-        description: '无法标记为已读',
+        title: t.dashboardNotifications.operationFailed,
+        description: t.dashboardNotifications.markAsReadFailed,
         variant: 'destructive',
       });
     }
@@ -107,13 +111,13 @@ export default function NotificationsPage() {
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
         toast({
-          title: '已全部标记为已读',
+          title: t.dashboardNotifications.allMarkedAsRead,
         });
       }
     } catch (error) {
       toast({
-        title: '操作失败',
-        description: '无法标记全部为已读',
+        title: t.dashboardNotifications.operationFailed,
+        description: t.dashboardNotifications.markAllReadFailed,
         variant: 'destructive',
       });
     }
@@ -145,13 +149,13 @@ export default function NotificationsPage() {
   const getNotificationBadge = (type: string) => {
     switch (type) {
       case 'match':
-        return <Badge variant="destructive" className="bg-red-100 text-red-800">匹配</Badge>;
+        return <Badge variant="destructive" className="bg-red-100 text-red-800">{t.dashboardNotifications.typeMatch}</Badge>;
       case 'message':
-        return <Badge variant="default" className="bg-blue-100 text-blue-800">消息</Badge>;
+        return <Badge variant="default" className="bg-blue-100 text-blue-800">{t.dashboardNotifications.typeMessage}</Badge>;
       case 'payment':
-        return <Badge variant="default" className="bg-green-100 text-green-800">支付</Badge>;
+        return <Badge variant="default" className="bg-green-100 text-green-800">{t.dashboardNotifications.typePayment}</Badge>;
       default:
-        return <Badge variant="secondary">系统</Badge>;
+        return <Badge variant="secondary">{t.dashboardNotifications.typeSystem}</Badge>;
     }
   };
 
@@ -161,13 +165,13 @@ export default function NotificationsPage() {
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
 
     if (diffInHours < 1) {
-      return '刚刚';
+      return t.dashboardNotifications.timeJustNow;
     } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}小时前`;
+      return t.dashboardNotifications.timeHoursAgo.replace('{hours}', String(Math.floor(diffInHours)));
     } else if (diffInHours < 168) {
-      return `${Math.floor(diffInHours / 24)}天前`;
+      return t.dashboardNotifications.timeDaysAgo.replace('{days}', String(Math.floor(diffInHours / 24)));
     } else {
-      return date.toLocaleDateString('zh-CN');
+      return date.toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US');
     }
   };
 
@@ -176,7 +180,7 @@ export default function NotificationsPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">加载通知中...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
@@ -185,43 +189,41 @@ export default function NotificationsPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              通知中心
+              {t.dashboardNotifications.title}
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              查看您的所有通知和消息
+              {t.dashboardNotifications.subtitle}
             </p>
           </div>
           <div className="flex items-center space-x-2">
             {unreadCount > 0 && (
               <Button variant="outline" onClick={markAllAsRead}>
                 <Check className="h-4 w-4 mr-2" />
-                全部已读
+                {t.dashboardNotifications.markAllAsRead}
               </Button>
             )}
             <Link href="/dashboard">
               <Button variant="outline">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                返回仪表盘
+                {t.dashboardNotifications.backToDashboard}
               </Button>
             </Link>
           </div>
         </div>
 
-        {/* Notifications List */}
         <div className="space-y-4">
           {notifications.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
                 <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  暂无通知
+                  {t.dashboardNotifications.noNotifications}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400">
-                  当有新消息、匹配或其他重要事件时，您会在这里看到通知
+                  {t.dashboardNotifications.noNotificationsDesc}
                 </p>
               </CardContent>
             </Card>

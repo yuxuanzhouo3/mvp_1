@@ -1,8 +1,26 @@
+'use client';
+
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Home, ArrowLeft, Search } from 'lucide-react';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
+import { useState, useEffect } from 'react';
 
 export default function NotFound() {
+  const [mounted, setMounted] = useState(false);
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Prevent hydration mismatch
+  if (!mounted) {
+    return <div suppressHydrationWarning />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       <div className="text-center max-w-md mx-auto">
@@ -16,10 +34,10 @@ export default function NotFound() {
         {/* Error Message */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            Page Not Found
+            {t.errors.notFound.title}
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-400">
-            The page you're looking for doesn't exist or has been moved to a different location.
+            {t.errors.notFound.description}
           </p>
         </div>
 
@@ -28,14 +46,14 @@ export default function NotFound() {
           <Button asChild size="lg" className="w-full md:w-auto">
             <Link href="/">
               <Home className="h-4 w-4 mr-2" />
-              Return Home
+              {t.errors.notFound.backHome}
             </Link>
           </Button>
-          
+
           <Button asChild variant="outline" size="lg" className="w-full md:w-auto">
             <Link href="/dashboard">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Go to Dashboard
+              {t.header.dashboard}
             </Link>
           </Button>
         </div>
@@ -43,32 +61,32 @@ export default function NotFound() {
         {/* Helpful Links */}
         <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
           <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
-            Popular Pages
+            {language === 'zh' ? '热门页面' : 'Popular Pages'}
           </h3>
           <div className="flex flex-wrap justify-center gap-4 text-sm">
-            <Link 
-              href="/matching" 
+            <Link
+              href="/matching"
               className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              Find Matches
+              {t.matching.title}
             </Link>
-            <Link 
-              href="/chat" 
+            <Link
+              href="/chat"
               className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              Chat
+              {t.chat.title}
             </Link>
-            <Link 
-              href="/settings" 
+            <Link
+              href="/dashboard/settings"
               className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              Settings
+              {t.dashboardSettings.title}
             </Link>
-            <Link 
-              href="/contact" 
+            <Link
+              href="/contact"
               className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              Contact Us
+              {t.contact.title}
             </Link>
           </div>
         </div>
@@ -77,10 +95,14 @@ export default function NotFound() {
         <div className="mt-8 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <Search className="h-4 w-4" />
-            <span>Can't find what you're looking for? Try searching or contact our support team.</span>
+            <span>
+              {language === 'zh'
+                ? '试试使用搜索功能找到您需要的内容'
+                : 'Try using the search feature to find what you need'}
+            </span>
           </div>
         </div>
       </div>
     </div>
   );
-} 
+}

@@ -1,33 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { User, Session } from '@supabase/supabase-js';
-
-// Create a singleton Supabase client
-let supabaseClient: ReturnType<typeof createClient> | null = null;
-
-function getSupabaseClient() {
-  if (!supabaseClient) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('Missing Supabase environment variables');
-    }
-    
-    supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined
-      }
-    });
-  }
-  
-  return supabaseClient;
-}
+import { getSupabaseClient } from '@/lib/supabase/client';
 
 interface AuthContextType {
   user: User | null;

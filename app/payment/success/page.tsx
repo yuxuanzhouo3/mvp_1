@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, ArrowRight, CreditCard, Home } from 'lucide-react';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 interface PaymentSuccessData {
   credits: number;
@@ -18,6 +20,8 @@ export default function PaymentSuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = useTranslations(language);
   const [paymentData, setPaymentData] = useState<PaymentSuccessData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -44,15 +48,15 @@ export default function PaymentSuccessPage() {
         setPaymentData(data);
       } else {
         toast({
-          title: '支付验证失败',
-          description: '无法验证支付状态，请联系客服',
+          title: t.payment.success.verificationFailed,
+          description: t.payment.success.verificationFailedDesc,
           variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
-        title: '验证失败',
-        description: '网络错误，请稍后重试',
+        title: t.payment.success.verificationError,
+        description: t.payment.success.verificationErrorDesc,
         variant: 'destructive',
       });
     } finally {
@@ -73,7 +77,7 @@ export default function PaymentSuccessPage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">正在验证支付...</p>
+          <p className="text-gray-600">{t.payment.success.verifyingPayment}</p>
         </div>
       </div>
     );
@@ -88,10 +92,10 @@ export default function PaymentSuccessPage() {
               <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
             </div>
             <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
-              支付成功！
+              {t.payment.success.title}
             </CardTitle>
             <CardDescription className="text-gray-600 dark:text-gray-400">
-              您的积分已成功添加到账户
+              {t.payment.success.description}
             </CardDescription>
           </CardHeader>
           
@@ -102,25 +106,25 @@ export default function PaymentSuccessPage() {
                   <div className="flex items-center justify-center space-x-2 mb-2">
                     <CreditCard className="h-5 w-5 text-green-600" />
                     <span className="font-semibold text-green-800 dark:text-green-200">
-                      +{paymentData.credits} 积分
+                      {t.payment.success.creditsAdded.replace('{credits}', String(paymentData.credits))}
                     </span>
                   </div>
                   <p className="text-sm text-green-700 dark:text-green-300">
-                    已添加到您的账户
+                    {t.payment.success.addedToAccount}
                   </p>
                 </div>
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">支付金额:</span>
+                    <span className="text-gray-600 dark:text-gray-400">{t.payment.success.paymentAmount}</span>
                     <span className="font-medium">¥{paymentData.amount}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">支付方式:</span>
+                    <span className="text-gray-600 dark:text-gray-400">{t.payment.success.paymentMethod}</span>
                     <span className="font-medium">{paymentData.paymentMethod}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">交易ID:</span>
+                    <span className="text-gray-600 dark:text-gray-400">{t.payment.success.transactionId}</span>
                     <span className="font-mono text-xs">{paymentData.transactionId.slice(0, 8)}...</span>
                   </div>
                 </div>
@@ -128,7 +132,7 @@ export default function PaymentSuccessPage() {
             ) : (
               <div className="text-center">
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  支付已完成，积分将在几分钟内到账
+                  {t.payment.success.paymentComplete}
                 </p>
               </div>
             )}
@@ -140,7 +144,7 @@ export default function PaymentSuccessPage() {
                 size="lg"
               >
                 <ArrowRight className="h-4 w-4 mr-2" />
-                开始匹配
+                {t.payment.success.startMatching}
               </Button>
               
               <Button 
@@ -149,13 +153,13 @@ export default function PaymentSuccessPage() {
                 className="w-full"
               >
                 <Home className="h-4 w-4 mr-2" />
-                返回仪表板
+                {t.payment.success.returnToDashboard}
               </Button>
             </div>
 
             <div className="text-xs text-gray-500 dark:text-gray-400">
-              <p>如有问题，请联系客服</p>
-              <p>客服邮箱: support@personalink.com</p>
+              <p>{t.payment.success.anyQuestions}</p>
+              <p>{t.payment.success.supportEmail}</p>
             </div>
           </CardContent>
         </Card>

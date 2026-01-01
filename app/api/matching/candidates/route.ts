@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createRouteHandlerClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
     console.log('🔍 Starting candidates API...');
+
+    // Create Supabase client for this request
+    const supabase = createRouteHandlerClient();
 
     // Use a default user ID for testing (Jimmy's ID)
     const userId = 'da7bb6ab-1e26-4c3d-b28e-73ece0264b82';

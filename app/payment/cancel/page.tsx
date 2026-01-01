@@ -4,9 +4,13 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { XCircle, ArrowLeft, RefreshCw } from 'lucide-react';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 export default function PaymentCancelPage() {
   const router = useRouter();
+  const { language } = useLanguage();
+  const t = useTranslations(language);
 
   const handleRetryPayment = () => {
     router.push('/payment/recharge');
@@ -25,17 +29,17 @@ export default function PaymentCancelPage() {
               <XCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
             </div>
             <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
-              支付已取消
+              {t.payment.cancel.title}
             </CardTitle>
             <CardDescription className="text-gray-600 dark:text-gray-400">
-              您的支付已被取消，积分未添加到账户
+              {t.payment.cancel.description}
             </CardDescription>
           </CardHeader>
           
           <CardContent className="space-y-6">
             <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
               <p className="text-sm text-red-700 dark:text-red-300">
-                如果您在支付过程中遇到问题，请稍后重试或联系客服
+                {t.payment.cancel.message}
               </p>
             </div>
 
@@ -46,7 +50,7 @@ export default function PaymentCancelPage() {
                 size="lg"
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
-                重新支付
+                {t.payment.cancel.retryPayment}
               </Button>
               
               <Button 
@@ -55,13 +59,13 @@ export default function PaymentCancelPage() {
                 className="w-full"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                返回仪表板
+                {t.payment.cancel.returnToDashboard}
               </Button>
             </div>
 
             <div className="text-xs text-gray-500 dark:text-gray-400">
-              <p>需要帮助？请联系客服</p>
-              <p>客服邮箱: support@personalink.com</p>
+              <p>{t.payment.cancel.needHelp}</p>
+              <p>{t.payment.cancel.supportEmail}</p>
             </div>
           </CardContent>
         </Card>

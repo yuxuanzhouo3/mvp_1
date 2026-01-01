@@ -4,18 +4,20 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useChat } from '@/app/hooks/useChat';
-import { createClient } from '@supabase/supabase-js';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
+import { getSupabaseClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Send, 
-  Paperclip, 
-  Image, 
-  File, 
+import {
+  Send,
+  Paperclip,
+  Image,
+  File,
   Smile,
   MoreVertical,
   Phone,
@@ -44,41 +46,47 @@ interface ChatUser {
   last_seen?: string;
 }
 
-export default function ChatPage() {
+export default function ChatDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [mounted, setMounted] = useState(false);
+  const { language } = useLanguage();
+  const t = useTranslations(language);
   const chatId = params.chatId as string;
-  
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatUser, setChatUser] = useState<ChatUser | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showFileUpload, setShowFileUpload] = useState(false);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  // Create Supabase client
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  // Use shared Supabase client singleton
+  const supabase = getSupabaseClient();
 
   // Initialize chat hook
   const { sendMessage, isConnected } = useChat({ chatId });
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
     if (!user) {
       router.push('/auth/login');
       return;
     }
 
     loadChatData();
-  }, [chatId, user]);
+  }, [chatId, user, mounted]);
 
   useEffect(() => {
     scrollToBottom();
@@ -87,11 +95,11 @@ export default function ChatPage() {
   const loadChatData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Get the current session token
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
-      
+
       if (!token) {
         console.error('No session token available');
         return;
@@ -101,7 +109,7 @@ export default function ChatPage() {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       };
-      
+
       // Load chat messages
       const messagesResponse = await fetch(`/api/chat/${chatId}/messages`, { headers });
       if (messagesResponse.ok) {
@@ -117,8 +125,8 @@ export default function ChatPage() {
       }
     } catch (error) {
       toast({
-        title: '加载失败',
-        description: '无法加载聊天数据',
+        title: t.chat.loadFailed,
+        description: t.chat.networkError,
         variant: 'destructive',
       });
     } finally {
@@ -138,8 +146,8 @@ export default function ChatPage() {
       setNewMessage('');
     } catch (error) {
       toast({
-        title: '发送失败',
-        description: '消息发送失败，请重试',
+        title: t.chat.sendFailed || 'Failed to send',
+        description: t.chat.networkError,
         variant: 'destructive',
       });
     }
@@ -170,14 +178,14 @@ export default function ChatPage() {
         const data = await response.json();
         await sendMessage('', [data.file_url]);
         toast({
-          title: '文件上传成功',
-          description: '文件已发送',
+          title: 'File uploaded successfully',
+          description: 'File has been sent',
         });
       }
     } catch (error) {
       toast({
-        title: '上传失败',
-        description: '文件上传失败，请重试',
+        title: 'Upload failed',
+        description: 'File upload failed, please try again',
         variant: 'destructive',
       });
     }
@@ -201,14 +209,14 @@ export default function ChatPage() {
         const data = await response.json();
         await sendMessage('', [data.image_url]);
         toast({
-          title: '图片上传成功',
-          description: '图片已发送',
+          title: 'Image uploaded successfully',
+          description: 'Image has been sent',
         });
       }
     } catch (error) {
       toast({
-        title: '上传失败',
-        description: '图片上传失败，请重试',
+        title: 'Upload failed',
+        description: 'Image upload failed, please try again',
         variant: 'destructive',
       });
     }
@@ -220,21 +228,26 @@ export default function ChatPage() {
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
 
     if (diffInHours < 24) {
-      return date.toLocaleTimeString('zh-CN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      return date.toLocaleTimeString(language === 'zh' ? 'zh-CN' : 'en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
       });
     } else {
-      return date.toLocaleDateString('zh-CN');
+      return date.toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US');
     }
   };
+
+  // Prevent hydration mismatch
+  if (!mounted) {
+    return <div suppressHydrationWarning />;
+  }
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">加载聊天中...</p>
+          <p className="text-gray-600 dark:text-gray-400">{t.common.loading}</p>
         </div>
       </div>
     );
@@ -245,11 +258,11 @@ export default function ChatPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>聊天未找到</CardTitle>
+            <CardTitle>Chat not found</CardTitle>
           </CardHeader>
           <CardContent>
             <Button onClick={() => router.push('/chat')} className="w-full">
-              返回聊天列表
+              {t.common.back}
             </Button>
           </CardContent>
         </Card>
@@ -263,22 +276,22 @@ export default function ChatPage() {
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               onClick={() => router.push('/chat')}
               className="lg:hidden"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            
+
             <Avatar>
               <AvatarImage src={chatUser.avatar_url} />
               <AvatarFallback>
                 {chatUser.full_name?.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            
+
             <div>
               <h2 className="font-semibold text-gray-900 dark:text-white">
                 {chatUser.full_name}
@@ -286,7 +299,7 @@ export default function ChatPage() {
               <div className="flex items-center space-x-2">
                 <div className={`w-2 h-2 rounded-full ${chatUser.is_online ? 'bg-green-500' : 'bg-gray-400'}`}></div>
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {chatUser.is_online ? '在线' : '离线'}
+                  {chatUser.is_online ? (language === 'zh' ? '在线' : 'Online') : (language === 'zh' ? '离线' : 'Offline')}
                 </span>
               </div>
             </div>
@@ -315,16 +328,16 @@ export default function ChatPage() {
           <div className="text-center py-8">
             <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 dark:text-gray-400 mb-2">
-              开始与 {chatUser.full_name} 的对话
+              {language === 'zh' ? `开始与 ${chatUser.full_name} 的对话` : `Start conversation with ${chatUser.full_name}`}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-500">
-              发送第一条消息来开始聊天
+              {language === 'zh' ? '发送第一条消息来开始聊天' : 'Send the first message to start chatting'}
             </p>
           </div>
         ) : (
           messages.map((message) => {
             const isOwnMessage = message.sender_id === user?.id;
-            
+
             return (
               <div
                 key={message.id}
@@ -339,31 +352,31 @@ export default function ChatPage() {
                       </AvatarFallback>
                     </Avatar>
                   )}
-                  
+
                   <div className={`rounded-lg px-4 py-2 ${
-                    isOwnMessage 
-                      ? 'bg-blue-600 text-white' 
+                    isOwnMessage
+                      ? 'bg-blue-600 text-white'
                       : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
                   }`}>
                     {message.message_type === 'text' && (
                       <p className="text-sm">{message.content}</p>
                     )}
-                    
+
                     {message.message_type === 'image' && (
-                      <img 
-                        src={message.file_url} 
-                        alt="Shared image" 
+                      <img
+                        src={message.file_url}
+                        alt="Shared image"
                         className="rounded max-w-full h-auto"
                       />
                     )}
-                    
+
                     {message.message_type === 'file' && (
                       <div className="flex items-center space-x-2">
                         <File className="h-4 w-4" />
-                        <span className="text-sm">文件已发送</span>
+                        <span className="text-sm">{language === 'zh' ? '文件已发送' : 'File sent'}</span>
                       </div>
                     )}
-                    
+
                     <div className={`text-xs mt-1 ${
                       isOwnMessage ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
                     }`}>
@@ -380,7 +393,7 @@ export default function ChatPage() {
             );
           })
         )}
-        
+
         {isTyping && (
           <div className="flex justify-start">
             <div className="flex items-end space-x-2">
@@ -400,7 +413,7 @@ export default function ChatPage() {
             </div>
           </div>
         )}
-        
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -414,7 +427,7 @@ export default function ChatPage() {
           >
             <Paperclip className="h-4 w-4" />
           </Button>
-          
+
           {showFileUpload && (
             <div className="flex space-x-2">
               <Button
@@ -433,17 +446,17 @@ export default function ChatPage() {
               </Button>
             </div>
           )}
-          
+
           <div className="flex-1">
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="输入消息..."
+              placeholder={t.chat.typePlaceholder}
               className="border-0 focus:ring-0"
             />
           </div>
-          
+
           <Button
             variant="ghost"
             size="sm"
@@ -451,7 +464,7 @@ export default function ChatPage() {
           >
             <Smile className="h-4 w-4" />
           </Button>
-          
+
           <Button
             onClick={handleSendMessage}
             disabled={!newMessage.trim() || !isConnected}
@@ -460,11 +473,11 @@ export default function ChatPage() {
             <Send className="h-4 w-4" />
           </Button>
         </div>
-        
+
         {!isConnected && (
           <div className="mt-2 text-center">
             <Badge variant="destructive" className="text-xs">
-              连接断开，正在重连...
+              {language === 'zh' ? '连接断开，正在重连...' : 'Connection lost, reconnecting...'}
             </Badge>
           </div>
         )}
@@ -487,4 +500,4 @@ export default function ChatPage() {
       />
     </div>
   );
-} 
+}

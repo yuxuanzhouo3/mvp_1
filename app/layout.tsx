@@ -8,27 +8,38 @@ import { MonitoringDashboard } from '@/components/ui/monitoring-dashboard'
 import { ConditionalHeader } from '@/components/ui/conditional-header'
 import { memo } from 'react'
 
+// Get deployment region from environment
+const isChinaRegion = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN';
+const locale = isChinaRegion ? 'zh-CN' : 'en-US';
+const defaultLanguage = isChinaRegion ? 'zh' : 'en';
+
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'PersonaLink - AI-Powered Friend Matcher',
-  description: 'Find your perfect AI friend match based on personality compatibility',
-  keywords: ['AI', 'friendship', 'matching', 'personality', 'chat'],
+  title: isChinaRegion ? 'PersonaLink - AI社交匹配' : 'PersonaLink - AI Friend Matcher',
+  description: isChinaRegion
+    ? '基于个性兼容性找到你的完美AI朋友匹配'
+    : 'Find your perfect AI friend match based on personality compatibility',
+  keywords: ['AI', 'friendship', 'matching', 'personality', 'chat', '社交', '匹配', '个性', '聊天'],
   authors: [{ name: 'PersonaLink Team' }],
   openGraph: {
-    title: 'PersonaLink - AI-Powered Friend Matcher',
-    description: 'Find your perfect AI friend match based on personality compatibility',
+    title: isChinaRegion ? 'PersonaLink - AI社交匹配' : 'PersonaLink - AI Friend Matcher',
+    description: isChinaRegion
+      ? '基于个性兼容性找到你的完美AI朋友匹配'
+      : 'Find your perfect AI friend match based on personality compatibility',
     type: 'website',
-    locale: 'en_US',
+    locale: locale,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'PersonaLink - AI-Powered Friend Matcher',
-    description: 'Find your perfect AI friend match based on personality compatibility',
+    title: isChinaRegion ? 'PersonaLink - AI社交匹配' : 'PersonaLink - AI Friend Matcher',
+    description: isChinaRegion
+      ? '基于个性兼容性找到你的完美AI朋友匹配'
+      : 'Find your perfect AI friend match based on personality compatibility',
   },
 }
 
-// Memoize the monitoring dashboard to prevent unnecessary re-renders
+// Memoize monitoring dashboard to prevent unnecessary re-renders
 const MemoizedMonitoringDashboard = memo(MonitoringDashboard);
 
 export default function RootLayout({
@@ -37,9 +48,9 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   const isDevelopment = process.env.NODE_ENV === 'development';
-  
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body className={inter.className}>
         <ErrorBoundary>
           <Providers>
@@ -47,7 +58,7 @@ export default function RootLayout({
               <ConditionalHeader />
               {children}
               <Toaster />
-              
+
               {/* Only render monitoring dashboard in development */}
               {isDevelopment && (
                 <MemoizedMonitoringDashboard />

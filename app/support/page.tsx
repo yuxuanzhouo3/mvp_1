@@ -14,23 +14,28 @@ import {
   Zap,
   Heart
 } from 'lucide-react';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 export default function SupportPage() {
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+
   return (
     <div className="max-w-6xl mx-auto py-12 px-4">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">Support Center</h1>
+        <h1 className="text-4xl font-bold mb-4">{t.support.title}</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          We're here to help you get the most out of PersonaLink. Find answers to common questions or get in touch with our support team.
+          {t.support.subtitle}
         </p>
       </div>
 
       <Tabs defaultValue="faq" className="w-full">
         <TabsList className="grid w-full grid-cols-4 mb-8">
-          <TabsTrigger value="faq">FAQ</TabsTrigger>
-          <TabsTrigger value="contact">Contact</TabsTrigger>
-          <TabsTrigger value="guides">Guides</TabsTrigger>
-          <TabsTrigger value="status">System Status</TabsTrigger>
+          <TabsTrigger value="faq">{t.support.faq}</TabsTrigger>
+          <TabsTrigger value="contact">{t.support.contact}</TabsTrigger>
+          <TabsTrigger value="guides">{t.support.guides}</TabsTrigger>
+          <TabsTrigger value="status">{t.support.status}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="faq" className="space-y-6">
@@ -39,61 +44,56 @@ export default function SupportPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <HelpCircle className="h-5 w-5" />
-                  How does PersonaLink work?
+                  {t.support.faq1}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  PersonaLink uses advanced AI algorithms to analyze your personality, interests, and communication style. 
-                  We then match you with compatible users who share similar traits and preferences, creating meaningful connections.
+                  {t.support.faq1Desc}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Is my data secure?</CardTitle>
+                <CardTitle>{t.support.faq2}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  Yes! We take your privacy seriously. All data is encrypted, and we never share your personal information 
-                  with third parties. You can read our detailed privacy policy for more information.
+                  {t.support.faq2Desc}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>How do I report inappropriate behavior?</CardTitle>
+                <CardTitle>{t.support.faq3}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  If you encounter inappropriate behavior, you can report it directly in the chat or contact our support team. 
-                  We take all reports seriously and will investigate promptly.
+                  {t.support.faq3Desc}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Can I delete my account?</CardTitle>
+                <CardTitle>{t.support.faq4}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  Yes, you can delete your account at any time from your settings. This will permanently remove all your data 
-                  from our servers.
+                  {t.support.faq4Desc}
                 </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>How do I get more credits?</CardTitle>
+                <CardTitle>{t.support.faq5}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  You can purchase credits through our recharge system. We offer various packages to suit your needs. 
-                  Credits are used for premium features and advanced matching options.
+                  {t.support.faq5Desc}
                 </p>
               </CardContent>
             </Card>
@@ -106,20 +106,20 @@ export default function SupportPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Mail className="h-5 w-5" />
-                  Email Support
+                  {t.support.emailSupport}
                 </CardTitle>
                 <CardDescription>
-                  Get help via email within 24 hours
+                  {t.support.emailSupportDesc}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-lg font-medium mb-2">support@personalink.ai</p>
                 <p className="text-sm text-muted-foreground mb-4">
-                  For general inquiries, technical issues, or account problems
+                  {t.support.emailSupportDetail}
                 </p>
                 <Button asChild>
                   <Link href="mailto:support@personalink.ai">
-                    Send Email
+                    {t.support.sendEmail}
                   </Link>
                 </Button>
               </CardContent>
@@ -129,20 +129,20 @@ export default function SupportPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Phone className="h-5 w-5" />
-                  Phone Support
+                  {t.support.phoneSupport}
                 </CardTitle>
                 <CardDescription>
-                  Speak with our support team
+                  {t.support.phoneSupportDesc}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-lg font-medium mb-2">+1 (555) 123-4567</p>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Available Monday-Friday, 9AM-6PM PST
+                  {t.support.phoneHours}
                 </p>
                 <Button asChild>
                   <Link href="tel:+15551234567">
-                    Call Now
+                    {t.support.callNow}
                   </Link>
                 </Button>
               </CardContent>
@@ -152,19 +152,19 @@ export default function SupportPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageCircle className="h-5 w-5" />
-                  Live Chat
+                  {t.support.liveChat}
                 </CardTitle>
                 <CardDescription>
-                  Get instant help from our team
+                  {t.support.liveChatDesc}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Available during business hours for immediate assistance
+                  {t.support.liveChatDetail}
                 </p>
                 <Button asChild>
                   <Link href="/contact">
-                    Start Chat
+                    {t.support.startChat}
                   </Link>
                 </Button>
               </CardContent>
@@ -174,25 +174,25 @@ export default function SupportPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
-                  Response Times
+                  {t.support.responseTimes}
                 </CardTitle>
                 <CardDescription>
-                  When to expect a response
+                  {t.support.responseTimesDesc}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span>Email:</span>
-                    <span className="font-medium">24 hours</span>
+                    <span>{t.support.email}:</span>
+                    <span className="font-medium">{t.support.emailResponseTime}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Phone:</span>
-                    <span className="font-medium">Immediate</span>
+                    <span>{t.support.phone}:</span>
+                    <span className="font-medium">{t.support.phoneResponseTime}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Live Chat:</span>
-                    <span className="font-medium">Instant</span>
+                    <span>{t.support.liveChat2}:</span>
+                    <span className="font-medium">{t.support.liveChatResponseTime}</span>
                   </div>
                 </div>
               </CardContent>
@@ -206,21 +206,21 @@ export default function SupportPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BookOpen className="h-5 w-5" />
-                  Getting Started
+                  {t.support.gettingStarted}
                 </CardTitle>
                 <CardDescription>
-                  Learn the basics of PersonaLink
+                  {t.support.gettingStartedDesc}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm">
-                  <li>• Create your profile</li>
-                  <li>• Set your preferences</li>
-                  <li>• Start matching</li>
-                  <li>• Begin chatting</li>
+                  <li>• {t.support.guideStep1}</li>
+                  <li>• {t.support.guideStep2}</li>
+                  <li>• {t.support.guideStep3}</li>
+                  <li>• {t.support.guideStep4}</li>
                 </ul>
                 <Button variant="outline" className="mt-4">
-                  Read Guide
+                  {t.support.readGuide}
                 </Button>
               </CardContent>
             </Card>
@@ -229,21 +229,21 @@ export default function SupportPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  Profile Optimization
+                  {t.support.profileOptimization}
                 </CardTitle>
                 <CardDescription>
-                  Make your profile stand out
+                  {t.support.profileOptimizationDesc}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm">
-                  <li>• Add quality photos</li>
-                  <li>• Write engaging bio</li>
-                  <li>• List your interests</li>
-                  <li>• Be authentic</li>
+                  <li>• {t.support.optStep1}</li>
+                  <li>• {t.support.optStep2}</li>
+                  <li>• {t.support.optStep3}</li>
+                  <li>• {t.support.optStep4}</li>
                 </ul>
                 <Button variant="outline" className="mt-4">
-                  Read Guide
+                  {t.support.readGuide}
                 </Button>
               </CardContent>
             </Card>
@@ -252,21 +252,21 @@ export default function SupportPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5" />
-                  Safety Tips
+                  {t.support.safetyTips}
                 </CardTitle>
                 <CardDescription>
-                  Stay safe while connecting
+                  {t.support.safetyTipsDesc}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm">
-                  <li>• Never share personal info</li>
-                  <li>• Meet in public places</li>
-                  <li>• Trust your instincts</li>
-                  <li>• Report suspicious behavior</li>
+                  <li>• {t.support.safetyStep1}</li>
+                  <li>• {t.support.safetyStep2}</li>
+                  <li>• {t.support.safetyStep3}</li>
+                  <li>• {t.support.safetyStep4}</li>
                 </ul>
                 <Button variant="outline" className="mt-4">
-                  Read Guide
+                  {t.support.readGuide}
                 </Button>
               </CardContent>
             </Card>
@@ -275,21 +275,21 @@ export default function SupportPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Zap className="h-5 w-5" />
-                  Premium Features
+                  {t.support.premiumFeatures}
                 </CardTitle>
                 <CardDescription>
-                  Unlock advanced features
+                  {t.support.premiumFeaturesDesc}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm">
-                  <li>• Unlimited matches</li>
-                  <li>• Advanced filters</li>
-                  <li>• Priority support</li>
-                  <li>• Enhanced AI matching</li>
+                  <li>• {t.support.premiumFeature1}</li>
+                  <li>• {t.support.premiumFeature2}</li>
+                  <li>• {t.support.premiumFeature3}</li>
+                  <li>• {t.support.premiumFeature4}</li>
                 </ul>
                 <Button variant="outline" className="mt-4">
-                  Learn More
+                  {t.support.learnMore}
                 </Button>
               </CardContent>
             </Card>
@@ -301,10 +301,10 @@ export default function SupportPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Heart className="h-5 w-5 text-green-500" />
-                System Status
+                {t.support.systemStatus}
               </CardTitle>
               <CardDescription>
-                Current status of all PersonaLink services
+                {t.support.systemStatusDesc}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -312,42 +312,42 @@ export default function SupportPage() {
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="font-medium">Website</span>
+                    <span className="font-medium">{t.support.website}</span>
                   </div>
-                  <span className="text-sm text-green-600">Operational</span>
+                  <span className="text-sm text-green-600">{t.support.operational}</span>
                 </div>
                 
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="font-medium">Matching Engine</span>
+                    <span className="font-medium">{t.support.matchingEngine}</span>
                   </div>
-                  <span className="text-sm text-green-600">Operational</span>
+                  <span className="text-sm text-green-600">{t.support.operational}</span>
                 </div>
                 
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="font-medium">Chat System</span>
+                    <span className="font-medium">{t.support.chatSystem}</span>
                   </div>
-                  <span className="text-sm text-green-600">Operational</span>
+                  <span className="text-sm text-green-600">{t.support.operational}</span>
                 </div>
                 
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="font-medium">Payment Processing</span>
+                    <span className="font-medium">{t.support.paymentProcessing}</span>
                   </div>
-                  <span className="text-sm text-green-600">Operational</span>
+                  <span className="text-sm text-green-600">{t.support.operational}</span>
                 </div>
               </div>
               
               <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  <strong>Last updated:</strong> {new Date().toLocaleString()}
+                  <strong>{t.support.lastUpdated}:</strong> {new Date().toLocaleString()}
                 </p>
                 <p className="text-sm text-blue-800 mt-1">
-                  All systems are running normally. No issues reported.
+                  {t.support.allSystemsNormal}
                 </p>
               </div>
             </CardContent>
@@ -357,11 +357,11 @@ export default function SupportPage() {
 
       <div className="mt-12 text-center">
         <p className="text-muted-foreground mb-4">
-          Can't find what you're looking for?
+          {t.support.cantFind}
         </p>
         <Button asChild size="lg">
           <Link href="/contact">
-            Contact Our Team
+            {t.support.contactTeam}
           </Link>
         </Button>
       </div>

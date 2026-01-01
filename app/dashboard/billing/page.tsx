@@ -16,6 +16,8 @@ import {
   Plus
 } from 'lucide-react';
 import Link from 'next/link';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 interface BillingRecord {
   id: string;
@@ -32,7 +34,9 @@ export default function BillingPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
-  
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+
   const [billingRecords, setBillingRecords] = useState<BillingRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentBalance, setCurrentBalance] = useState(0);
@@ -50,7 +54,6 @@ export default function BillingPage() {
     try {
       setIsLoading(true);
       
-      // Load billing records
       const response = await fetch('/api/user/billing');
       if (response.ok) {
         const data = await response.json();
@@ -59,8 +62,8 @@ export default function BillingPage() {
       }
     } catch (error) {
       toast({
-        title: '加载失败',
-        description: '无法加载账单信息',
+        title: t.dashboardBilling.loadFailed,
+        description: t.dashboardBilling.loadFailedDesc,
         variant: 'destructive',
       });
     } finally {
@@ -74,7 +77,6 @@ export default function BillingPage() {
 
   const downloadInvoice = async (recordId: string) => {
     try {
-      // Only execute on client side
       if (typeof window === 'undefined') {
         return;
       }
@@ -93,8 +95,8 @@ export default function BillingPage() {
       }
     } catch (error) {
       toast({
-        title: '下载失败',
-        description: '无法下载发票',
+        title: t.dashboardBilling.downloadFailed,
+        description: t.dashboardBilling.downloadFailedDesc,
         variant: 'destructive',
       });
     }
@@ -103,19 +105,19 @@ export default function BillingPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge variant="default" className="bg-green-100 text-green-800">已完成</Badge>;
+        return <Badge variant="default" className="bg-green-100 text-green-800">{t.dashboardBilling.statusCompleted}</Badge>;
       case 'pending':
-        return <Badge variant="secondary">处理中</Badge>;
+        return <Badge variant="secondary">{t.dashboardBilling.statusPending}</Badge>;
       case 'failed':
-        return <Badge variant="destructive">失败</Badge>;
+        return <Badge variant="destructive">{t.dashboardBilling.statusFailed}</Badge>;
       default:
-        return <Badge variant="outline">未知</Badge>;
+        return <Badge variant="outline">{t.dashboardBilling.statusUnknown}</Badge>;
     }
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
+    return date.toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -129,7 +131,7 @@ export default function BillingPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">加载账单信息中...</p>
+          <p className="text-gray-600 dark:text-gray-400">{t.dashboardBilling.downloading}</p>
         </div>
       </div>
     );
@@ -138,30 +140,28 @@ export default function BillingPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              账单管理
+              {t.dashboardBilling.title}
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              查看您的充值记录和账单信息
+              {t.dashboardBilling.subtitle}
             </p>
           </div>
           <Link href="/dashboard">
             <Button variant="outline">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              返回仪表盘
+              {t.dashboardBilling.backToDashboard}
             </Button>
           </Link>
         </div>
 
-        {/* Balance Card */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center">
               <DollarSign className="h-5 w-5 mr-2" />
-              当前余额
+              {t.dashboardBilling.currentBalance}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -171,23 +171,22 @@ export default function BillingPage() {
                   ¥{currentBalance.toFixed(2)}
                 </div>
                 <p className="text-gray-600 dark:text-gray-400">
-                  可用于匹配和聊天
+                  {t.dashboardBilling.availableForUse}
                 </p>
               </div>
               <Button onClick={handleRecharge}>
                 <Plus className="h-4 w-4 mr-2" />
-                充值
+                {t.dashboardBilling.recharge}
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Billing Records */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
               <CreditCard className="h-5 w-5 mr-2" />
-              充值记录
+              {t.dashboardBilling.rechargeRecords}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -195,13 +194,13 @@ export default function BillingPage() {
               <div className="text-center py-12">
                 <CreditCard className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  暂无充值记录
+                  {t.dashboardBilling.noRecords}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  开始您的第一次充值吧！
+                  {t.dashboardBilling.startFirstRecharge}
                 </p>
                 <Button onClick={handleRecharge}>
-                  立即充值
+                  {t.dashboardBilling.rechargeNow}
                 </Button>
               </div>
             ) : (
@@ -226,8 +225,8 @@ export default function BillingPage() {
                         
                         <div className="text-sm text-gray-600 dark:text-gray-400">
                           <div className="flex items-center space-x-4">
-                            <span>支付方式: {record.payment_method}</span>
-                            <span>时间: {formatDate(record.created_at)}</span>
+                            <span>{t.dashboardBilling.paymentMethod}: {record.payment_method}</span>
+                            <span>{t.dashboardBilling.time}: {formatDate(record.created_at)}</span>
                           </div>
                         </div>
                       </div>
@@ -250,7 +249,7 @@ export default function BillingPage() {
                           onClick={() => downloadInvoice(record.id)}
                         >
                           <Download className="h-4 w-4 mr-2" />
-                          发票
+                          {t.dashboardBilling.invoice}
                         </Button>
                       )}
                     </div>

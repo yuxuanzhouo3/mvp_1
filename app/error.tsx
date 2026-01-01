@@ -1,8 +1,11 @@
 'use client';
-import { useEffect } from 'react';
+
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import Link from 'next/link';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 export default function Error({
   error,
@@ -11,10 +14,19 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [mounted, setMounted] = useState(false);
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+
   useEffect(() => {
+    setMounted(true);
     // Log the error to an error reporting service
     console.error('Application Error:', error);
   }, [error]);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-red-50 to-orange-100 dark:from-gray-900 dark:to-gray-800">
@@ -29,14 +41,14 @@ export default function Error({
         {/* Error Message */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Something went wrong!
+            {t.errorPage.somethingWentWrong}
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            {error.message || 'An unexpected error occurred while loading this page.'}
+            {error.message || t.errorPage.unexpectedError}
           </p>
           {error.digest && (
             <p className="text-xs text-gray-500 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 p-2 rounded">
-              Error ID: {error.digest}
+              {t.errorPage.errorId}: {error.digest}
             </p>
           )}
         </div>
@@ -49,7 +61,7 @@ export default function Error({
             className="w-full md:w-auto"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
-            Try Again
+            {t.errorPage.tryAgain}
           </Button>
           
           <Button 
@@ -60,7 +72,7 @@ export default function Error({
           >
             <Link href="/">
               <Home className="h-4 w-4 mr-2" />
-              Return Home
+              {t.errorPage.returnHome}
             </Link>
           </Button>
         </div>
@@ -68,20 +80,20 @@ export default function Error({
         {/* Help Section */}
         <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
           <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
-            Need Help?
+            {t.errorPage.needHelp}
           </h3>
           <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-            <p>If this problem persists, please:</p>
+            <p>{t.errorPage.ifProblemPersists}</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Check your internet connection</li>
-              <li>Clear your browser cache</li>
-              <li>Try refreshing the page</li>
+              <li>{t.errorPage.checkInternet}</li>
+              <li>{t.errorPage.clearCache}</li>
+              <li>{t.errorPage.refreshPage}</li>
               <li>
                 <Link 
                   href="/contact" 
                   className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
                 >
-                  Contact our support team
+                  {t.errorPage.contactSupport}
                 </Link>
               </li>
             </ul>
@@ -92,7 +104,7 @@ export default function Error({
         {process.env.NODE_ENV === 'development' && (
           <details className="mt-8 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <summary className="cursor-pointer text-sm font-medium text-gray-900 dark:text-white mb-2">
-              Technical Details (Development)
+              {t.errorPage.technicalDetails}
             </summary>
             <pre className="text-xs text-gray-600 dark:text-gray-400 overflow-auto">
               {error.stack}

@@ -12,15 +12,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { Lock, CheckCircle, ArrowLeft, Sparkles, Eye, EyeOff } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from '@/lib/supabase/client';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 const updatePasswordSchema = z.object({
   password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+    .min(8, 'auth.errors.passwordTooShort')
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'auth.errors.passwordRequirements'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
+  message: "auth.errors.passwordsNotMatch",
   path: ["confirmPassword"],
 });
 
@@ -53,6 +55,8 @@ function UpdatePasswordContent() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = useTranslations(language);
 
   const form = useForm<UpdatePasswordFormData>({
     resolver: zodResolver(updatePasswordSchema),
@@ -61,18 +65,15 @@ function UpdatePasswordContent() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-        
+        const supabase = getSupabaseClient();
+
         const { data: { session }, error } = await supabase.auth.getSession();
-        
+
         if (error) {
           console.error('Session check error:', error);
           toast({
-            title: 'Session Error',
-            description: 'Please try the password reset process again.',
+            title: t.auth.errors.sessionError,
+            description: t.auth.errors.sessionErrorDesc,
             variant: 'destructive',
           });
           router.push('/auth/forgot-password');
@@ -81,50 +82,51 @@ function UpdatePasswordContent() {
 
         if (!session) {
           // Check both URL search params and hash params
-          const accessToken = searchParams.get('access_token') || parseHashParams().access_token;
-          const refreshToken = searchParams.get('refresh_token') || parseHashParams().refresh_token;
-          
+          const hashParams = parseHashParams();
+          const accessToken = searchParams.get('access_token') || hashParams.access_token;
+          const refreshToken = searchParams.get('refresh_token') || hashParams.refresh_token;
+
           console.log('Checking for tokens:', { accessToken: !!accessToken, refreshToken: !!refreshToken });
-          
+
           if (accessToken && refreshToken) {
             // Set the session from URL params
             const { error: setSessionError } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken,
             });
-            
+
             if (setSessionError) {
               console.error('Set session error:', setSessionError);
               toast({
-                title: 'Invalid Reset Link',
-                description: 'This password reset link is invalid or has expired. Please request a new one.',
+                title: t.auth.errors.invalidResetLink,
+                description: t.auth.errors.invalidResetLinkDesc,
                 variant: 'destructive',
               });
               router.push('/auth/forgot-password');
               return;
             }
-            
+
             // Clear the hash from URL after processing
             if (window.location.hash) {
               window.history.replaceState(null, '', window.location.pathname);
             }
           } else {
             toast({
-              title: 'No Valid Session',
-              description: 'Please use the password reset link from your email.',
+              title: t.auth.errors.noValidSession,
+              description: t.auth.errors.noValidSessionDesc,
               variant: 'destructive',
             });
             router.push('/auth/forgot-password');
             return;
           }
         }
-        
+
         setIsValidSession(true);
       } catch (error) {
         console.error('Session check failed:', error);
         toast({
-          title: 'Error',
-          description: 'Unable to verify your session. Please try again.',
+          title: t.auth.errors.generalError,
+          description: t.auth.errors.generalErrorDesc,
           variant: 'destructive',
         });
         router.push('/auth/forgot-password');
@@ -134,16 +136,14 @@ function UpdatePasswordContent() {
     };
 
     checkSession();
-  }, [router, searchParams, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // ✅ 只在组件挂载时执行一次，避免循环依赖
 
   const onSubmit = async (data: UpdatePasswordFormData) => {
     setIsLoading(true);
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-      
+      const supabase = getSupabaseClient();
+
       const { error } = await supabase.auth.updateUser({
         password: data.password
       });
@@ -151,15 +151,15 @@ function UpdatePasswordContent() {
       if (error) {
         console.error('Password update error:', error);
         toast({
-          title: 'Update failed',
-          description: error.message || 'Failed to update password. Please try again.',
+          title: t.auth.errors.updateFailed,
+          description: error.message || t.auth.errors.updateFailedDesc,
           variant: 'destructive',
         });
       } else {
         setPasswordUpdated(true);
         toast({
-          title: 'Password updated',
-          description: 'Your password has been successfully updated. You can now sign in with your new password.',
+          title: t.updatePassword.passwordUpdateSuccess,
+          description: t.auth.success.passwordUpdatedDesc,
         });
         
         // Sign out the user after password update
@@ -168,8 +168,8 @@ function UpdatePasswordContent() {
     } catch (error) {
       console.error('Unexpected error:', error);
       toast({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
+        title: t.auth.errors.generalError,
+        description: t.auth.errors.generalErrorDesc,
         variant: 'destructive',
       });
     } finally {
@@ -185,7 +185,7 @@ function UpdatePasswordContent() {
             <CardContent className="text-center py-12">
               <div className="flex items-center justify-center space-x-2">
                 <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                <span className="text-white text-lg">Verifying your session...</span>
+                <span className="text-white text-lg">{t.updatePassword.verifying}...</span>
               </div>
             </CardContent>
           </Card>
@@ -214,9 +214,9 @@ function UpdatePasswordContent() {
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-green-500 to-emerald-500 shadow-glow">
                 <CheckCircle className="h-8 w-8 text-white" />
             </div>
-              <CardTitle className="text-3xl font-bold text-white mb-2">Password Updated</CardTitle>
+              <CardTitle className="text-3xl font-bold text-white mb-2">{t.updatePassword.passwordUpdateSuccess}</CardTitle>
               <CardDescription className="text-gray-300 text-lg">
-              Your password has been successfully updated. You can now sign in with your new password.
+              {t.auth.success.passwordUpdatedDesc}
             </CardDescription>
           </CardHeader>
             <CardContent className="text-center space-y-6">
@@ -226,7 +226,7 @@ function UpdatePasswordContent() {
                   className="w-full border-white/20 text-white hover:bg-white/10 transition-all duration-300"
                 >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Sign in
+                {t.auth.login.signIn}
               </Button>
             </Link>
           </CardContent>
@@ -260,10 +260,10 @@ function UpdatePasswordContent() {
               </Link>
             </div>
             <CardTitle className="text-3xl font-bold text-white mb-2">
-              Update Password
+              {t.updatePassword.title}
             </CardTitle>
             <CardDescription className="text-white text-lg font-medium drop-shadow-sm">
-            Enter your new password below
+            {t.updatePassword.subtitle}
           </CardDescription>
         </CardHeader>
           
@@ -277,7 +277,7 @@ function UpdatePasswordContent() {
                   <Input
                     {...form.register('password')}
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="New password"
+                    placeholder={t.updatePassword.newPasswordPlaceholder}
                     className="pl-10 pr-10 bg-white/5 border-white/20 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500"
                   />
                   <button
@@ -293,7 +293,7 @@ function UpdatePasswordContent() {
                   </button>
                 </div>
                 {form.formState.errors.password && (
-                  <p className="text-red-400 text-sm">{form.formState.errors.password.message}</p>
+                  <p className="text-red-400 text-sm">{t.auth.errors[form.formState.errors.password.message as keyof typeof t.auth.errors] || form.formState.errors.password.message}</p>
                 )}
               </div>
 
@@ -305,7 +305,7 @@ function UpdatePasswordContent() {
                   <Input
                     {...form.register('confirmPassword')}
                     type={showConfirmPassword ? 'text' : 'password'}
-                    placeholder="Confirm new password"
+                    placeholder={t.updatePassword.confirmPasswordPlaceholder}
                     className="pl-10 pr-10 bg-white/5 border-white/20 text-white placeholder-gray-400 focus:border-purple-500 focus:ring-purple-500"
                   />
                   <button
@@ -321,7 +321,7 @@ function UpdatePasswordContent() {
                   </button>
                 </div>
                 {form.formState.errors.confirmPassword && (
-                  <p className="text-red-400 text-sm">{form.formState.errors.confirmPassword.message}</p>
+                  <p className="text-red-400 text-sm">{t.auth.errors[form.formState.errors.confirmPassword.message as keyof typeof t.auth.errors] || form.formState.errors.confirmPassword.message}</p>
                 )}
               </div>
 
@@ -333,17 +333,17 @@ function UpdatePasswordContent() {
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Updating...</span>
+                    <span>{t.updatePassword.updating}</span>
                   </div>
                 ) : (
-                  'Update password'
+                  t.updatePassword.updatePasswordButton
                 )}
               </Button>
             </form>
 
             <div className="text-center">
               <Link href="/auth/login" className="text-purple-300 hover:text-white transition-colors text-sm">
-                Remember your password? Sign in
+                {t.forgotPassword.rememberPassword} {t.auth.login.signIn}
               </Link>
             </div>
           </CardContent>

@@ -4,11 +4,15 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase/client';
 import CreditRecharge from '@/components/payment/CreditRecharge';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 export default function PaymentRechargePage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { language } = useLanguage();
+  const t = useTranslations(language);
 
   useEffect(() => {
     checkAuth();
@@ -37,7 +41,7 @@ export default function PaymentRechargePage() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">检查登录状态...</p>
+          <p className="text-gray-600">{t.payment.recharge.checkingAuth}</p>
         </div>
       </div>
     );

@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createRouteHandlerClient } from '@/lib/supabase/server';
 
 export async function GET(
   request: NextRequest,
@@ -13,7 +8,7 @@ export async function GET(
   try {
     // Check if we're in mock mode
     const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
-    
+
     if (isMockMode) {
       // Return mock user data
       const mockUser = {
@@ -24,11 +19,14 @@ export async function GET(
         last_seen: new Date().toISOString(),
       };
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         user: mockUser,
         mode: 'mock'
       });
     }
+
+    // Create Supabase client for this request
+    const supabase = createRouteHandlerClient();
 
     // Get the authorization header
     const authHeader = request.headers.get('authorization');
@@ -38,7 +36,7 @@ export async function GET(
 
     // Extract the token
     const token = authHeader.replace('Bearer ', '');
-    
+
     // Verify the token and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
@@ -89,7 +87,7 @@ export async function GET(
       last_seen: otherUser.last_seen,
     };
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       user: chatUser,
       mode: 'real'
     });
@@ -100,4 +98,4 @@ export async function GET(
       { status: 500 }
     );
   }
-} 
+}

@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createRouteHandlerClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +11,10 @@ export async function GET(request: NextRequest) {
 
     // Extract the token
     const token = authHeader.replace('Bearer ', '');
-    
+
+    // Create Supabase client for this request
+    const supabase = createRouteHandlerClient();
+
     // Verify the token and get user
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
@@ -66,4 +64,4 @@ export async function GET(request: NextRequest) {
     console.error('Matches API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-} 
+}

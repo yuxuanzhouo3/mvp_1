@@ -3,16 +3,18 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Heart, 
-  MessageSquare, 
-  Calendar, 
-  MapPin, 
+import {
+  Heart,
+  MessageSquare,
+  Calendar,
+  MapPin,
   ArrowLeft,
   Filter,
   Search
@@ -40,7 +42,10 @@ export default function MatchingHistoryPage() {
   const router = useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
-  
+  const [mounted, setMounted] = useState(false);
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+
   const [matches, setMatches] = useState<MatchHistory[]>([]);
   const [filteredMatches, setFilteredMatches] = useState<MatchHistory[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,13 +53,19 @@ export default function MatchingHistoryPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
     if (!user) {
       router.push('/auth/login');
       return;
     }
 
     loadMatchHistory();
-  }, [user]);
+  }, [user, mounted]);
 
   useEffect(() => {
     filterMatches();
@@ -63,16 +74,22 @@ export default function MatchingHistoryPage() {
   const loadMatchHistory = async () => {
     try {
       setIsLoading(true);
-      
+
       const response = await fetch('/api/user/matches');
       if (response.ok) {
         const data = await response.json();
         setMatches(data.matches);
+      } else {
+        toast({
+          title: t.matching.loadFailed,
+          description: t.matching.networkError,
+          variant: 'destructive',
+        });
       }
     } catch (error) {
       toast({
-        title: '加载失败',
-        description: '无法加载匹配历史',
+        title: t.matching.loadFailed,
+        description: t.matching.networkError,
         variant: 'destructive',
       });
     } finally {
@@ -112,7 +129,7 @@ export default function MatchingHistoryPage() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
+    return date.toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -122,22 +139,35 @@ export default function MatchingHistoryPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <Badge variant="default" className="bg-green-100 text-green-800">活跃</Badge>;
+        return <Badge variant="default" className="bg-green-100 text-green-800">
+          {language === 'zh' ? '活跃' : 'Active'}
+        </Badge>;
       case 'inactive':
-        return <Badge variant="secondary">不活跃</Badge>;
+        return <Badge variant="secondary">
+          {language === 'zh' ? '不活跃' : 'Inactive'}
+        </Badge>;
       case 'blocked':
-        return <Badge variant="destructive">已屏蔽</Badge>;
+        return <Badge variant="destructive">
+          {language === 'zh' ? '已屏蔽' : 'Blocked'}
+        </Badge>;
       default:
-        return <Badge variant="outline">未知</Badge>;
+        return <Badge variant="outline">
+          {language === 'zh' ? '未知' : 'Unknown'}
+        </Badge>;
     }
   };
+
+  // Prevent hydration mismatch
+  if (!mounted) {
+    return <div suppressHydrationWarning />;
+  }
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">加载匹配历史中...</p>
+          <p className="text-gray-600 dark:text-gray-400">{t.common.loading}</p>
         </div>
       </div>
     );
@@ -150,16 +180,16 @@ export default function MatchingHistoryPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              匹配历史
+              {t.matchingHistory.title}
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              查看您的所有匹配记录
+              {t.matchingHistory.description}
             </p>
           </div>
           <Link href="/dashboard">
             <Button variant="outline">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              返回仪表盘
+              {t.common.back}
             </Button>
           </Link>
         </div>
@@ -169,7 +199,7 @@ export default function MatchingHistoryPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="搜索匹配..."
+              placeholder={language === 'zh' ? '搜索匹配...' : 'Search matches...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -182,21 +212,21 @@ export default function MatchingHistoryPage() {
               size="sm"
               onClick={() => setSelectedFilter('all')}
             >
-              全部 ({matches.length})
+              {t.matchingHistory.allHistory} ({matches.length})
             </Button>
             <Button
               variant={selectedFilter === 'active' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setSelectedFilter('active')}
             >
-              活跃 ({matches.filter(m => m.status === 'active').length})
+              {language === 'zh' ? '活跃' : 'Active'} ({matches.filter(m => m.status === 'active').length})
             </Button>
             <Button
               variant={selectedFilter === 'inactive' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setSelectedFilter('inactive')}
             >
-              不活跃 ({matches.filter(m => m.status === 'inactive').length})
+              {language === 'zh' ? '不活跃' : 'Inactive'} ({matches.filter(m => m.status === 'inactive').length})
             </Button>
           </div>
         </div>
@@ -208,17 +238,17 @@ export default function MatchingHistoryPage() {
               <CardContent className="text-center py-12">
                 <Heart className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  暂无匹配记录
+                  {t.matchingHistory.noHistory}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  {searchQuery || selectedFilter !== 'all' 
-                    ? '没有找到符合条件的匹配' 
-                    : '开始匹配来发现新的朋友吧！'
+                  {searchQuery || selectedFilter !== 'all'
+                    ? (language === 'zh' ? '没有找到符合条件的匹配' : 'No matches found matching your criteria')
+                    : (language === 'zh' ? '开始匹配来发现新的朋友吧！' : 'Start matching to discover new friends!')
                   }
                 </p>
                 {!searchQuery && selectedFilter === 'all' && (
                   <Button onClick={() => router.push('/matching')}>
-                    开始匹配
+                    {t.matchingHistory.startMatching}
                   </Button>
                 )}
               </CardContent>
@@ -235,7 +265,7 @@ export default function MatchingHistoryPage() {
                           {match.matched_user.full_name.charAt(0).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      
+
                       <div>
                         <div className="flex items-center space-x-2 mb-1">
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -243,11 +273,11 @@ export default function MatchingHistoryPage() {
                           </h3>
                           {getStatusBadge(match.status)}
                         </div>
-                        
+
                         <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
                           <div className="flex items-center">
                             <Calendar className="h-4 w-4 mr-1" />
-                            {match.matched_user.age}岁
+                            {language === 'zh' ? `${match.matched_user.age}岁` : `${match.matched_user.age} years`}
                           </div>
                           <div className="flex items-center">
                             <MapPin className="h-4 w-4 mr-1" />
@@ -255,34 +285,34 @@ export default function MatchingHistoryPage() {
                           </div>
                           <div className="flex items-center">
                             <Heart className="h-4 w-4 mr-1" />
-                            {match.compatibility_score}% 匹配度
+                            {match.compatibility_score}% {t.matching.compatibility}
                           </div>
                         </div>
-                        
+
                         <div className="mt-2 text-sm text-gray-500">
-                          匹配于 {formatDate(match.matched_at)}
+                          {language === 'zh' ? '匹配于' : 'Matched'} {formatDate(match.matched_at)}
                           {match.last_interaction && (
                             <span className="ml-4">
-                              最后互动: {formatDate(match.last_interaction)}
+                              {language === 'zh' ? '最后互动:' : 'Last interaction:'} {formatDate(match.last_interaction)}
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center space-x-2">
                       <div className="text-right">
                         <div className="text-sm text-gray-600 dark:text-gray-400">
-                          共 {match.total_messages} 条消息
+                          {language === 'zh' ? `共 ${match.total_messages} 条消息` : `${match.total_messages} messages`}
                         </div>
                       </div>
-                      
+
                       <Button
                         onClick={() => handleChatClick(match.id)}
                         disabled={match.status === 'blocked'}
                       >
                         <MessageSquare className="h-4 w-4 mr-2" />
-                        聊天
+                        {t.matching.startChat}
                       </Button>
                     </div>
                   </div>
@@ -294,4 +324,4 @@ export default function MatchingHistoryPage() {
       </div>
     </div>
   );
-} 
+}

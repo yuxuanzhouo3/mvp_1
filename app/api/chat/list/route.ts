@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createRouteHandlerClient } from '@/lib/supabase/server';
 
 export async function GET(request: NextRequest) {
   try {
     // Check if we're in mock mode
     const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
-    
+
     if (isMockMode) {
       // In mock mode, return mock chat data matching the frontend's expected structure
       const mockChats = [
@@ -48,19 +49,15 @@ export async function GET(request: NextRequest) {
         }
       ];
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         chats: mockChats,
         mode: 'mock'
       });
     }
 
-    // Real Supabase authentication and data fetching
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    
+    // Create Supabase client for this request
+    const supabase = createRouteHandlerClient();
+
     // Get the authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {

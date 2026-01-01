@@ -13,12 +13,14 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { User, MapPin, Calendar, Save, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 const profileEditSchema = z.object({
-  username: z.string().min(3, '用户名至少3个字符'),
-  bio: z.string().max(500, '个人简介不能超过500字符'),
-  age: z.number().min(18, '年龄必须至少18岁').max(100, '年龄不能超过100岁'),
-  location: z.string().min(2, '请输入有效的位置'),
+  username: z.string().min(3, 'profileEdit.usernameMinChars'),
+  bio: z.string().max(500, 'profileEdit.bioMaxChars'),
+  age: z.number().min(18, 'profileEdit.ageMin').max(100, 'profileEdit.ageMax'),
+  location: z.string().min(2, 'profileEdit.locationMin'),
 });
 
 type ProfileEditFormData = z.infer<typeof profileEditSchema>;
@@ -27,8 +29,10 @@ export default function ProfileEditPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = useTranslations(language);
 
   const form = useForm<ProfileEditFormData>({
     resolver: zodResolver(profileEditSchema),
@@ -45,7 +49,11 @@ export default function ProfileEditPage() {
 
   const loadProfile = async () => {
     try {
-      const response = await fetch('/api/user/profile');
+      const response = await fetch('/api/user/profile', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         setProfile(data.profile);
@@ -58,8 +66,8 @@ export default function ProfileEditPage() {
       }
     } catch (error) {
       toast({
-        title: '加载失败',
-        description: '无法加载个人资料',
+        title: t.profileEdit.loadFailed,
+        description: t.profileEdit.loadFailedDesc,
         variant: 'destructive',
       });
     }
@@ -70,23 +78,26 @@ export default function ProfileEditPage() {
     try {
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
         body: JSON.stringify(data),
       });
 
       if (response.ok) {
         toast({
-          title: '更新成功',
-          description: '您的个人资料已成功更新',
+          title: t.profileEdit.updateSuccess,
+          description: t.profileEdit.updateSuccessDesc,
         });
         router.push('/dashboard');
       } else {
-        throw new Error('更新失败');
+        throw new Error('Update failed');
       }
     } catch (error) {
       toast({
-        title: '更新失败',
-        description: '请稍后重试',
+        title: t.profileEdit.updateFailed,
+        description: t.profileEdit.updateFailedDesc,
         variant: 'destructive',
       });
     } finally {
@@ -99,7 +110,7 @@ export default function ProfileEditPage() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">加载个人资料中...</p>
+          <p className="text-gray-600 dark:text-gray-400">{t.profileEdit.loading}</p>
         </div>
       </div>
     );
@@ -112,83 +123,83 @@ export default function ProfileEditPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              编辑个人资料
+              {t.profileEdit.title}
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              更新您的个人信息和偏好设置
+              {t.profileEdit.subtitle}
             </p>
           </div>
           <Link href="/dashboard">
             <Button variant="outline">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              返回仪表盘
+              {t.profileEdit.backToDashboard}
             </Button>
           </Link>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>基本信息</CardTitle>
+            <CardTitle>{t.profileEdit.basicInfo}</CardTitle>
             <CardDescription>
-              更新您的基本个人信息
+              {t.profileEdit.basicInfoDesc}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div>
-                <label className="text-sm font-medium">用户名</label>
+                <label className="text-sm font-medium">{t.profileEdit.username}</label>
                 <Input
                   {...form.register('username')}
-                  placeholder="输入用户名"
+                  placeholder={t.profileEdit.usernamePlaceholder}
                   icon={<User className="h-4 w-4" />}
                 />
                 {form.formState.errors.username && (
                   <p className="text-sm text-red-500 mt-1">
-                    {form.formState.errors.username.message}
+                    {t.profileEdit[form.formState.errors.username.message as keyof typeof t.profileEdit]}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="text-sm font-medium">个人简介</label>
+                <label className="text-sm font-medium">{t.profileEdit.bio}</label>
                 <Textarea
                   {...form.register('bio')}
-                  placeholder="简单介绍一下自己..."
+                  placeholder={t.profileEdit.bioPlaceholder}
                   rows={4}
                 />
                 {form.formState.errors.bio && (
                   <p className="text-sm text-red-500 mt-1">
-                    {form.formState.errors.bio.message}
+                    {t.profileEdit[form.formState.errors.bio.message as keyof typeof t.profileEdit]}
                   </p>
                 )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium">年龄</label>
+                  <label className="text-sm font-medium">{t.profileEdit.age}</label>
                   <Input
                     {...form.register('age', { valueAsNumber: true })}
                     type="number"
-                    placeholder="年龄"
+                    placeholder={t.profileEdit.agePlaceholder}
                     icon={<Calendar className="h-4 w-4" />}
                   />
                   {form.formState.errors.age && (
                     <p className="text-sm text-red-500 mt-1">
-                      {form.formState.errors.age.message}
+                      {t.profileEdit[form.formState.errors.age.message as keyof typeof t.profileEdit]}
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">位置</label>
+                  <label className="text-sm font-medium">{t.profileEdit.location}</label>
                   <Input
                     {...form.register('location')}
-                    placeholder="城市，国家"
+                    placeholder={t.profileEdit.locationPlaceholder}
                     icon={<MapPin className="h-4 w-4" />}
                   />
                   {form.formState.errors.location && (
                     <p className="text-sm text-red-500 mt-1">
-                      {form.formState.errors.location.message}
+                      {t.profileEdit[form.formState.errors.location.message as keyof typeof t.profileEdit]}
                     </p>
                   )}
                 </div>
@@ -197,12 +208,12 @@ export default function ProfileEditPage() {
               <div className="flex justify-end space-x-4 pt-4">
                 <Link href="/dashboard">
                   <Button type="button" variant="outline">
-                    取消
+                    {t.profileEdit.cancel}
                   </Button>
                 </Link>
                 <Button type="submit" disabled={isLoading}>
                   <Save className="h-4 w-4 mr-2" />
-                  {isLoading ? '保存中...' : '保存更改'}
+                  {isLoading ? t.profileEdit.saving : t.profileEdit.saveChanges}
                 </Button>
               </div>
             </form>

@@ -19,6 +19,8 @@ import {
   MapPin,
   Star
 } from 'lucide-react';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations, interpolate } from '@/lib/i18n';
 
 interface Candidate {
   id: string;
@@ -39,6 +41,13 @@ export default function MatchingPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const loadCandidates = async () => {
     if (!user?.id) return;
@@ -52,16 +61,16 @@ export default function MatchingPage() {
       } else {
         console.error('Failed to load candidates');
         toast({
-          title: '加载失败',
-          description: '无法加载匹配候选人',
+          title: t.common.error,
+          description: t.matching.loadFailed,
           variant: 'destructive',
         });
       }
     } catch (error) {
       console.error('Error loading candidates:', error);
       toast({
-        title: '加载失败',
-        description: '网络错误，请稍后重试',
+        title: t.common.error,
+        description: t.matching.networkError,
         variant: 'destructive',
       });
     } finally {
@@ -85,14 +94,14 @@ export default function MatchingPage() {
       await signOut();
       window.location.href = '/auth/login';
       toast({
-        title: '已退出登录',
-        description: '期待您的再次光临！',
+        title: t.header.logout,
+        description: t.auth.login.welcomeBack,
       });
     } catch (error) {
       console.error('Logout error:', error);
       toast({
-        title: '退出失败',
-        description: '请稍后重试',
+        title: t.common.error,
+        description: t.dashboard.tryLater,
         variant: 'destructive',
       });
     }
@@ -113,15 +122,15 @@ export default function MatchingPage() {
 
       if (response.ok) {
           toast({
-          title: '喜欢成功',
-          description: `你已喜欢 ${candidate.full_name}`,
-          });
+          title: t.common.success,
+          description: interpolate(t.matching.likeSuccessDesc, { name: candidate.full_name }),
+        });
       }
     } catch (error) {
       console.error('Error liking candidate:', error);
     }
     
-      setCurrentIndex(prev => prev + 1);
+    setCurrentIndex(prev => prev + 1);
   };
 
   const handlePass = () => {
@@ -132,12 +141,12 @@ export default function MatchingPage() {
     router.push('/dashboard');
   };
 
-  if (loading || authLoading) {
+  if (loading || authLoading || !mounted) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">加载中...</p>
+          <p className="mt-4 text-gray-600">{t.common.loading}</p>
         </div>
       </div>
     );
@@ -157,11 +166,11 @@ export default function MatchingPage() {
               className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
             >
               <ArrowLeft className="h-5 w-5 mr-2" />
-              返回
+              {t.common.back}
             </button>
 
             {/* Title */}
-            <h1 className="text-xl font-bold text-gray-900">匹配</h1>
+            <h1 className="text-xl font-bold text-gray-900">{t.matching.title}</h1>
 
             {/* User Menu */}
             <div className="flex items-center space-x-3">
@@ -185,14 +194,14 @@ export default function MatchingPage() {
                     onClick={() => router.push('/dashboard/settings')}
                     className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                   >
-                    设置
+                    {t.header.settings}
                   </button>
                   <hr className="my-1" />
                   <button
                     onClick={handleSignOut}
                     className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
                   >
-                    退出登录
+                    {t.header.logout}
                   </button>
                 </div>
               </div>
@@ -220,39 +229,39 @@ export default function MatchingPage() {
               className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
             >
               <Home className="mr-3 h-5 w-5" />
-              首页
+              {t.dashboard.sidebar.home}
             </button>
             <button
               onClick={() => { router.push('/chat'); setShowSidebar(false); }}
               className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
             >
               <MessageSquare className="mr-3 h-5 w-5" />
-              聊天
+              {t.dashboard.sidebar.chat}
             </button>
             <button
               onClick={() => { router.push('/matching'); setShowSidebar(false); }}
               className="w-full flex items-center px-3 py-2 text-sm font-medium text-blue-600 rounded-md bg-blue-50"
             >
               <Heart className="mr-3 h-5 w-5" />
-              匹配
+              {t.dashboard.sidebar.matching}
             </button>
             <button
               onClick={() => { router.push('/payment/recharge'); setShowSidebar(false); }}
               className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
             >
               <CreditCard className="mr-3 h-5 w-5" />
-              充值
+              {t.dashboard.sidebar.recharge}
             </button>
             <button
               onClick={() => { router.push('/dashboard/settings'); setShowSidebar(false); }}
               className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
             >
               <Settings className="mr-3 h-5 w-5" />
-              设置
+              {t.header.settings}
             </button>
           </div>
         </nav>
-        </div>
+      </div>
 
       {/* Overlay */}
       {showSidebar && (
@@ -268,33 +277,33 @@ export default function MatchingPage() {
           {candidates.length === 0 ? (
             <div className="text-center py-12">
               <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">暂时没有更多候选人</h3>
-              <p className="text-gray-600 mb-6">请稍后再来查看新的匹配！</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t.matching.noMatches}</h3>
+              <p className="text-gray-600 mb-6">{t.matching.noMoreCandidatesDesc}</p>
               <button
                 onClick={() => router.push('/dashboard')}
                 className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
               >
-                返回首页
+                {t.common.back}
               </button>
             </div>
           ) : currentIndex >= candidates.length ? (
             <div className="text-center py-12">
               <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">已查看所有候选人</h3>
-              <p className="text-gray-600 mb-6">请稍后再来查看新的匹配！</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t.matching.allCandidatesViewed}</h3>
+              <p className="text-gray-600 mb-6">{t.matching.allCandidatesViewedDesc}</p>
               <button
                 onClick={() => router.push('/dashboard')}
                 className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
               >
-                返回首页
+                {t.common.back}
               </button>
-                </div>
+            </div>
           ) : (
             <div className="space-y-6">
               {/* Progress */}
               <div className="text-center">
                 <p className="text-sm text-gray-600">
-                  {currentIndex + 1} / {candidates.length}
+                  {interpolate(t.matching.progress, { current: currentIndex + 1, total: candidates.length })}
                 </p>
               </div>
               
@@ -319,14 +328,14 @@ export default function MatchingPage() {
                   </div>
                 </div>
 
-                <div className="p-6">
+              <div className="p-6">
                   {/* Name and Age */}
                   <div className="flex items-center justify-between mb-4">
                     <h2 className="text-2xl font-bold text-gray-900">
                       {currentCandidate.full_name}
                     </h2>
                     {currentCandidate.age && (
-                      <span className="text-lg text-gray-600">{currentCandidate.age}岁</span>
+                      <span className="text-lg text-gray-600">{interpolate(t.matching.yearsOld, { age: currentCandidate.age })}</span>
                     )}
               </div>
 
@@ -341,14 +350,14 @@ export default function MatchingPage() {
               {/* Bio */}
                   {currentCandidate.bio && (
                     <p className="text-gray-700 mb-4 leading-relaxed">
-                {currentCandidate.bio}
-              </p>
+                  {currentCandidate.bio}
+                </p>
                   )}
 
               {/* Interests */}
                   {currentCandidate.interests && currentCandidate.interests.length > 0 && (
                     <div className="mb-6">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-2">兴趣爱好</h3>
+                      <h3 className="text-sm font-semibold text-gray-900 mb-2">{t.dashboard.profile.interests}</h3>
                   <div className="flex flex-wrap gap-2">
                         {currentCandidate.interests.map((interest, index) => (
                           <span
@@ -356,11 +365,11 @@ export default function MatchingPage() {
                             className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full"
                           >
                         {interest}
-                          </span>
-                    ))}
-                  </div>
+                        </span>
+                  ))}
                 </div>
-              )}
+              </div>
+                  )}
 
                   {/* Action Buttons */}
                   <div className="flex space-x-4">
@@ -369,14 +378,14 @@ export default function MatchingPage() {
                       className="flex-1 flex items-center justify-center px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                     >
                       <X className="h-5 w-5 mr-2" />
-                      跳过
+                      {t.matching.pass}
                     </button>
                     <button
                       onClick={handleLike}
                       className="flex-1 flex items-center justify-center px-6 py-3 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
                     >
                       <Heart className="h-5 w-5 mr-2" />
-                      喜欢
+                      {t.matching.like}
                     </button>
                   </div>
                 </div>
@@ -387,4 +396,4 @@ export default function MatchingPage() {
       </div>
     </div>
   );
-} 
+}

@@ -13,42 +13,71 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { User, MapPin, Calendar, Heart, Save } from 'lucide-react';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 const profileSetupSchema = z.object({
-  username: z.string().min(3, '用户名至少3个字符'),
-  bio: z.string().max(500, '个人简介不能超过500字符'),
-  age: z.number().min(18, '年龄必须至少18岁').max(100, '年龄不能超过100岁'),
+  full_name: z.string().min(2, 'profileSetup.fullNameMin'),
+  bio: z.string().max(500, 'profileSetup.bioMaxChars'),
+  age: z.number().min(18, 'profileSetup.ageMin').max(100, 'profileSetup.ageMax'),
   gender: z.enum(['male', 'female', 'other']),
-  location: z.string().min(2, '请输入有效的位置'),
-  interests: z.array(z.string()).min(1, '请至少选择一个兴趣'),
-  industry: z.string().min(2, '请输入您的行业'),
-  communication_style: z.enum(['casual', 'formal', 'friendly', 'professional']),
+  location: z.string().min(2, 'profileSetup.locationMin'),
+  interests: z.array(z.string()).min(1, 'profileSetup.atLeastOneInterest'),
+  industry: z.string().min(2, 'profileSetup.industryMin'),
+  communication_style: z.enum(['introvert', 'extrovert', 'ambivert']),
 });
 
 type ProfileSetupFormData = z.infer<typeof profileSetupSchema>;
 
 const interestOptions = [
-  '技术', '音乐', '旅行', '阅读', '运动', '美食', '艺术', '电影',
-  '游戏', '摄影', '写作', '编程', '设计', '商业', '科学', '历史'
+  { key: 'technology', label: 't.profileSetup.interestOptions.technology' },
+  { key: 'music', label: 't.profileSetup.interestOptions.music' },
+  { key: 'travel', label: 't.profileSetup.interestOptions.travel' },
+  { key: 'reading', label: 't.profileSetup.interestOptions.reading' },
+  { key: 'sports', label: 't.profileSetup.interestOptions.sports' },
+  { key: 'food', label: 't.profileSetup.interestOptions.food' },
+  { key: 'art', label: 't.profileSetup.interestOptions.art' },
+  { key: 'movies', label: 't.profileSetup.interestOptions.movies' },
+  { key: 'gaming', label: 't.profileSetup.interestOptions.gaming' },
+  { key: 'photography', label: 't.profileSetup.interestOptions.photography' },
+  { key: 'writing', label: 't.profileSetup.interestOptions.writing' },
+  { key: 'programming', label: 't.profileSetup.interestOptions.programming' },
+  { key: 'design', label: 't.profileSetup.interestOptions.design' },
+  { key: 'business', label: 't.profileSetup.interestOptions.business' },
+  { key: 'science', label: 't.profileSetup.interestOptions.science' },
+  { key: 'history', label: 't.profileSetup.interestOptions.history' },
 ];
 
 const industryOptions = [
-  '技术', '金融', '医疗', '教育', '媒体', '零售', '制造业', '服务业',
-  '政府', '非营利组织', '自由职业', '学生', '其他'
+  { key: 'technology', label: 't.profileSetup.industryOptions.technology' },
+  { key: 'finance', label: 't.profileSetup.industryOptions.finance' },
+  { key: 'healthcare', label: 't.profileSetup.industryOptions.healthcare' },
+  { key: 'education', label: 't.profileSetup.industryOptions.education' },
+  { key: 'media', label: 't.profileSetup.industryOptions.media' },
+  { key: 'retail', label: 't.profileSetup.industryOptions.retail' },
+  { key: 'manufacturing', label: 't.profileSetup.industryOptions.manufacturing' },
+  { key: 'services', label: 't.profileSetup.industryOptions.services' },
+  { key: 'government', label: 't.profileSetup.industryOptions.government' },
+  { key: 'nonProfit', label: 't.profileSetup.industryOptions.nonProfit' },
+  { key: 'freelance', label: 't.profileSetup.industryOptions.freelance' },
+  { key: 'student', label: 't.profileSetup.industryOptions.student' },
+  { key: 'other', label: 't.profileSetup.industryOptions.other' },
 ];
 
 export default function ProfileSetupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = useTranslations(language);
 
   const form = useForm<ProfileSetupFormData>({
     resolver: zodResolver(profileSetupSchema),
     defaultValues: {
       interests: [],
-      communication_style: 'friendly',
+      communication_style: 'ambivert',
     },
   });
 
@@ -64,23 +93,26 @@ export default function ProfileSetupPage() {
     try {
       const response = await fetch('/api/user/profile', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
         body: JSON.stringify(data),
       });
 
       if (response.ok) {
         toast({
-          title: '设置成功',
-          description: '您的个人资料已成功设置',
+          title: t.profileSetup.setupSuccess,
+          description: t.profileSetup.setupSuccessDesc,
         });
         router.push('/dashboard');
       } else {
-        throw new Error('设置失败');
+        throw new Error('Setup failed');
       }
     } catch (error) {
       toast({
-        title: '设置失败',
-        description: '请稍后重试',
+        title: t.profileSetup.setupFailed,
+        description: t.profileSetup.setupFailedDesc,
         variant: 'destructive',
       });
     } finally {
@@ -106,10 +138,10 @@ export default function ProfileSetupPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            设置个人资料
+            {t.profileSetup.title}
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            完善您的个人资料以获得更好的匹配体验
+            {t.profileSetup.subtitle}
           </p>
         </div>
 
@@ -138,14 +170,14 @@ export default function ProfileSetupPage() {
         <Card>
           <CardHeader>
             <CardTitle>
-              {currentStep === 1 && '基本信息'}
-              {currentStep === 2 && '兴趣爱好'}
-              {currentStep === 3 && '沟通偏好'}
+              {currentStep === 1 && t.profileSetup.step1Title}
+              {currentStep === 2 && t.profileSetup.step2Title}
+              {currentStep === 3 && t.profileSetup.step3Title}
             </CardTitle>
             <CardDescription>
-              {currentStep === 1 && '填写您的基本个人信息'}
-              {currentStep === 2 && '选择您感兴趣的话题和活动'}
-              {currentStep === 3 && '设置您的沟通风格偏好'}
+              {currentStep === 1 && t.profileSetup.step1Desc}
+              {currentStep === 2 && t.profileSetup.step2Desc}
+              {currentStep === 3 && t.profileSetup.step3Desc}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -153,24 +185,24 @@ export default function ProfileSetupPage() {
               {currentStep === 1 && (
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium">用户名</label>
+                    <label className="text-sm font-medium">{t.profileSetup.fullName}</label>
                     <Input
-                      {...form.register('username')}
-                      placeholder="输入用户名"
+                      {...form.register('full_name')}
+                      placeholder={t.profileSetup.fullNamePlaceholder}
                       icon={<User className="h-4 w-4" />}
                     />
-                    {form.formState.errors.username && (
+                    {form.formState.errors.full_name && (
                       <p className="text-sm text-red-500 mt-1">
-                        {form.formState.errors.username.message}
+                        {form.formState.errors.full_name.message}
                       </p>
                     )}
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">个人简介</label>
+                    <label className="text-sm font-medium">{t.profileSetup.bio}</label>
                     <Textarea
                       {...form.register('bio')}
-                      placeholder="简单介绍一下自己..."
+                      placeholder={t.profileSetup.bioPlaceholder}
                       rows={3}
                     />
                     {form.formState.errors.bio && (
@@ -182,11 +214,11 @@ export default function ProfileSetupPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium">年龄</label>
+                      <label className="text-sm font-medium">{t.profileSetup.age}</label>
                       <Input
                         {...form.register('age', { valueAsNumber: true })}
                         type="number"
-                        placeholder="年龄"
+                        placeholder={t.profileSetup.agePlaceholder}
                         icon={<Calendar className="h-4 w-4" />}
                       />
                       {form.formState.errors.age && (
@@ -197,15 +229,15 @@ export default function ProfileSetupPage() {
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium">性别</label>
+                      <label className="text-sm font-medium">{t.profileSetup.gender}</label>
                       <Select onValueChange={(value) => form.setValue('gender', value as any)}>
                         <SelectTrigger>
-                          <SelectValue placeholder="选择性别" />
+                          <SelectValue placeholder={t.profileSetup.selectGender} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="male">男</SelectItem>
-                          <SelectItem value="female">女</SelectItem>
-                          <SelectItem value="other">其他</SelectItem>
+                          <SelectItem value="male">{t.profileSetup.genderMale}</SelectItem>
+                          <SelectItem value="female">{t.profileSetup.genderFemale}</SelectItem>
+                          <SelectItem value="other">{t.profileSetup.genderOther}</SelectItem>
                         </SelectContent>
                       </Select>
                       {form.formState.errors.gender && (
@@ -217,10 +249,10 @@ export default function ProfileSetupPage() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">位置</label>
+                    <label className="text-sm font-medium">{t.profileSetup.location}</label>
                     <Input
                       {...form.register('location')}
-                      placeholder="城市，国家"
+                      placeholder={t.profileSetup.locationPlaceholder}
                       icon={<MapPin className="h-4 w-4" />}
                     />
                     {form.formState.errors.location && (
@@ -235,25 +267,28 @@ export default function ProfileSetupPage() {
               {currentStep === 2 && (
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium">兴趣爱好</label>
+                    <label className="text-sm font-medium">{t.profileSetup.interests}</label>
                     <div className="grid grid-cols-3 gap-2 mt-2">
-                      {interestOptions.map((interest) => (
-                        <Button
-                          key={interest}
-                          type="button"
-                          variant={form.watch('interests').includes(interest) ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => {
-                            const current = form.watch('interests');
-                            const updated = current.includes(interest)
-                              ? current.filter(i => i !== interest)
-                              : [...current, interest];
-                            form.setValue('interests', updated);
-                          }}
-                        >
-                          {interest}
-                        </Button>
-                      ))}
+                      {interestOptions.map((interest) => {
+                        const label = t.profileSetup.interestOptions?.[interest.key as keyof typeof t.profileSetup.interestOptions] || interest.key;
+                        return (
+                          <Button
+                            key={interest.key}
+                            type="button"
+                            variant={form.watch('interests').includes(label) ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => {
+                              const current = form.watch('interests');
+                              const updated = current.includes(label)
+                                ? current.filter(i => i !== label)
+                                : [...current, label];
+                              form.setValue('interests', updated);
+                            }}
+                          >
+                            {label}
+                          </Button>
+                        );
+                      })}
                     </div>
                     {form.formState.errors.interests && (
                       <p className="text-sm text-red-500 mt-1">
@@ -263,17 +298,20 @@ export default function ProfileSetupPage() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium">行业</label>
+                    <label className="text-sm font-medium">{t.profileSetup.industry}</label>
                     <Select onValueChange={(value) => form.setValue('industry', value)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="选择您的行业" />
+                        <SelectValue placeholder={t.profileSetup.selectIndustry} />
                       </SelectTrigger>
                       <SelectContent>
-                        {industryOptions.map((industry) => (
-                          <SelectItem key={industry} value={industry}>
-                            {industry}
-                          </SelectItem>
-                        ))}
+                        {industryOptions.map((industry) => {
+                          const label = t.profileSetup.industryOptions?.[industry.key as keyof typeof t.profileSetup.industryOptions] || industry.key;
+                          return (
+                            <SelectItem key={industry.key} value={label}>
+                              {label}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     {form.formState.errors.industry && (
@@ -288,16 +326,15 @@ export default function ProfileSetupPage() {
               {currentStep === 3 && (
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium">沟通风格</label>
+                    <label className="text-sm font-medium">{t.profileSetup.communicationStyle}</label>
                     <Select onValueChange={(value) => form.setValue('communication_style', value as any)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="选择您的沟通风格" />
+                        <SelectValue placeholder={t.profileSetup.selectCommunicationStyle} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="casual">轻松随意</SelectItem>
-                        <SelectItem value="formal">正式专业</SelectItem>
-                        <SelectItem value="friendly">友好亲切</SelectItem>
-                        <SelectItem value="professional">商务专业</SelectItem>
+                        <SelectItem value="introvert">{t.profileSetup.styleIntrovert}</SelectItem>
+                        <SelectItem value="extrovert">{t.profileSetup.styleExtrovert}</SelectItem>
+                        <SelectItem value="ambivert">{t.profileSetup.styleAmbivert}</SelectItem>
                       </SelectContent>
                     </Select>
                     {form.formState.errors.communication_style && (
@@ -317,17 +354,17 @@ export default function ProfileSetupPage() {
                   onClick={prevStep}
                   disabled={currentStep === 1}
                 >
-                  上一步
+                  {t.profileSetup.previousStep}
                 </Button>
 
                 {currentStep < 3 ? (
                   <Button type="button" onClick={nextStep}>
-                    下一步
+                    {t.profileSetup.nextStep}
                   </Button>
                 ) : (
                   <Button type="submit" disabled={isLoading}>
                     <Save className="h-4 w-4 mr-2" />
-                    {isLoading ? '保存中...' : '完成设置'}
+                    {isLoading ? t.profileSetup.saving : t.profileSetup.completeSetup}
                   </Button>
                 )}
               </div>

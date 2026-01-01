@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { createRouteHandlerClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +11,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Create Supabase client for this request
+    const supabase = createRouteHandlerClient();
 
     // Set the session from the tokens
     const { error: sessionError } = await supabase.auth.setSession({
@@ -73,6 +71,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Create Supabase client for this request
+    const supabase = createRouteHandlerClient();
+
     // Verify the session is valid
     const { error: sessionError } = await supabase.auth.setSession({
       access_token,
@@ -98,4 +99,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

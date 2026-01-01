@@ -1,118 +1,125 @@
+'use client';
+
 import { LegalLayout } from '@/components/legal-layout';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 export default function PrivacyPage() {
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+
   return (
-    <LegalLayout title="Privacy Policy">
+    <LegalLayout title={t.legal.privacy.title}>
       <section className="prose prose-lg max-w-none">
-        <h2>Data Collection</h2>
+        <h2>{t.legal.privacy.dataCollection}</h2>
         <p>
-          We collect the following types of information to provide and improve our services:
+          {t.legal.privacy.dataCollectionDesc}
         </p>
         <ul>
-          <li><strong>Profile Information:</strong> Name, email, age, location, interests, bio, and communication preferences</li>
-          <li><strong>Usage Data:</strong> How you interact with our platform, matching preferences, and chat activity</li>
-          <li><strong>Technical Data:</strong> IP address, device information, and browser type</li>
-          <li><strong>Payment Information:</strong> Processed securely through our payment partners</li>
+          <li><strong>{t.legal.privacy.profileInfo}:</strong> {t.legal.privacy.profileInfoDesc}</li>
+          <li><strong>{t.legal.privacy.usageData}:</strong> {t.legal.privacy.usageDataDesc}</li>
+          <li><strong>{t.legal.privacy.technicalData}:</strong> {t.legal.privacy.technicalDataDesc}</li>
+          <li><strong>{t.legal.privacy.paymentInfo}:</strong> {t.legal.privacy.paymentInfoDesc}</li>
         </ul>
 
-        <h2>How We Use Your Information</h2>
+        <h2>{t.legal.privacy.howWeUse}</h2>
         <p>
-          We use your information to:
+          {t.legal.privacy.howWeUseDesc}
         </p>
         <ul>
-          <li>Provide and maintain the PersonaLink service</li>
-          <li>Match you with compatible users using our AI algorithms</li>
-          <li>Enable real-time chat and communication features</li>
-          <li>Process payments and manage your account</li>
-          <li>Send important service updates and notifications</li>
-          <li>Improve our matching algorithms and user experience</li>
-          <li>Ensure platform security and prevent fraud</li>
+          <li>{t.legal.privacy.use1}</li>
+          <li>{t.legal.privacy.use2}</li>
+          <li>{t.legal.privacy.use3}</li>
+          <li>{t.legal.privacy.use4}</li>
+          <li>{t.legal.privacy.use5}</li>
+          <li>{t.legal.privacy.use6}</li>
+          <li>{t.legal.privacy.use7}</li>
         </ul>
 
-        <h2>Data Sharing and Disclosure</h2>
+        <h2>{t.legal.privacy.dataSharing}</h2>
         <p>
-          We do not sell, trade, or rent your personal information to third parties. We may share your information in the following circumstances:
+          {t.legal.privacy.dataSharingDesc}
         </p>
         <ul>
-          <li><strong>With Other Users:</strong> Your profile information is shared with matched users</li>
-          <li><strong>Service Providers:</strong> With trusted partners who help us operate our service</li>
-          <li><strong>Legal Requirements:</strong> When required by law or to protect our rights</li>
-          <li><strong>Business Transfers:</strong> In connection with a merger or acquisition</li>
+          <li><strong>{t.legal.privacy.withOtherUsers}:</strong> {t.legal.privacy.withOtherUsersDesc}</li>
+          <li><strong>{t.legal.privacy.serviceProviders}:</strong> {t.legal.privacy.serviceProvidersDesc}</li>
+          <li><strong>{t.legal.privacy.legalRequirements}:</strong> {t.legal.privacy.legalRequirements}</li>
+          <li><strong>{t.legal.privacy.businessTransfers}:</strong> {t.legal.privacy.businessTransfersDesc}</li>
         </ul>
 
-        <h2>Data Security</h2>
+        <h2>{t.legal.privacy.dataSecurity}</h2>
         <p>
-          We implement industry-standard security measures to protect your personal information:
+          {t.legal.privacy.dataSecurityDesc}
         </p>
         <ul>
-          <li>End-to-end encryption for chat messages</li>
-          <li>Secure data transmission using HTTPS</li>
-          <li>Regular security audits and updates</li>
-          <li>Access controls and authentication</li>
+          <li>{t.legal.privacy.security1}</li>
+          <li>{t.legal.privacy.security2}</li>
+          <li>{t.legal.privacy.security3}</li>
+          <li>{t.legal.privacy.security4}</li>
         </ul>
 
-        <h2>Data Retention</h2>
+        <h2>{t.legal.privacy.dataRetention}</h2>
         <p>
-          We retain your information for as long as your account is active or as needed to provide services. You may request deletion of your account and associated data at any time.
+          {t.legal.privacy.dataRetentionDesc}
         </p>
 
-        <h2>Your Rights</h2>
+        <h2>{t.legal.privacy.yourRights}</h2>
         <p>
-          You have the right to:
+          {t.legal.privacy.yourRightsDesc}
         </p>
         <ul>
-          <li>Access and review your personal information</li>
-          <li>Update or correct your profile information</li>
-          <li>Delete your account and associated data</li>
-          <li>Opt out of marketing communications</li>
-          <li>Request data portability</li>
+          <li>{t.legal.privacy.right1}</li>
+          <li>{t.legal.privacy.right2}</li>
+          <li>{t.legal.privacy.right3}</li>
+          <li>{t.legal.privacy.right4}</li>
+          <li>{t.legal.privacy.right5}</li>
         </ul>
 
-        <h2>Cookies and Tracking</h2>
+        <h2>{t.legal.privacy.cookies}</h2>
         <p>
-          We use cookies and similar technologies to:
+          {t.legal.privacy.cookiesDesc}
         </p>
         <ul>
-          <li>Remember your preferences and settings</li>
-          <li>Analyze how you use our service</li>
-          <li>Provide personalized content and recommendations</li>
-          <li>Ensure platform security</li>
+          <li>{t.legal.privacy.cookie1}</li>
+          <li>{t.legal.privacy.cookie2}</li>
+          <li>{t.legal.privacy.cookie3}</li>
+          <li>{t.legal.privacy.cookie4}</li>
         </ul>
 
-        <h2>Third-Party Services</h2>
+        <h2>{t.legal.privacy.thirdParty}</h2>
         <p>
-          Our service may integrate with third-party services for:
+          {t.legal.privacy.thirdPartyDesc}
         </p>
         <ul>
-          <li>Payment processing (Stripe, Coinbase Commerce)</li>
-          <li>Authentication (Google OAuth)</li>
-          <li>Communication (Twilio for SMS)</li>
-          <li>Analytics and monitoring</li>
+          <li>{t.legal.privacy.thirdParty1}</li>
+          <li>{t.legal.privacy.thirdParty2}</li>
+          <li>{t.legal.privacy.thirdParty3}</li>
+          <li>{t.legal.privacy.thirdParty4}</li>
         </ul>
 
-        <h2>International Data Transfers</h2>
+        <h2>{t.legal.privacy.international}</h2>
         <p>
-          Your information may be transferred to and processed in countries other than your own. We ensure appropriate safeguards are in place to protect your data during such transfers.
+          {t.legal.privacy.internationalDesc}
         </p>
 
-        <h2>Children's Privacy</h2>
+        <h2>{t.legal.privacy.children}</h2>
         <p>
-          PersonaLink is not intended for users under 18 years of age. We do not knowingly collect personal information from children under 18.
+          {t.legal.privacy.childrenDesc}
         </p>
 
-        <h2>Changes to This Policy</h2>
+        <h2>{t.legal.privacy.changes}</h2>
         <p>
-          We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new policy on this page and updating the "Last updated" date.
+          {t.legal.privacy.changesDesc}
         </p>
 
-        <h2>Contact Us</h2>
+        <h2>{t.legal.privacy.contact}</h2>
         <p>
-          If you have any questions about this Privacy Policy or our data practices, please contact us at:
+          {t.legal.privacy.contactDesc}
         </p>
         <ul>
-          <li>Email: privacy@personalink.ai</li>
-          <li>Address: PersonaLink, San Francisco, CA</li>
-          <li>Phone: +1 (555) 123-4567</li>
+          <li>{t.legal.privacy.contactEmail}</li>
+          <li>{t.legal.privacy.contactAddress}</li>
+          <li>{t.legal.privacy.contactPhone}</li>
         </ul>
       </section>
     </LegalLayout>

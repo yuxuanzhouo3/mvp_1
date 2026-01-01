@@ -19,6 +19,8 @@ import {
   Save,
   ArrowLeft
 } from 'lucide-react';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 interface UserSettings {
   notifications: {
@@ -42,7 +44,9 @@ export default function SettingsPage() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-  
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+
   const [settings, setSettings] = useState<UserSettings>({
     notifications: {
       newMatches: true,
@@ -65,7 +69,6 @@ export default function SettingsPage() {
   const [authSettled, setAuthSettled] = useState(false);
 
   useEffect(() => {
-    // Add a delay to allow auth state to settle
     const timer = setTimeout(() => {
       setAuthSettled(true);
       if (!user) {
@@ -81,17 +84,16 @@ export default function SettingsPage() {
   const handleSaveSettings = async () => {
     setLoading(true);
     try {
-      // In a real app, you would save to the database
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       toast({
-        title: '设置已保存',
-        description: '您的设置已成功更新',
+        title: t.dashboardSettings.settingsSaved,
+        description: t.dashboardSettings.settingsSavedDesc,
       });
     } catch (error) {
       toast({
-        title: '保存失败',
-        description: '无法保存设置，请稍后重试',
+        title: t.dashboardSettings.saveFailed,
+        description: t.dashboardSettings.saveFailedDesc,
         variant: 'destructive',
       });
     } finally {
@@ -104,19 +106,18 @@ export default function SettingsPage() {
       await signOut();
       router.push('/');
       toast({
-        title: '已退出登录',
-        description: '期待您的再次光临！',
+        title: t.dashboardSettings.signOutSuccess,
+        description: t.dashboardSettings.signOutSuccessDesc,
       });
     } catch (error) {
       toast({
-        title: '退出失败',
-        description: '请稍后重试',
+        title: t.dashboardSettings.signOutFailed,
+        description: t.dashboardSettings.signOutFailedDesc,
         variant: 'destructive',
       });
     }
   };
 
-  // Show loading skeleton while auth is settling
   if (!authSettled) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -147,7 +148,6 @@ export default function SettingsPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
             <Button
@@ -157,27 +157,26 @@ export default function SettingsPage() {
               className="flex items-center space-x-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>返回</span>
+              <span>{t.dashboardSettings.back}</span>
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">设置</h1>
-              <p className="text-gray-600 dark:text-gray-400">管理您的账户和偏好设置</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t.dashboardSettings.title}</h1>
+              <p className="text-gray-600 dark:text-gray-400">{t.dashboardSettings.subtitle}</p>
             </div>
           </div>
           <Button onClick={handleSaveSettings} disabled={loading}>
             <Save className="h-4 w-4 mr-2" />
-            {loading ? '保存中...' : '保存设置'}
+            {loading ? t.dashboardSettings.saving : t.dashboardSettings.saveSettings}
           </Button>
         </div>
 
-        {/* Profile Section */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <User className="h-5 w-5" />
-              <span>个人资料</span>
+              <span>{t.dashboardSettings.profile}</span>
             </CardTitle>
-            <CardDescription>管理您的个人信息和头像</CardDescription>
+            <CardDescription>{t.dashboardSettings.profileDesc}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-4">
@@ -193,24 +192,23 @@ export default function SettingsPage() {
                 </h3>
                 <p className="text-gray-600 dark:text-gray-400">{user?.email}</p>
               </div>
-              <Button variant="outline">编辑资料</Button>
+              <Button variant="outline">{t.dashboardSettings.editProfile}</Button>
             </div>
           </CardContent>
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Notifications */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Bell className="h-5 w-5" />
-                <span>通知设置</span>
+                <span>{t.dashboardSettings.notificationSettings}</span>
               </CardTitle>
-              <CardDescription>管理您接收的通知类型</CardDescription>
+              <CardDescription>{t.dashboardSettings.notificationSettingsDesc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label htmlFor="new-matches">新匹配通知</Label>
+                <Label htmlFor="new-matches">{t.dashboardSettings.newMatchNotifications}</Label>
                 <Switch
                   id="new-matches"
                   checked={settings.notifications.newMatches}
@@ -223,7 +221,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="messages">消息通知</Label>
+                <Label htmlFor="messages">{t.dashboardSettings.messageNotifications}</Label>
                 <Switch
                   id="messages"
                   checked={settings.notifications.messages}
@@ -236,7 +234,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="weekly-digest">每周摘要</Label>
+                <Label htmlFor="weekly-digest">{t.dashboardSettings.weeklyDigest}</Label>
                 <Switch
                   id="weekly-digest"
                   checked={settings.notifications.weeklyDigest}
@@ -251,18 +249,17 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Privacy */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Shield className="h-5 w-5" />
-                <span>隐私设置</span>
+                <span>{t.dashboardSettings.privacySettings}</span>
               </CardTitle>
-              <CardDescription>控制您的隐私和可见性</CardDescription>
+              <CardDescription>{t.dashboardSettings.privacySettingsDesc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label htmlFor="online-status">显示在线状态</Label>
+                <Label htmlFor="online-status">{t.dashboardSettings.showOnlineStatus}</Label>
                 <Switch
                   id="online-status"
                   checked={settings.privacy.showOnlineStatus}
@@ -275,7 +272,7 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="allow-messages">允许接收消息</Label>
+                <Label htmlFor="allow-messages">{t.dashboardSettings.allowMessages}</Label>
                 <Switch
                   id="allow-messages"
                   checked={settings.privacy.allowMessages}
@@ -290,18 +287,17 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Preferences */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Palette className="h-5 w-5" />
-                <span>偏好设置</span>
+                <span>{t.dashboardSettings.preferences}</span>
               </CardTitle>
-              <CardDescription>自定义您的使用体验</CardDescription>
+              <CardDescription>{t.dashboardSettings.preferencesDesc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="language">语言</Label>
+                <Label htmlFor="language">{t.dashboardSettings.language}</Label>
                 <select
                   id="language"
                   value={settings.preferences.language}
@@ -318,7 +314,7 @@ export default function SettingsPage() {
                 </select>
               </div>
               <div>
-                <Label htmlFor="theme">主题</Label>
+                <Label htmlFor="theme">{t.dashboardSettings.theme}</Label>
                 <select
                   id="theme"
                   value={settings.preferences.theme}
@@ -330,36 +326,35 @@ export default function SettingsPage() {
                   }
                   className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700"
                 >
-                  <option value="auto">跟随系统</option>
-                  <option value="light">浅色</option>
-                  <option value="dark">深色</option>
+                  <option value="auto">{t.dashboardSettings.themeAuto}</option>
+                  <option value="light">{t.dashboardSettings.themeLight}</option>
+                  <option value="dark">{t.dashboardSettings.themeDark}</option>
                 </select>
               </div>
             </CardContent>
           </Card>
 
-          {/* Account */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Globe className="h-5 w-5" />
-                <span>账户管理</span>
+                <span>{t.dashboardSettings.accountManagement}</span>
               </CardTitle>
-              <CardDescription>管理您的账户设置</CardDescription>
+              <CardDescription>{t.dashboardSettings.accountManagementDesc}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Button variant="outline" className="w-full">
-                更改密码
+                {t.dashboardSettings.changePassword}
               </Button>
               <Button variant="outline" className="w-full">
-                删除账户
+                {t.dashboardSettings.deleteAccount}
               </Button>
               <Button 
                 variant="destructive" 
                 className="w-full"
                 onClick={handleSignOut}
               >
-                退出登录
+                {t.dashboardSettings.signOut}
               </Button>
             </CardContent>
           </Card>

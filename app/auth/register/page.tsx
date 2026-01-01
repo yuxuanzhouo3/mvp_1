@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,25 +10,44 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 import { Mail, Lock, User, CheckCircle, Sparkles, Shield } from 'lucide-react';
-
-const registerSchema = z.object({
-  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
-
-type RegisterFormData = z.infer<typeof registerSchema>;
 
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const { signUp, signInWithGoogle } = useAuth();
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+
+  type RegisterFormData = {
+    fullName: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+  };
+
+  // ✅ 修复：直接使用 t，不要在 useMemo 内部调用 useTranslations
+  const registerSchema = useMemo(() => {
+    return z.object({
+      fullName: z.string()
+        .min(1, t.auth.validation.fullNameRequired)
+        .min(2, t.auth.validation.fullNameTooShort),
+      email: z.string()
+        .min(1, t.auth.validation.emailRequired)
+        .email(t.auth.validation.emailInvalid),
+      password: z.string()
+        .min(1, t.auth.validation.passwordRequired)
+        .min(8, t.auth.validation.passwordMinLength),
+      confirmPassword: z.string()
+        .min(1, t.auth.validation.passwordRequired),
+    }).refine((data) => data.password === data.confirmPassword, {
+      message: t.auth.validation.passwordsNotMatch,
+      path: ["confirmPassword"],
+    });
+  }, [language]); // ✅ 只依赖 language
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -40,22 +59,22 @@ export default function RegisterPage() {
       const { error } = await signUp(data.email, data.password);
       if (error) {
         toast({
-          title: 'Registration failed',
-          description: error.message,
+          title: t.common.error,
+          description: t.auth.register.registrationFailed,
           variant: 'destructive',
         });
       } else {
         setEmailSent(true);
         toast({
-          title: 'Registration successful',
-          description: 'Please check your email to verify your account',
+          title: t.common.success,
+          description: t.auth.register.checkEmail,
         });
       }
     } catch (error) {
       console.error('Registration error:', error);
       toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
+        title: t.common.error,
+        description: t.auth.errors.unexpectedError,
         variant: 'destructive',
       });
     } finally {
@@ -69,20 +88,20 @@ export default function RegisterPage() {
       const { error } = await signInWithGoogle();
       if (error) {
         toast({
-          title: 'Google sign-in failed',
+          title: t.auth.errors.googleSignInFailed,
           description: error.message,
           variant: 'destructive',
         });
       } else {
         toast({
-          title: 'Success',
-          description: 'Welcome! Redirecting to dashboard...',
+          title: t.common.success,
+          description: t.auth.login.redirecting,
         });
       }
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'An unexpected error occurred during Google sign-in',
+        title: t.common.error,
+        description: t.auth.errors.googleSignInUnexpected,
         variant: 'destructive',
       });
     } finally {
@@ -93,7 +112,6 @@ export default function RegisterPage() {
   if (emailSent) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 dark:from-gray-900 dark:to-gray-950 relative overflow-hidden">
-        {/* Back to Home Button */}
         <Link
           href="/"
           className="absolute top-6 left-6 z-20 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors duration-200"
@@ -101,7 +119,7 @@ export default function RegisterPage() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          <span className="font-medium">Back to Home</span>
+          <span className="font-medium">{t.header.backToHome}</span>
         </Link>
 
         <div className="relative z-10 w-full max-w-md mx-4">
@@ -110,19 +128,19 @@ export default function RegisterPage() {
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500 shadow-lg">
                 <CheckCircle className="h-8 w-8 text-white" />
               </div>
-              <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Check your email</CardTitle>
+              <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{t.auth.register.checkYourEmail}</CardTitle>
               <CardDescription className="text-gray-600 dark:text-gray-300 text-lg">
-                We've sent you a verification link to complete your registration
+                {t.auth.register.verificationSent}
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center space-y-6">
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Didn't receive the email? Check your spam folder or{' '}
+                {t.auth.register.didntReceive}{' '}
                 <button
                   onClick={() => setEmailSent(false)}
                   className="text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline"
                 >
-                  try again
+                  {t.auth.register.tryAgain}
                 </button>
               </p>
               <Link href="/auth/login">
@@ -130,7 +148,7 @@ export default function RegisterPage() {
                   variant="outline"
                   className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-300"
                 >
-                  Back to login
+                  {t.auth.register.backToLogin}
                 </Button>
               </Link>
             </CardContent>
@@ -142,18 +160,16 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 dark:from-gray-900 dark:to-gray-950 relative overflow-hidden">
-      {/* Back to Home Button */}
       <Link
         href="/"
         className="absolute top-6 left-6 z-20 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors duration-200"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        <span className="font-medium">Back to Home</span>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          <span className="font-medium">{t.header.backToHome}</span>
       </Link>
 
-      {/* Main content */}
       <div className="relative z-10 w-full max-w-md mx-4">
         <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl">
           <CardHeader className="text-center space-y-4 pb-6">
@@ -168,10 +184,10 @@ export default function RegisterPage() {
               </Link>
             </div>
             <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Create account
+              {t.auth.register.title}
             </CardTitle>
             <CardDescription className="text-gray-600 dark:text-gray-300 text-lg">
-              Join PersonaLink to find your perfect AI friend match
+              {t.auth.register.subtitle}
             </CardDescription>
           </CardHeader>
 
@@ -185,7 +201,7 @@ export default function RegisterPage() {
                   <Input
                     {...form.register('fullName')}
                     type="text"
-                    placeholder="Enter your full name"
+                    placeholder={t.auth.register.fullNamePlaceholder}
                     className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                     autoComplete="name"
                   />
@@ -205,7 +221,7 @@ export default function RegisterPage() {
                   <Input
                     {...form.register('email')}
                     type="email"
-                    placeholder="Enter your email"
+                    placeholder={t.auth.register.emailPlaceholder}
                     className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                     autoComplete="email"
                   />
@@ -225,7 +241,7 @@ export default function RegisterPage() {
                   <Input
                     {...form.register('password')}
                     type="password"
-                    placeholder="Create a password"
+                    placeholder={t.auth.register.passwordPlaceholder}
                     className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                     autoComplete="new-password"
                   />
@@ -245,7 +261,7 @@ export default function RegisterPage() {
                   <Input
                     {...form.register('confirmPassword')}
                     type="password"
-                    placeholder="Confirm your password"
+                    placeholder={t.auth.register.confirmPasswordPlaceholder}
                     className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                     autoComplete="new-password"
                   />
@@ -265,28 +281,26 @@ export default function RegisterPage() {
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Creating account...</span>
+                    <span>{t.auth.register.creating}</span>
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2">
                     <Shield className="h-4 w-4" />
-                    <span>Create account</span>
+                    <span>{t.auth.register.createButton}</span>
                   </div>
                 )}
               </Button>
             </form>
 
-            {/* Divider */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-gray-300 dark:border-gray-600" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">or</span>
+                <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">{t.common.or}</span>
               </div>
             </div>
 
-            {/* Google Sign-in Button */}
             <Button
               type="button"
               onClick={handleGoogleSignIn}
@@ -297,7 +311,7 @@ export default function RegisterPage() {
               {isLoading ? (
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
-                  <span>Signing in...</span>
+                  <span>{t.common.loading}...</span>
                 </div>
               ) : (
                 <>
@@ -307,19 +321,19 @@ export default function RegisterPage() {
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                   </svg>
-                  Continue with Google
+                  {t.auth.register.continueWithGoogle}
                 </>
               )}
             </Button>
 
             <div className="text-center pt-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Already have an account?{' '}
+                {t.auth.register.haveAccount}{' '}
                 <Link
                   href="/auth/login"
                   className="text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline font-medium"
                 >
-                  Sign in
+                  {t.auth.register.signIn}
                 </Link>
               </p>
             </div>
