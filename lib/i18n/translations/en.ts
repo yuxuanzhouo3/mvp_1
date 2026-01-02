@@ -143,6 +143,7 @@ export const en = {
       loginFailed: 'Login failed',
       welcomeBack: 'Welcome back!',
       redirecting: 'Welcome! Redirecting to dashboard...',
+      rememberMe: 'Remember me',
     },
 
     // Register
@@ -166,6 +167,11 @@ export const en = {
       didntReceive: "Didn't receive email? Check your spam folder or",
       tryAgain: 'try again',
       backToLogin: 'Back to login',
+      agreeToTerms: 'I agree to the',
+      termsOfService: 'Terms of Service',
+      and: 'and',
+      privacyPolicy: 'Privacy Policy',
+      mustAgreeToTerms: 'You must agree to the Terms of Service and Privacy Policy',
     },
 
     // Forgot Password

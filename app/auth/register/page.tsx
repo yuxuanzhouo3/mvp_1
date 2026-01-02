@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -18,6 +19,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const { signUp, signInWithGoogle } = useAuth();
   const { toast } = useToast();
   const { language } = useLanguage();
@@ -65,6 +67,15 @@ export default function RegisterPage() {
   };
 
   const onSubmit = async (data: RegisterFormData) => {
+    if (!agreedToTerms) {
+      toast({
+        title: t.common.error,
+        description: t.auth.register.mustAgreeToTerms,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       const { error } = await signUp(data.email, data.password);
@@ -314,6 +325,39 @@ export default function RegisterPage() {
                     {form.formState.errors.confirmPassword.message}
                   </p>
                 )}
+              </div>
+
+              {/* Terms and Privacy Policy Checkbox */}
+              <div className="space-y-2">
+                <div className="flex items-start space-x-3">
+                  <Checkbox
+                    id="terms"
+                    checked={agreedToTerms}
+                    onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+                    className="mt-1 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  />
+                  <label
+                    htmlFor="terms"
+                    className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed cursor-pointer"
+                  >
+                    {t.auth.register.agreeToTerms}{' '}
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      className="text-primary hover:text-primary/80 underline-offset-4 hover:underline"
+                    >
+                      {t.auth.register.termsOfService}
+                    </Link>{' '}
+                    {t.auth.register.and}{' '}
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      className="text-primary hover:text-primary/80 underline-offset-4 hover:underline"
+                    >
+                      {t.auth.register.privacyPolicy}
+                    </Link>
+                  </label>
+                </div>
               </div>
 
               <Button

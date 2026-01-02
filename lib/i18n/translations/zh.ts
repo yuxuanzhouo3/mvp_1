@@ -144,6 +144,7 @@ export const zh = {
       loginFailed: '登录失败',
       welcomeBack: '欢迎回来！',
       redirecting: '欢迎！正在跳转到控制台...',
+      rememberMe: '记住我',
     },
 
     // 注册
@@ -167,6 +168,11 @@ export const zh = {
       didntReceive: "没有收到邮件？检查垃圾邮件文件夹或",
       tryAgain: '重试',
       backToLogin: '返回登录',
+      agreeToTerms: '我同意',
+      termsOfService: '服务条款',
+      and: '和',
+      privacyPolicy: '隐私政策',
+      mustAgreeToTerms: '您必须同意服务条款和隐私政策',
     },
 
     // 忘记密码

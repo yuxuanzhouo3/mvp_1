@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const hasRedirectedRef = useRef(false);
 
   const router = useRouter();
@@ -24,6 +26,15 @@ export default function LoginPage() {
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslations(language);
+
+  // Load saved email if "remember me" was checked previously
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('remembered_email');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   // Immediate redirect if user is already authenticated
   useEffect(() => {
@@ -83,6 +94,13 @@ export default function LoginPage() {
         });
         setIsLoading(false);
       } else {
+        // Handle "remember me" functionality
+        if (rememberMe) {
+          localStorage.setItem('remembered_email', email);
+        } else {
+          localStorage.removeItem('remembered_email');
+        }
+
         toast({
           title: t.common.success,
           description: t.auth.login.welcomeBack,
@@ -217,6 +235,30 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              {/* Remember Me Checkbox */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember-me"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                    className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  />
+                  <label
+                    htmlFor="remember-me"
+                    className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer"
+                  >
+                    {t.auth.login.rememberMe}
+                  </label>
+                </div>
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-sm text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline"
+                >
+                  {t.auth.login.forgotPassword}
+                </Link>
+              </div>
+
               <Button
                 type="submit"
                 className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
@@ -235,15 +277,6 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
-
-            <div className="text-center">
-              <Link
-                href="/auth/forgot-password"
-                className="text-sm text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline"
-              >
-                {t.auth.login.forgotPassword}
-              </Link>
-            </div>
 
             {/* Divider */}
             <div className="relative">
