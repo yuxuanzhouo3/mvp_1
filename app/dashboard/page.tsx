@@ -17,18 +17,19 @@ import {
   MapPin,
   Bell,
   LogOut,
-  Menu,
-  Home,
-  ArrowLeft,
   Calendar,
   Ruler,
   GraduationCap,
   Briefcase,
-  Brain
+  Brain,
+  Shield,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations, interpolate } from '@/lib/i18n';
+import PhotoAuditStatus from '@/components/profile/PhotoAuditStatus';
+import { useMarketValue } from '@/hooks/useMarketValue';
+import { ScoreBadge } from '@/components/profile/ScoreBadge';
 
 interface UserProfile {
   id: string;
@@ -82,11 +83,18 @@ export default function DashboardPage() {
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showSidebar, setShowSidebar] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Use refs to prevent multiple calls and track initialization
   const hasLoadedRef = useRef(false);
   const isRedirectingRef = useRef(false);
+
+  // Get market value score
+  const { score: marketValueScore, isLoading: scoreLoading } = useMarketValue({
+    userId: user?.id || '',
+    enabled: !!user?.id
+  });
 
   const loadDashboardData = useCallback(async (userId: string) => {
     // Prevent multiple simultaneous calls
@@ -105,6 +113,9 @@ export default function DashboardPage() {
         setLoading(false);
         return;
       }
+
+      // Save token for PhotoAuditStatus component
+      setSessionToken(token);
 
       const headers = {
         'Authorization': `Bearer ${token}`,
@@ -136,6 +147,21 @@ export default function DashboardPage() {
         setStats(statsData.stats);
       } else {
         console.error('Failed to load stats:', statsRes.status);
+      }
+
+      // Check if user is admin (silently fail if not admin)
+      try {
+        const adminRes = await fetch('/api/admin/check', { headers });
+        if (adminRes.ok) {
+          const adminData = await adminRes.json();
+          setIsAdmin(adminData.isAdmin);
+        } else {
+          // User is not admin, this is expected for most users
+          setIsAdmin(false);
+        }
+      } catch {
+        // Silently handle admin check failure
+        setIsAdmin(false);
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -247,140 +273,10 @@ export default function DashboardPage() {
     router.push('/chat');
   };
 
-  // Hide header on settings page
-  const isSettingsPage = pathname === '/dashboard/settings';
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header - Hidden on settings page */}
-      {!isSettingsPage && (
-        <header className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              {/* Sidebar Toggle Button */}
-              <button
-                onClick={() => setShowSidebar(!showSidebar)}
-                className="absolute left-2 top-1/2 transform -translate-y-1/2 z-50 p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
-                style={{ left: '1%' }}
-              >
-                <Menu className="h-5 w-5" />
-              </button>
-
-              {/* Logo */}
-              <div className="flex-1 flex justify-center">
-                <h1 className="text-xl font-bold text-blue-600">PersonaLink</h1>
-              </div>
-
-              {/* User Menu */}
-              <div className="relative">
-                <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                      {profile.full_name?.charAt(0).toUpperCase()}
-                    </div>
-                    <span className="text-sm font-medium text-gray-700 hidden sm:block">
-                      {profile.full_name}
-                    </span>
-                  </div>
-
-                  <div className="relative">
-                    <button className="flex items-center space-x-1 text-gray-600 hover:text-gray-900 transition-colors">
-                      <Settings className="h-4 w-4" />
-                    </button>
-
-                    {/* Dropdown Menu */}
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10 hidden group-hover:block">
-                      <button
-                        onClick={() => router.push('/dashboard/settings')}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        {t.header.settings}
-                      </button>
-                      <button
-                        onClick={() => router.push('/dashboard/notifications')}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        {t.header.notifications}
-                      </button>
-                      <hr className="my-1" />
-                      <button
-                        onClick={handleSignOut}
-                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                      >
-                        {t.header.logout}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
-      )}
-
-      {/* Sidebar */}
-      <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${showSidebar ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">PersonaLink</h2>
-          <button
-            onClick={() => setShowSidebar(false)}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-        </div>
-
-        <nav className="mt-4">
-          <div className="px-4 space-y-2">
-            <button
-              onClick={() => { router.push('/dashboard'); setShowSidebar(false); }}
-              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
-            >
-              <Home className="mr-3 h-5 w-5" />
-              {t.dashboard.sidebar.home}
-            </button>
-            <button
-              onClick={() => { router.push('/chat'); setShowSidebar(false); }}
-              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
-            >
-              <MessageSquare className="mr-3 h-5 w-5" />
-              {t.dashboard.sidebar.chat}
-            </button>
-            <button
-              onClick={() => { router.push('/matching'); setShowSidebar(false); }}
-              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
-            >
-              <Heart className="mr-3 h-5 w-5" />
-              {t.dashboard.sidebar.matching}
-            </button>
-            <button
-              onClick={() => { router.push('/payment/recharge'); setShowSidebar(false); }}
-              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
-            >
-              <CreditCard className="mr-3 h-5 w-5" />
-              {t.dashboard.sidebar.recharge}
-            </button>
-            <button
-              onClick={() => { router.push('/dashboard/settings'); setShowSidebar(false); }}
-              className="w-full flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 hover:text-gray-900"
-            >
-              <Settings className="mr-3 h-5 w-5" />
-              {t.dashboard.sidebar.settings}
-            </button>
-          </div>
-        </nav>
-      </div>
-
-      {/* Overlay */}
-      {showSidebar && (
-        <div
-          className="fixed inset-0 z-30 bg-black bg-opacity-50"
-          onClick={() => setShowSidebar(false)}
-        />
-      )}
-
+    <>
       {/* Main Content */}
-      <div className={`${!isSettingsPage ? 'pt-16' : ''} transition-all duration-300`}>
+      <div className="transition-all duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Welcome Section */}
           <div className="mb-6">
@@ -471,11 +367,39 @@ export default function DashboardPage() {
                   <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white text-lg font-semibold mr-4">
                     {profile.full_name?.charAt(0).toUpperCase()}
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h4 className="font-semibold text-gray-900">{profile.full_name}</h4>
                     <p className="text-sm text-gray-600">{profile.email}</p>
                   </div>
                 </div>
+
+                {/* Market Value Score */}
+                {marketValueScore && (
+                  <div
+                    onClick={() => router.push('/profile/score-details')}
+                    className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg border border-purple-100 dark:border-purple-800 cursor-pointer hover:shadow-md transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <ScoreBadge totalScore={marketValueScore.totalScore} size="md" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {t.dashboard.profile.marketValue}
+                          </p>
+                          <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                            {marketValueScore.totalScore.toFixed(1)} / 100
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Top {100 - marketValueScore.percentile}%
+                        </p>
+                        <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400 ml-auto mt-1" />
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Basic Info Row */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
@@ -622,6 +546,17 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Photo Audit Status */}
+          {sessionToken && user && (
+            <div className="mb-6">
+              <PhotoAuditStatus
+                userId={user.id}
+                token={sessionToken}
+                onUploadClick={() => router.push('/profile/edit')}
+              />
+            </div>
+          )}
+
           {/* Recent Matches */}
           {recentMatches.length > 0 && (
             <div className="bg-white rounded-lg shadow-sm">
@@ -664,6 +599,6 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-    </div>
+    </>
   );
 }

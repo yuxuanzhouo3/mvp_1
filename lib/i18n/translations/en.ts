@@ -6,6 +6,7 @@ export const en = {
   common: {
     loading: 'Loading...',
     save: 'Save',
+    saving: 'Saving...',
     cancel: 'Cancel',
     confirm: 'Confirm',
     delete: 'Delete',
@@ -284,6 +285,7 @@ export const en = {
       editProfile: 'Edit Profile',
       interests: 'Interests',
       edit: 'Edit',
+      marketValue: 'Market Value',
     },
     credits: {
       title: 'Credits Balance',
@@ -305,9 +307,11 @@ export const en = {
       home: 'Home',
       chat: 'Chat',
       matching: 'Matching',
+      marketValue: 'Market Value',
       recharge: 'Recharge',
       settings: 'Settings',
       notifications: 'Notifications',
+      adminPanel: 'Admin Panel',
     },
     loadingProfile: 'Unable to load user profile',
     tryLater: 'Please try again later or contact support.',
@@ -330,6 +334,16 @@ export const en = {
     loadFailed: 'Failed to load chat list',
     networkError: 'Network error, please try again later',
     sendFailed: 'Failed to send message',
+    // Additional translations
+    yesterday: 'Yesterday',
+    conversations: 'conversations',
+    searchPlaceholder: 'Search conversations...',
+    noConversationsFound: 'No conversations found',
+    tryDifferentSearch: 'Try a different search term',
+    you: 'You: ',
+    startChatting: 'Start chatting',
+    totalChats: 'Total Chats',
+    unread: 'Unread',
   },
 
   // Profile
@@ -386,6 +400,60 @@ export const en = {
     like: 'Like',
     progress: '{current} / {total}',
     candidateNotFound: 'Candidate not found',
+
+    // Algorithm selection
+    selectAlgorithm: 'Select Matching Mode',
+    algorithmDesc: 'Choose the matching strategy that suits you',
+    refreshRecommendations: 'Refresh',
+    refreshing: 'Refreshing...',
+    generating: 'Generating recommendations...',
+
+    // Four matching algorithms
+    algorithms: {
+      compatible: {
+        name: 'Perfect Match',
+        shortDesc: 'Similar Conditions',
+        description: 'Similarity matching, finding people with similar conditions to reduce conflicts',
+        persona: 'Conservative seeking stability',
+        icon: 'gem',
+      },
+      romantic: {
+        name: 'Brave Love',
+        shortDesc: 'Aim Higher',
+        description: 'Upward matching, prioritize more excellent candidates, suitable for ambitious people',
+        persona: 'Ambitious go-getter',
+        icon: 'rocket',
+      },
+      pragmatic: {
+        name: 'Steady Happiness',
+        shortDesc: 'Practical Choice',
+        description: 'Downward matching, higher success rate, suitable for those who want to settle down quickly',
+        persona: 'Practical realist',
+        icon: 'target',
+      },
+      serendipity: {
+        name: 'Mystery Box',
+        shortDesc: 'Believe in Fate',
+        description: 'Random matching within limits, simulating love at first sight, for those seeking surprises',
+        persona: 'Adventurer seeking excitement',
+        icon: 'gift',
+      },
+    },
+
+    // Match scores
+    matchScore: 'Match Score',
+    successRate: 'Success Rate',
+    aspirationScore: 'Aspiration Score',
+    similarityScore: 'Similarity',
+    randomFactor: 'Fate Factor',
+
+    // Match detail messages
+    scoreMessages: {
+      compatible: 'You have similar conditions',
+      romantic: 'Go for it!',
+      pragmatic: 'Steady happiness awaits',
+      serendipity: 'Fate works in mysterious ways',
+    },
   },
 
   // Datetime
@@ -405,6 +473,8 @@ export const en = {
       title: 'Page Not Found',
       description: 'Sorry, page you are looking for does not exist.',
       backHome: 'Back to Home',
+      popularPages: 'Popular Pages',
+      searchSuggestion: 'Try using the search feature to find what you need',
     },
     serverError: {
       title: 'Server Error',
@@ -877,6 +947,12 @@ export const en = {
     codeResent: 'Code resent',
   },
 
+  // Currency configuration
+  currency: {
+    symbol: '$',
+    code: 'USD',
+  },
+
   // Payment Pages
   payment: {
     // Cancel Page
@@ -893,16 +969,118 @@ export const en = {
     // Recharge Page
     recharge: {
       title: 'Recharge Credits',
-      description: 'Purchase credits to access premium features',
+      description: 'Select a credit package that works for you and start your matching journey',
       selectAmount: 'Select Amount',
       selectPlan: 'Choose a plan that works for you',
+      choosePlan: 'Choose a plan that works for you',
+      selectPackage: 'Select Package',
+      selectPaymentMethod: 'Select Payment Method',
       credits: 'credits',
       bestValue: 'Best Value',
       popular: 'Popular',
       purchase: 'Purchase',
+      purchaseNow: 'Purchase Now',
       purchasing: 'Purchasing...',
+      processing: 'Processing...',
       currentCredits: 'Current credits',
       checkingAuth: 'Checking login status...',
+      oneTimePayment: 'One-time payment',
+      purchaseSummary: 'Purchase Summary',
+      package: 'Package',
+      paymentMethod: 'Payment Method',
+      notSelected: 'Not selected',
+      total: 'Total',
+      processingTime: 'Processing Time',
+      backToSelection: 'Back to Selection',
+      backToDashboard: 'Return to Dashboard',
+      whyChooseTitle: 'Why Choose Our Credit System?',
+      paymentSuccess: 'Payment Successful!',
+      creditsAdded: 'Credits have been added to your account',
+      secure: 'Secure',
+      instant: 'Instant',
+      instantDelivery: 'Instant Delivery',
+      securePayment: '100% Secure',
+      bestValueBadge: 'Best Value',
+      choosePerfectPlan: 'Choose the perfect plan for your needs',
+      securePaymentTitle: 'Secure Payment',
+      securePaymentDesc: 'All transactions are encrypted and secure. We never store your payment details.',
+
+      // Features section
+      features: {
+        instant: {
+          title: 'Instant Delivery',
+          description: 'Credits are added immediately after successful payment, no waiting',
+        },
+        secure: {
+          title: 'Secure & Reliable',
+          description: 'Multiple payment methods with secure encryption protection',
+        },
+        flexible: {
+          title: 'Flexible Options',
+          description: 'Various package options to meet different needs',
+        },
+      },
+
+      // Credit packages
+      packages: {
+        starter: {
+          name: 'Starter Pack',
+          feature1: '50 credits',
+          feature2: 'Basic matching',
+          feature3: 'Standard support',
+        },
+        popular: {
+          name: 'Popular Pack',
+          feature1: '150 credits',
+          feature2: 'Priority matching',
+          feature3: 'Priority support',
+          feature4: 'Advanced filters',
+        },
+        premium: {
+          name: 'Premium Pack',
+          feature1: '300 credits',
+          feature2: 'Super matching',
+          feature3: 'Dedicated support',
+          feature4: 'Unlimited filters',
+          feature5: 'Data analytics',
+        },
+        ultimate: {
+          name: 'Ultimate Pack',
+          feature1: '500 credits',
+          feature2: 'VIP matching',
+          feature3: '24/7 support',
+          feature4: 'All features',
+          feature5: 'Exclusive events',
+        },
+      },
+
+      // Payment methods
+      paymentMethods: {
+        stripe: {
+          name: 'Credit/Debit Card',
+          description: 'Visa, Mastercard, American Express',
+          processingTime: 'Instant',
+        },
+        usdt: {
+          name: 'USDT Payment',
+          description: 'TRC20 Network',
+          processingTime: '1-3 minutes',
+        },
+        alipay: {
+          name: 'Alipay',
+          description: 'Alipay QR code payment',
+          processingTime: 'Instant',
+        },
+      },
+
+      // Error messages
+      errors: {
+        selectPackageAndMethod: 'Please select a package and payment method',
+        selectPackageAndMethodDesc: 'Please select a credit package and payment method first',
+        paymentCreationFailed: 'Failed to create payment',
+        paymentFailed: 'Payment failed',
+        paymentFailedDesc: 'Please try again later',
+      },
     },
 
     // Success Page
@@ -1283,7 +1461,8 @@ export const en = {
     privacySettingsDesc: 'Control your privacy and visibility',
     showOnlineStatus: 'Show Online Status',
     allowMessages: 'Allow Messages',
-    
+    viewFullPrivacySettings: 'View Full Privacy & Preferences',
+
     // Preferences Section
     preferences: 'Preferences',
     preferencesDesc: 'Customize your experience',
@@ -1303,6 +1482,78 @@ export const en = {
     signOutSuccessDesc: 'Looking forward to seeing you again!',
     signOutFailed: 'Sign out failed',
     signOutFailedDesc: 'Please try again later',
+  },
+
+  // Privacy Settings Page
+  settingsPage: {
+    title: 'Privacy & Preferences',
+    subtitle: 'Manage your privacy, matching preferences, and notification settings',
+    loadFailed: 'Failed to load settings',
+    settingsSavedDesc: 'Settings saved',
+    saveFailedDesc: 'Save failed, please try again',
+
+    // Privacy Settings Tab
+    privacy: {
+      title: 'Privacy Settings',
+      description: 'Control how your personal information is visible to other users',
+      showIncome: 'Show Income',
+      showIncomeDesc: 'Allow other users to see your income range',
+      showExactLocation: 'Show Exact Location',
+      showExactLocationDesc: 'Show your exact location instead of just the city name',
+      showOnlineStatus: 'Show Online Status',
+      showOnlineStatusDesc: 'Let other users see when you are online',
+      showLastActive: 'Show Last Active',
+      showLastActiveDesc: 'Let other users see when you were last active',
+      allowMessagesFrom: 'Allow Messages From',
+      allowMessagesFromDesc: 'Choose who can send you messages',
+      messagesEveryone: 'Everyone',
+      messagesMatches: 'Matched users only',
+      messagesNone: 'No one',
+      showProfileTo: 'Profile Visibility',
+      showProfileToDesc: 'Choose who can view your profile',
+      profileEveryone: 'Everyone',
+      profileMatches: 'Matched users only',
+      profileNone: 'Hide profile',
+    },
+
+    // Matching Preferences Tab
+    preferences: {
+      title: 'Matching Preferences',
+      description: 'Set your matching criteria and search range',
+      searchRadius: 'Search Radius',
+      ageRange: 'Age Range',
+      heightRange: 'Height Range',
+      educationRequirement: 'Education Requirement',
+      incomeRequirement: 'Income Requirement',
+      educationOptions: {
+        any: 'Any',
+      },
+      incomeOptions: {
+        any: 'Any',
+      },
+    },
+
+    // Notification Settings Tab
+    notifications: {
+      title: 'Notification Settings',
+      description: 'Manage the types and channels of notifications you receive',
+      newMatch: 'New Match Notifications',
+      newMatchDesc: 'Receive notifications when someone matches with you',
+      newMessage: 'New Message Notifications',
+      newMessageDesc: 'Receive notifications when you get new messages',
+      systemNotifications: 'System Notifications',
+      systemNotificationsDesc: 'Receive system announcements and updates',
+      emailNotifications: 'Email Notifications',
+      emailNotificationsDesc: 'Receive important notifications via email',
+      weeklyDigest: 'Weekly Digest',
+      weeklyDigestDesc: 'Receive weekly activity summary emails',
+      pushChannel: 'Push Channel',
+      pushChannelDesc: 'Choose which channels to receive push notifications',
+      channelAll: 'All Channels (App + Web)',
+      channelApp: 'App Only',
+      channelWeb: 'Web Only',
+      channelNone: 'Disable Push Notifications',
+    },
   },
 
   // Legal Pages (Privacy/Terms layout)
@@ -1472,6 +1723,308 @@ export const en = {
     sendFailed: 'Failed to send message. Please try again.',
     error: 'Error',
     failedToSend: 'Failed to send message. Please try again.',
+  },
+
+  // Photo Review
+  photoReview: {
+    title: 'Photo Review',
+    myPhotos: 'My Photos',
+    total: 'Total',
+    approved: 'Approved',
+    pending: 'Pending',
+    rejected: 'Rejected',
+    primary: 'Primary',
+    noPhotos: 'No photos uploaded yet',
+    uploadPhotos: 'Upload Photos',
+    deleteAndReupload: 'Delete & Re-upload',
+    pendingReviewInfo: 'photo(s) pending review',
+    reviewTimeInfo: 'Our team will review within 1-3 hours. Once approved, your photos will be visible on your profile.',
+    usuallyReviewedWithin: 'Usually reviewed within 1-3 hours',
+    loadFailed: 'Load Failed',
+    failedToLoadPhotos: 'Failed to load photos',
+    deleted: 'Deleted',
+    photoDeleted: 'Photo has been deleted',
+    deleteFailed: 'Delete Failed',
+    failedToDelete: 'Failed to delete photo',
+    upload: 'Upload',
+    refresh: 'Refresh',
+  },
+
+  // Admin
+  admin: {
+    dashboard: {
+      title: 'Admin Dashboard',
+      welcomeBack: 'Welcome back',
+      quickActions: 'Quick Actions',
+      pendingReview: 'Pending Review',
+      totalApproved: 'Total Approved',
+      totalRejected: 'Total Rejected',
+      avgReviewTime: 'Avg Review Time',
+      photosAwaitingReview: 'photos awaiting review',
+      approvedPhotos: 'Approved photos',
+      rejectedPhotos: 'Rejected photos',
+      averageReviewTime: 'Average review time',
+      photoReviewTitle: 'Photo Review',
+      photoReviewDesc: 'Review and moderate user photos',
+      analyticsTitle: 'Analytics',
+      analyticsDesc: 'View platform statistics and insights',
+      open: 'Open',
+      photosNeedReview: 'photos awaiting review',
+      reviewPrompt: 'There are photos that need to be reviewed. Visit the Photo Review page to process them.',
+      reviewNow: 'Review Now',
+    },
+    photoReview: {
+      title: 'Photo Review',
+      subtitle: 'Review and moderate user photos',
+      pendingCount: 'Pending',
+      approve: 'Approve',
+      reject: 'Reject',
+      skip: 'Skip',
+      approveSelected: 'Approve Selected',
+      rejectSelected: 'Reject Selected',
+      selectAll: 'Select all on this page',
+      searchByUserId: 'Search by User ID...',
+      sortOrder: 'Sort order',
+      oldestFirst: 'Oldest first',
+      newestFirst: 'Newest first',
+      noPendingPhotos: 'No pending photos',
+      allReviewed: 'All photos have been reviewed. Check back later!',
+      rejectPhoto: 'Reject Photo',
+      rejectReason: 'Please select a reason for rejection',
+      selectReason: 'Select rejection reason',
+      customReason: 'Enter custom rejection reason...',
+      rejected: 'Rejected',
+      approved: 'Approved',
+      photoApproved: 'Photo has been approved',
+      photoRejected: 'Photo has been rejected',
+      batchApproved: 'photos have been approved',
+      batchRejected: 'photos have been rejected',
+      error: 'Error',
+      failedToApprove: 'Failed to approve photo',
+      failedToReject: 'Failed to reject photo',
+      reasonRequired: 'Please provide a rejection reason',
+      keyboardShortcuts: 'Press A Approve, R Reject, Space Next',
+      reasons: {
+        inappropriateContent: 'Inappropriate content',
+        lowQuality: 'Low quality image',
+        notAPerson: 'Not a photo of a person',
+        groupPhoto: 'Group photo - need individual photo',
+        faceNotVisible: 'Face not clearly visible',
+        heavyFilter: 'Heavily filtered/edited',
+        screenshot: 'Screenshot or screen capture',
+        duplicate: 'Duplicate photo',
+        other: 'Other',
+      },
+    },
+    analytics: {
+      title: 'Review Analytics',
+      pendingPhotos: 'Pending Photos',
+      avgReviewTime: 'Avg. Review Time',
+      approvalRate: 'Approval Rate',
+      rejectionRate: 'Rejection Rate',
+      topReasons: 'Top Rejection Reasons',
+      reviewerStats: 'Reviewer Statistics',
+    },
+    layout: {
+      title: 'Admin',
+      panelTitle: 'PersonaLink Admin Panel',
+      loading: 'Loading...',
+      dashboard: 'Dashboard',
+      photoReview: 'Photo Review',
+      analytics: 'Analytics',
+      backToApp: 'Back to App',
+      administrator: 'Administrator',
+      logout: 'Logout',
+      accessDenied: 'Access Denied',
+      noPermission: 'You do not have permission to access this page',
+    },
+  },
+
+  // Market Value Score
+  marketValue: {
+    title: 'Market Value Score',
+    subtitle: 'Understand your overall competitiveness',
+    scoreUpdated: 'Score Updated',
+    scoreUpdatedDesc: 'Your market value score has been recalculated.',
+    updateFailed: 'Update Failed',
+    updateFailedDesc: 'Failed to recalculate your score. Please try again.',
+    comingSoon: 'Coming Soon',
+    shareComingSoon: 'Share feature will be available soon.',
+    noScore: 'No Score Available Yet',
+    noScoreDesc: 'Complete your profile to calculate your market value score.',
+    completeProfile: 'Complete Profile',
+    calculating: 'Calculating...',
+    calculateNow: 'Calculate Now',
+    recalculate: 'Recalculate',
+    share: 'Share',
+    scoreBreakdown: 'Score Breakdown',
+    improvementSuggestions: 'Improvement Suggestions',
+    allFactors: 'All Factors',
+    scoreHistory: 'Score History',
+    scoreHistoryComingSoon: 'Score history tracking coming soon...',
+    lastCalculated: 'Last calculated: ',
+    version: 'Version: ',
+    outOf100: '/ 100',
+    outperformsUsers: 'Outperforms {percentile}% of users',
+
+    // Score grades
+    grades: {
+      S: 'S',
+      A: 'A',
+      B: 'B',
+      C: 'C',
+      D: 'D',
+    },
+    gradeLabels: {
+      excellent: 'Excellent',
+      veryGood: 'Very Good',
+      good: 'Good',
+      fair: 'Fair',
+      improve: 'Improve',
+    },
+    gradeDescriptions: {
+      S: 'Excellent - Top tier profile',
+      A: 'Very Good - High quality profile',
+      B: 'Good - Above average profile',
+      C: 'Fair - Average profile',
+      D: 'Needs Improvement',
+    },
+
+    // Ranking comparison
+    ranking: {
+      title: 'Your Ranking',
+      youOutperform: 'You outperform',
+      vsAverage: 'vs Average',
+      totalUsers: 'Total Users',
+      congratsTop: "🎉 Congratulations! You're in the top tier!",
+      greatJob: '💪 Great job! Keep improving your profile.',
+      doingWell: "📈 You're doing well! Room for growth.",
+      completeToImprove: '🌟 Complete your profile to improve your ranking.',
+    },
+
+    // Improvement suggestions
+    suggestions: {
+      title: 'Improvement Suggestions',
+      subtitle: 'Focus on these areas to boost your profile score',
+      greatProfile: 'Great Profile!',
+      allFactorsGood: 'All your factors are scoring well. Keep up the good work!',
+      score: 'Score',
+      weight: 'Weight',
+      potentialImpact: 'Potential Impact',
+      viewAllSuggestions: 'View All Suggestions',
+      areasNeedImprovement: '{count} area(s) need improvement',
+      fix: 'Fix',
+    },
+
+    // Factor details
+    factors: {
+      wealth: {
+        name: 'Financial Status',
+        short: 'Wealth',
+        description: 'Based on your annual income range',
+        suggestion: 'Consider career advancement opportunities',
+        tips: ['Pursue higher education or certifications', 'Explore career growth opportunities', 'Develop high-value skills'],
+        actionText: 'Update Income',
+      },
+      education: {
+        name: 'Education Level',
+        short: 'Edu',
+        description: 'Your highest educational attainment',
+        suggestion: 'Consider pursuing further education',
+        tips: ['Pursue a graduate degree', 'Take professional certifications', 'Attend industry workshops'],
+        actionText: 'Update Education',
+      },
+      age: {
+        name: 'Age Advantage',
+        short: 'Age',
+        description: 'Age relative to ideal dating range',
+        suggestion: 'Age is a fixed factor - focus on other areas',
+        tips: ['Maintain a youthful lifestyle', 'Focus on health and fitness', 'Stay mentally active'],
+        actionText: 'Check Date',
+      },
+      bmi: {
+        name: 'Body Condition',
+        short: 'BMI',
+        description: 'Body Mass Index health indicator',
+        suggestion: 'Work towards a healthy BMI range',
+        tips: ['Maintain regular exercise routine', 'Follow a balanced diet', 'Stay hydrated and sleep well'],
+        actionText: 'Update Stats',
+      },
+      appearance: {
+        name: 'Appearance',
+        short: 'Look',
+        description: 'Overall visual attractiveness',
+        suggestion: 'Upload high-quality photos',
+        tips: ['Use professional photos', 'Dress well in your photos', 'Show genuine expressions'],
+        actionText: 'Add Photos',
+      },
+      relationshipHistory: {
+        name: 'Relationship History',
+        short: 'History',
+        description: 'Past relationship experience',
+        suggestion: 'Focus on building meaningful connections',
+        tips: ['Be honest about your history', 'Learn from past experiences', 'Show emotional maturity'],
+        actionText: 'Update History',
+      },
+      personality: {
+        name: 'Personality',
+        short: 'Person',
+        description: 'MBTI personality compatibility',
+        suggestion: 'Complete your personality assessment',
+        tips: ['Complete the MBTI test', 'Be authentic in your profile', 'Highlight unique traits'],
+        actionText: 'Take Test',
+      },
+      jobStability: {
+        name: 'Job Stability',
+        short: 'Job',
+        description: 'Employment stability indicator',
+        suggestion: 'Consider more stable employment',
+        tips: ['Build job security', 'Develop transferable skills', 'Consider industry stability'],
+        actionText: 'Update Job',
+      },
+      location: {
+        name: 'Location',
+        short: 'Loc',
+        description: 'Proximity to potential matches',
+        suggestion: 'Update your location settings',
+        tips: ['Enable location sharing', 'Consider wider search radius', 'Update location regularly'],
+        actionText: 'Set Location',
+      },
+      childrenPreference: {
+        name: 'Children Preference',
+        short: 'Child',
+        description: 'Compatibility with family planning',
+        suggestion: 'Be clear about your preferences',
+        tips: ['Be honest about your plans', 'Consider flexibility', 'Communicate openly'],
+        actionText: 'Update Preference',
+      },
+    },
+
+    // Common
+    improvementTips: 'Improvement Tips',
+  },
+
+  // Photos
+  photos: {
+    myPhotos: 'My Photos',
+    upload: 'Upload',
+    uploadPhotos: 'Upload Photos',
+    noPhotos: 'No photos uploaded yet',
+    loadFailed: 'Load Failed',
+    failedToLoad: 'Failed to load photos',
+    deleted: 'Deleted',
+    photoDeleted: 'Photo has been deleted',
+    deleteFailed: 'Delete Failed',
+    failedToDelete: 'Failed to delete photo',
+    approved: 'Approved',
+    pending: 'Pending',
+    rejected: 'Rejected',
+    primary: 'Primary',
+    deleteAndReupload: 'Delete & Re-upload',
+    total: 'Total',
+    pendingReviewMessage: 'Usually reviewed within 1-3 hours',
+    photoPendingReview: 'photo(s) pending review',
+    pendingReviewDesc: 'Our team will review within 1-3 hours. Once approved, your photos will be visible on your profile.',
   },
 } as const;
 

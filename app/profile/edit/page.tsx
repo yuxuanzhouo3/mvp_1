@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,6 +14,10 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
+import { useMarketValue } from '@/hooks/useMarketValue';
+import { CompactSuggestions } from '@/components/profile/ImprovementSuggestions';
+import { CompactScoreBadge } from '@/components/profile/ScoreBadge';
+import { getWeights } from '@/lib/scoring';
 import {
   User,
   MapPin,
@@ -32,7 +36,8 @@ import {
   Sparkles,
   Scale,
   Navigation,
-  Loader2
+  Loader2,
+  TrendingUp
 } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/components/language-provider';
@@ -146,6 +151,19 @@ export default function ProfileEditPage() {
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslations(language);
+  
+  // Market Value Score Hook
+  const { 
+    score: marketValueScore, 
+    isRecalculating, 
+    recalculateScore 
+  } = useMarketValue({
+    userId: user?.id || '',
+    enabled: !!user?.id
+  });
+  
+  // Debounce timer for score recalculation
+  const recalculateTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const form = useForm<ProfileEditFormData>({
     resolver: zodResolver(profileEditSchema),
@@ -313,6 +331,30 @@ export default function ProfileEditPage() {
           title: t.profileEdit.updateSuccess,
           description: t.profileEdit.updateSuccessDesc,
         });
+        
+        // Trigger score recalculation with debounce
+        if (recalculateTimerRef.current) {
+          clearTimeout(recalculateTimerRef.current);
+        }
+        
+        recalculateTimerRef.current = setTimeout(async () => {
+          try {
+            toast({
+              title: 'Updating Score',
+              description: 'Recalculating your market value score...',
+            });
+            
+            await recalculateScore();
+            
+            toast({
+              title: 'Score Updated',
+              description: 'Your market value score has been updated.',
+            });
+          } catch (err) {
+            console.error('Failed to recalculate score:', err);
+          }
+        }, 1000); // 1 second debounce
+        
         router.push('/dashboard');
       } else {
         throw new Error('Update failed');
@@ -363,13 +405,37 @@ export default function ProfileEditPage() {
               {t.profileEdit.subtitle}
             </p>
           </div>
-          <Link href="/dashboard">
-            <Button variant="outline">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              {t.profileEdit.backToDashboard}
-            </Button>
-          </Link>
+          <div className="flex items-center gap-4">
+            {/* Market Value Score Badge */}
+            {marketValueScore && (
+              <Link href="/profile/score-details">
+                <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
+                  <TrendingUp className="h-4 w-4 text-blue-500" />
+                  <CompactScoreBadge totalScore={marketValueScore.totalScore} />
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {marketValueScore.totalScore.toFixed(1)}
+                  </span>
+                </div>
+              </Link>
+            )}
+            <Link href="/dashboard">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                {t.profileEdit.backToDashboard}
+              </Button>
+            </Link>
+          </div>
         </div>
+        
+        {/* Improvement Suggestions */}
+        {marketValueScore?.scoreBreakdown && (
+          <div className="mb-6">
+            <CompactSuggestions
+              scoreBreakdown={marketValueScore.scoreBreakdown}
+              weights={getWeights('compatible_match', profile?.gender || 'male', profile?.gender === 'male' ? 'female' : 'male')}
+            />
+          </div>
+        )}
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Section 1: Basic Information */}

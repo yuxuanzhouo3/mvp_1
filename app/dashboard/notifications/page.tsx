@@ -39,7 +39,7 @@ interface Notification {
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslations(language);
@@ -49,19 +49,23 @@ export default function NotificationsPage() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !session) {
       router.push('/auth/login');
       return;
     }
 
     loadNotifications();
-  }, [user]);
+  }, [user, session]);
 
   const loadNotifications = async () => {
     try {
       setIsLoading(true);
-      
-      const response = await fetch('/api/user/notifications');
+
+      const response = await fetch('/api/user/notifications', {
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         setNotifications(data.notifications);
@@ -82,11 +86,14 @@ export default function NotificationsPage() {
     try {
       const response = await fetch(`/api/user/notifications/${notificationId}/read`, {
         method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
       });
 
       if (response.ok) {
-        setNotifications(prev => 
-          prev.map(n => 
+        setNotifications(prev =>
+          prev.map(n =>
             n.id === notificationId ? { ...n, is_read: true } : n
           )
         );
@@ -103,8 +110,11 @@ export default function NotificationsPage() {
 
   const markAllAsRead = async () => {
     try {
-      const response = await fetch('/api/user/notifications/read-all', {
+      const response = await fetch('/api/user/notifications', {
         method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
       });
 
       if (response.ok) {
@@ -177,7 +187,7 @@ export default function NotificationsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="bg-gray-50 dark:bg-gray-900 min-h-full flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading...</p>
@@ -187,7 +197,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>

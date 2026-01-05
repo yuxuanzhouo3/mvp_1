@@ -3,17 +3,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { 
-  Heart, 
-  X, 
-  Star, 
-  MessageSquare, 
-  MapPin, 
+import {
+  Heart,
+  X,
+  Star,
+  MessageSquare,
+  MapPin,
   Calendar,
   Briefcase,
-  Users
+  Users,
+  DollarSign,
+  EyeOff
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/components/language-provider'
 
 interface MatchCardProps {
   user: {
@@ -22,9 +25,13 @@ interface MatchCardProps {
     avatar_url?: string
     age?: number
     location?: string
+    city_name?: string
     industry?: string
     bio?: string
     interests?: string[]
+    annual_income_range?: string | null
+    income_hidden?: boolean
+    location_hidden?: boolean
     personality_traits?: {
       mbti?: string
       big_five?: {
@@ -42,15 +49,19 @@ interface MatchCardProps {
   onSuperLike?: (userId: string) => void
 }
 
-export default function MatchCard({ 
-  user, 
-  compatibility, 
-  onLike, 
-  onPass, 
-  onSuperLike 
+export default function MatchCard({
+  user,
+  compatibility,
+  onLike,
+  onPass,
+  onSuperLike
 }: MatchCardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
+  const { t } = useLanguage()
+
+  // Get display location (city_name is always visible, exact location may be hidden)
+  const displayLocation = user.city_name || user.location || ''
 
   const handleAction = (action: 'like' | 'pass' | 'superLike') => {
     setIsAnimating(true)
@@ -128,10 +139,13 @@ export default function MatchCard({
                 </h3>
                 
                 <div className="flex items-center space-x-2 text-sm opacity-90">
-                  {user.location && (
+                  {displayLocation && (
                     <div className="flex items-center">
                       <MapPin className="h-4 w-4 mr-1" />
-                      {user.location}
+                      {displayLocation}
+                      {user.location_hidden && (
+                        <EyeOff className="h-3 w-3 ml-1 opacity-60" title={t('privacy.locationApproximate')} />
+                      )}
                     </div>
                   )}
                   {user.industry && (
@@ -197,7 +211,25 @@ export default function MatchCard({
                     <Badge variant="outline">{user.personality_traits.mbti}</Badge>
                   </div>
                 )}
-                
+
+                {/* 收入信息 (根据隐私设置显示) */}
+                <div>
+                  <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
+                    <DollarSign className="h-4 w-4" />
+                    收入
+                  </h4>
+                  {user.income_hidden ? (
+                    <div className="flex items-center gap-1 text-sm text-gray-500">
+                      <EyeOff className="h-4 w-4" />
+                      <span>未公开</span>
+                    </div>
+                  ) : user.annual_income_range ? (
+                    <Badge variant="secondary">{user.annual_income_range}</Badge>
+                  ) : (
+                    <span className="text-sm text-gray-500">未填写</span>
+                  )}
+                </div>
+
                 {/* 兼容性详情 */}
                 <div>
                   <h4 className="text-sm font-medium mb-2">匹配详情</h4>

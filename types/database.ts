@@ -133,14 +133,34 @@ export interface UserInterestMap {
 // 匹配相关
 // ========================================
 
+export type MatchStatusEnum = 'pending' | 'accepted' | 'rejected' | 'expired';
+
 export interface Recommendation {
   id: string;
   user_id: string;
   target_user_id: string;
   algorithm_type: AlgoTypeEnum;
   match_score: number | null;
-  score_details: Record<string, number> | null;
+  score_details: {
+    userBaseScore?: number;
+    targetBaseScore?: number;
+    similarityScore?: number;
+    interestAToB?: number;
+    acceptanceBToA?: number;
+    aspirationScore?: number;
+    successRate?: number;
+    randomFactor?: number;
+    factorComparison?: Record<string, {
+      user: number;
+      target: number;
+      matchDegree: number;
+    }>;
+    mutualInterests?: number[];
+    distance?: number;
+    message?: string;
+  } | null;
   is_viewed: boolean;
+  status: MatchStatusEnum;
   created_at: string;
   expires_at: string | null;
 }
@@ -150,6 +170,7 @@ export interface Swipe {
   actor_id: string;
   target_id: string;
   action: SwipeActionEnum;
+  recommendation_id: string | null;
   created_at: string;
 }
 
@@ -158,6 +179,13 @@ export interface Match {
   user_1: string;
   user_2: string;
   match_score: number | null;
+  algorithm_type: AlgoTypeEnum | null;
+  match_details: {
+    user_1_score?: number;
+    user_2_score?: number;
+    compatibility_score?: number;
+    mutual_interests?: number[];
+  } | null;
   matched_at: string;
   unmatched_at: string | null;
 }

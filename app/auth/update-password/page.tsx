@@ -58,7 +58,7 @@ function UpdatePasswordContent() {
     };
 
     // Listen for auth state changes - Supabase will automatically handle the recovery token
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       if (event === 'PASSWORD_RECOVERY') {
         // User clicked the recovery link and Supabase has validated it
         markSessionValid();

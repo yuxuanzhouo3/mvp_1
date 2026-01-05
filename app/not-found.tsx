@@ -61,7 +61,7 @@ export default function NotFound() {
         {/* Helpful Links */}
         <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
           <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">
-            {language === 'zh' ? '热门页面' : 'Popular Pages'}
+            {t.errors.notFound.popularPages}
           </h3>
           <div className="flex flex-wrap justify-center gap-4 text-sm">
             <Link
@@ -96,9 +96,7 @@ export default function NotFound() {
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <Search className="h-4 w-4" />
             <span>
-              {language === 'zh'
-                ? '试试使用搜索功能找到您需要的内容'
-                : 'Try using the search feature to find what you need'}
+              {t.errors.notFound.searchSuggestion}
             </span>
           </div>
         </div>

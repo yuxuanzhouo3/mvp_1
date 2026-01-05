@@ -7,25 +7,21 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/app/providers/AuthProvider'
 import { useToast } from '@/hooks/use-toast'
-import { 
-  Home, 
-  MessageSquare, 
-  Heart, 
-  CreditCard, 
-  Settings, 
+import { useLanguage } from '@/components/language-provider'
+import { useTranslations } from '@/lib/i18n'
+import {
+  Home,
+  MessageSquare,
+  Heart,
+  CreditCard,
+  Settings,
   User,
   LogOut,
-  Bell
+  Bell,
+  Shield,
+  TrendingUp
 } from 'lucide-react'
 import { useState } from 'react';
-
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: Home },
-  { name: 'Chat', href: '/chat', icon: MessageSquare },
-  { name: 'Matching', href: '/matching', icon: Heart },
-  { name: 'Recharge', href: '/payment/recharge', icon: CreditCard },
-  { name: 'Settings', href: '/dashboard/settings', icon: Settings },
-]
 
 interface UserData {
   id: string;
@@ -39,14 +35,35 @@ interface UserData {
 
 interface DashboardSidebarProps {
   user: UserData | null;
+  isAdmin?: boolean;
 }
 
-export const DashboardSidebar = ({ user }: DashboardSidebarProps) => {
+export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProps) => {
   const [open, setOpen] = useState(true);
   const pathname = usePathname()
   const router = useRouter()
   const { signOut } = useAuth()
   const { toast } = useToast()
+  const { language } = useLanguage()
+  const t = useTranslations(language)
+
+  const navigation = [
+    { name: t.dashboard.sidebar.home, href: '/dashboard', icon: Home },
+    { name: t.dashboard.sidebar.chat, href: '/chat', icon: MessageSquare },
+    { name: t.dashboard.sidebar.matching, href: '/matching', icon: Heart },
+    { name: t.dashboard.sidebar.marketValue, href: '/profile/score-details', icon: TrendingUp },
+    { name: t.dashboard.sidebar.recharge, href: '/payment/recharge', icon: CreditCard },
+    { name: t.dashboard.sidebar.settings, href: '/dashboard/settings', icon: Settings },
+  ]
+
+  // Add admin navigation if user is admin
+  if (isAdmin) {
+    navigation.push({
+      name: t.dashboard.sidebar.adminPanel,
+      href: '/admin',
+      icon: Shield
+    })
+  }
 
   const handleSignOut = async () => {
     try {
@@ -54,14 +71,14 @@ export const DashboardSidebar = ({ user }: DashboardSidebarProps) => {
       // Force redirect to login page and clear all state
       window.location.href = '/auth/login';
       toast({
-        title: '已退出登录',
-        description: '期待您的再次光临！',
+        title: t.dashboardSettings.signOutSuccess,
+        description: t.dashboardSettings.signOutSuccessDesc,
       });
     } catch (error) {
       console.error('Logout error:', error);
       toast({
-        title: '退出失败',
-        description: '请稍后重试',
+        title: t.dashboardSettings.signOutFailed,
+        description: t.dashboardSettings.signOutFailedDesc,
         variant: 'destructive',
       });
     }
@@ -135,7 +152,7 @@ export const DashboardSidebar = ({ user }: DashboardSidebarProps) => {
             >
               <Link href="/dashboard/notifications">
                 <Bell className="mr-2 h-4 w-4" />
-                  {open && 'Notifications'}
+                  {open && t.dashboard.sidebar.notifications}
               </Link>
             </Button>
             <Button
@@ -145,7 +162,7 @@ export const DashboardSidebar = ({ user }: DashboardSidebarProps) => {
               onClick={handleSignOut}
             >
               <LogOut className="mr-2 h-4 w-4" />
-                {open && 'Sign Out'}
+                {open && t.header.logout}
             </Button>
             </div>
           </div>

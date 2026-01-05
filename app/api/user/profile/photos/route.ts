@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import {
+  validatePhotoBuffer,
+  ALLOWED_MIME_TYPES,
+  MAX_FILE_SIZE,
+} from '@/lib/services/photoValidation';
 
 // Create Supabase admin client
 const supabaseAdmin = createClient(
@@ -13,8 +18,7 @@ const supabaseAdmin = createClient(
   }
 );
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const ALLOWED_TYPES = [...ALLOWED_MIME_TYPES];
 
 // POST - Upload photo
 export async function POST(request: NextRequest) {
@@ -51,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!ALLOWED_TYPES.includes(file.type as any)) {
       return NextResponse.json(
         { success: false, error: 'Invalid file type. Only JPG, PNG, and WebP are allowed.' },
         { status: 400 }
@@ -61,6 +65,19 @@ export async function POST(request: NextRequest) {
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { success: false, error: 'File too large. Maximum size is 5MB.' },
+        { status: 400 }
+      );
+    }
+
+    // Convert file to buffer for server-side validation
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Validate photo using the photoValidation service (includes dimension check)
+    const validationResult = await validatePhotoBuffer(buffer, file.type, file.name);
+    if (!validationResult.isValid) {
+      return NextResponse.json(
+        { success: false, error: validationResult.errorReason },
         { status: 400 }
       );
     }
@@ -82,10 +99,7 @@ export async function POST(request: NextRequest) {
     const fileExt = file.name.split('.').pop();
     const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-    // Upload to Supabase Storage
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
+    // Upload to Supabase Storage (buffer already created during validation)
     const { data: uploadData, error: uploadError } = await supabaseAdmin
       .storage
       .from('user-photos')

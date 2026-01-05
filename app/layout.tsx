@@ -22,6 +22,10 @@ export const metadata: Metadata = {
     : 'Find your perfect AI friend match based on personality compatibility',
   keywords: ['AI', 'friendship', 'matching', 'personality', 'chat', '社交', '匹配', '个性', '聊天'],
   authors: [{ name: 'PersonaLink Team' }],
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
   openGraph: {
     title: isChinaRegion ? 'PersonaLink - AI社交匹配' : 'PersonaLink - AI Friend Matcher',
     description: isChinaRegion
@@ -54,7 +58,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ErrorBoundary>
           <Providers>
-            <div className="min-h-screen bg-background">
+            <div className="bg-background">
               <ConditionalHeader />
               {children}
               <Toaster />

@@ -65,17 +65,17 @@ export default function useChatChannel(chatId: string) {
     chatChannel
       .on('presence', { event: 'sync' }, () => {
         const presenceState = chatChannel.presenceState()
-        const participants = Object.values(presenceState).flat().map(p => ({
-          user_id: (p as any).user_id || p.presence_ref,
-          online_at: (p as any).online_at || new Date().toISOString(),
+        const participants = Object.values(presenceState).flat().map((p: any) => ({
+          user_id: p.user_id || p.presence_ref,
+          online_at: p.online_at || new Date().toISOString(),
           last_seen: new Date().toISOString()
         }))
         setParticipants(participants)
       })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+      .on('presence', { event: 'join' }, ({ key, newPresences }: any) => {
         console.log('User joined:', key, newPresences)
       })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }: any) => {
         console.log('User left:', key, leftPresences)
       })
       .on('postgres_changes', {
@@ -83,7 +83,7 @@ export default function useChatChannel(chatId: string) {
         schema: 'public',
         table: 'messages',
         filter: `chat_id=eq.${chatId}`
-      }, (payload) => {
+      }, (payload: any) => {
         const newMessage = payload.new as Message
         setMessages(prev => [...prev, newMessage])
       })
@@ -92,15 +92,15 @@ export default function useChatChannel(chatId: string) {
         schema: 'public',
         table: 'messages',
         filter: `chat_id=eq.${chatId}`
-      }, (payload) => {
+      }, (payload: any) => {
         const updatedMessage = payload.new as Message
-        setMessages(prev => 
-          prev.map(msg => 
+        setMessages(prev =>
+          prev.map(msg =>
             msg.id === updatedMessage.id ? updatedMessage : msg
           )
         )
       })
-      .subscribe(async (status) => {
+      .subscribe(async (status: any) => {
         console.log('Chat channel status:', status)
         setIsConnected(status === 'SUBSCRIBED')
         
