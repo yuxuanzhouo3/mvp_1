@@ -51,7 +51,7 @@ export default function PaymentMonitor({
 
   const checkPaymentStatus = async () => {
     try {
-      const response = await fetch(`/api/payments/status/${paymentId}`);
+      const response = await fetch(`/api/payments/status/${paymentId}`, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setPaymentData(data);

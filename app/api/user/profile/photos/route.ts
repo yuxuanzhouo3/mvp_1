@@ -6,6 +6,9 @@ import {
   MAX_FILE_SIZE,
 } from '@/lib/services/photoValidation';
 
+// Force dynamic rendering - no caching
+export const dynamic = 'force-dynamic';
+
 // Create Supabase admin client
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

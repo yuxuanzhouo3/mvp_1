@@ -183,6 +183,7 @@ export default function ProfileEditPage() {
         headers: {
           'Authorization': `Bearer ${session?.access_token}`,
         },
+        cache: 'no-store',
       });
       if (response.ok) {
         const data = await response.json();
@@ -324,6 +325,7 @@ export default function ProfileEditPage() {
           'Authorization': `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify(submitData),
+        cache: 'no-store',
       });
 
       if (response.ok) {

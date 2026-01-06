@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
+import { getSupabaseClient } from '@/lib/supabase/client';
 
 export default function DashboardLayout({
   children
@@ -14,6 +15,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
+  const supabase = getSupabaseClient();
 
   // Check if we're on the settings page
   const isSettingsPage = pathname === '/dashboard/settings';
@@ -24,13 +26,25 @@ export default function DashboardLayout({
       if (!user) return;
 
       try {
-        const response = await fetch('/api/admin/check');
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+
+        if (!token) return;
+
+        const response = await fetch('/api/admin/check', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          cache: 'no-store',
+        });
+
         if (response.ok) {
           const data = await response.json();
           setIsAdmin(data.isAdmin || false);
         }
       } catch (error) {
-        console.error('Failed to check admin status:', error);
         setIsAdmin(false);
       }
     };
@@ -38,11 +52,10 @@ export default function DashboardLayout({
     if (user) {
       checkAdminStatus();
     }
-  }, [user]);
+  }, [user, supabase.auth]);
 
   useEffect(() => {
     if (!loading && !user) {
-      console.log('❌ No user found in dashboard layout, redirecting to login');
       router.replace('/auth/login');
     }
   }, [user, loading, router]);

@@ -396,6 +396,9 @@ export const zh = {
     yearsOld: '{age}岁',
     likeSuccess: '喜欢成功！',
     likeSuccessDesc: '你喜欢了{name}',
+    matchSuccess: '匹配成功！',
+    matchSuccessDesc: '你和{name}互相喜欢，快去聊天吧！',
+    likedYou: 'TA喜欢你！',
     likeFailed: '喜欢失败',
     pass: '跳过',
     like: '喜欢',
@@ -440,6 +443,9 @@ export const zh = {
         icon: 'gift',
       },
     },
+
+    // 未知用户
+    unknownUser: 'TA',
 
     // 匹配分数
     matchScore: '匹配度',
@@ -1205,6 +1211,8 @@ export const zh = {
     usernamePlaceholder: '请输入您的昵称',
     usernameMinChars: '昵称至少需要2个字符',
     usernameMaxChars: '昵称不能超过50个字符',
+    usernameTaken: '该昵称已被使用',
+    usernameAvailable: '昵称可用',
     birthDate: '出生日期',
     birthDateRequired: '请输入您的出生日期',
     mustBe18: '您必须年满18岁',
@@ -1784,6 +1792,17 @@ export const zh = {
       failedToReject: '无法拒绝照片',
       reasonRequired: '请提供拒绝原因',
       keyboardShortcuts: '按 A 通过，R 拒绝，空格 下一张',
+      // 外貌评分 (仅INTL)
+      appearanceRating: '外貌评分',
+      submitRating: '评分',
+      ratingSubmitted: '评分已提交',
+      onlyPrimaryCanRate: '仅主照片可评分',
+      ratingRange: '评分必须在 1-100 之间',
+      viewMode: '查看模式',
+      pendingReview: '待审核',
+      pendingRating: '待打分',
+      noUnratedPhotos: '暂无待打分照片',
+      allRated: '所有已通过的照片已打分完毕！',
       reasons: {
         inappropriateContent: '不当内容',
         lowQuality: '图片质量低',

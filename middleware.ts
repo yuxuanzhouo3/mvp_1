@@ -72,6 +72,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // 跳过 admin API 路由，让它们直接通过（保留原始 headers）
+  if (pathname.startsWith("/api/admin/")) {
+    return NextResponse.next();
+  }
+
   // Create response for potential modifications
   let response = NextResponse.next();
 

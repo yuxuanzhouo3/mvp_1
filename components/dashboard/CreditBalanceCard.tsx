@@ -36,7 +36,7 @@ export default function CreditBalanceCard({ userId }: CreditBalanceCardProps) {
 
   const fetchCreditBalance = async () => {
     try {
-      const response = await fetch(`/api/user/credits`)
+      const response = await fetch(`/api/user/credits`, { cache: 'no-store' })
       if (response.ok) {
         const data = await response.json()
         setBalance(data)

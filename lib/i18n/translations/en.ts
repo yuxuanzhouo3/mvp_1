@@ -395,6 +395,9 @@ export const en = {
     yearsOld: '{age} years old',
     likeSuccess: 'Liked!',
     likeSuccessDesc: 'You liked {name}',
+    matchSuccess: "It's a Match!",
+    matchSuccessDesc: 'You and {name} like each other! Start chatting now!',
+    likedYou: 'Likes you!',
     likeFailed: 'Failed to like',
     pass: 'Pass',
     like: 'Like',
@@ -439,6 +442,9 @@ export const en = {
         icon: 'gift',
       },
     },
+
+    // Unknown user
+    unknownUser: 'them',
 
     // Match scores
     matchScore: 'Match Score',
@@ -1177,6 +1183,8 @@ export const en = {
     usernamePlaceholder: 'Enter your nickname',
     usernameMinChars: 'Nickname must be at least 2 characters',
     usernameMaxChars: 'Nickname cannot exceed 50 characters',
+    usernameTaken: 'This nickname is already taken',
+    usernameAvailable: 'Nickname is available',
     gender: 'Gender',
     selectGender: 'Select your gender',
     genderRequired: 'Please select your gender',
@@ -1804,6 +1812,17 @@ export const en = {
       failedToReject: 'Failed to reject photo',
       reasonRequired: 'Please provide a rejection reason',
       keyboardShortcuts: 'Press A Approve, R Reject, Space Next',
+      // Appearance rating (INTL only)
+      appearanceRating: 'Appearance Rating',
+      submitRating: 'Rate',
+      ratingSubmitted: 'Rating Submitted',
+      onlyPrimaryCanRate: 'Only primary photos can be rated',
+      ratingRange: 'Rating must be between 1 and 100',
+      viewMode: 'View Mode',
+      pendingReview: 'Pending Review',
+      pendingRating: 'Pending Rating',
+      noUnratedPhotos: 'No unrated photos',
+      allRated: 'All approved photos have been rated!',
       reasons: {
         inappropriateContent: 'Inappropriate content',
         lowQuality: 'Low quality image',

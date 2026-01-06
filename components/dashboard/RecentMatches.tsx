@@ -34,7 +34,7 @@ export default function RecentMatches({ userId }: RecentMatchesProps) {
 
   const fetchRecentMatches = async () => {
     try {
-      const response = await fetch(`/api/user/matches?limit=5`)
+      const response = await fetch(`/api/user/matches?limit=5`, { cache: 'no-store' })
       if (response.ok) {
         const data = await response.json()
         setMatches(data.matches || [])

@@ -211,11 +211,24 @@ export async function POST(request: NextRequest) {
       .from('swipes')
       .select('target_id')
       .eq('actor_id', user.id);
-    
+
     const excludeUserIds = new Set([
       user.id,
       ...(swipedUsers?.map(s => s.target_id) || [])
     ]);
+
+    // 获取"喜欢我但我还没互动过"的用户列表（优先展示）
+    const { data: usersWhoLikedMe } = await supabase
+      .from('swipes')
+      .select('actor_id')
+      .eq('target_id', user.id)
+      .in('action', ['like', 'super_like']);
+
+    const likedMeUserIds = new Set(
+      (usersWhoLikedMe || [])
+        .map(s => s.actor_id)
+        .filter(id => !excludeUserIds.has(id)) // 排除已经互动过的
+    );
 
     // 获取已匹配的用户列表
     const { data: matchedUsers } = await supabase
@@ -301,19 +314,27 @@ export async function POST(request: NextRequest) {
       expires_at: batchResult.expiresAt
     }));
 
+    // 插入推荐并获取返回的记录（包含id）
+    let insertedRecommendations: Array<{ id: string; target_user_id: string }> = [];
     if (recommendationsToInsert.length > 0) {
-      const { error: insertError } = await supabase
+      const { data: insertedData, error: insertError } = await supabase
         .from('recommendations')
         .upsert(recommendationsToInsert, {
           onConflict: 'user_id,target_user_id,algorithm_type',
           ignoreDuplicates: false
-        });
+        })
+        .select('id, target_user_id');
 
       if (insertError) {
         console.error('Error inserting recommendations:', insertError);
         // 不返回错误，继续返回计算结果
+      } else {
+        insertedRecommendations = insertedData || [];
       }
     }
+
+    // 创建 target_user_id -> recommendation id 的映射
+    const recIdMap = new Map(insertedRecommendations.map(r => [r.target_user_id, r.id]));
 
     // 获取被推荐用户的详细信息
     const targetUserIds = batchResult.matches.map(m => m.targetUserId);
@@ -324,13 +345,21 @@ export async function POST(request: NextRequest) {
 
     const userMap = new Map(targetUsers?.map(u => [u.id, u]) || []);
 
-    // 组装响应数据
-    const enrichedRecommendations = batchResult.matches.map(match => ({
+    // 组装响应数据（包含 recommendation id）
+    let enrichedRecommendations = batchResult.matches.map(match => ({
+      id: recIdMap.get(match.targetUserId) || null,
       targetUser: userMap.get(match.targetUserId) || null,
       matchScore: match.matchScore,
       algorithmType: match.algorithmType,
-      scoreDetails: match.scoreDetails
+      scoreDetails: match.scoreDetails,
+      likedMe: likedMeUserIds.has(match.targetUserId) // 标记是否喜欢过我
     }));
+
+    // 把"喜欢我的人"排在最前面，同时保持各组内的分数排序
+    enrichedRecommendations = [
+      ...enrichedRecommendations.filter(r => r.likedMe),
+      ...enrichedRecommendations.filter(r => !r.likedMe)
+    ];
 
     return NextResponse.json({
       success: true,

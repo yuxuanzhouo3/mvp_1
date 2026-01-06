@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Force dynamic rendering to avoid caching issues
+export const dynamic = 'force-dynamic';
+
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -17,11 +20,8 @@ async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: 
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
 
     if (error || !user) {
-      console.error('[stats] Auth error:', error);
       return { isAdmin: false };
     }
-
-    console.log('[stats] Verifying admin for user:', user.id);
 
     // Check if user is in admin_roles table - use maybeSingle() to avoid errors
     const { data: adminRole, error: adminError } = await supabaseAdmin
@@ -31,19 +31,15 @@ async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: 
       .maybeSingle();
 
     if (adminError) {
-      console.error('[stats] Admin role query error:', adminError);
       return { isAdmin: false };
     }
 
     if (!adminRole) {
-      console.log('[stats] No admin role found for user:', user.id);
       return { isAdmin: false };
     }
 
-    console.log('[stats] Admin verified:', user.id, 'role:', adminRole.role);
     return { isAdmin: true, userId: user.id };
   } catch (err) {
-    console.error('[stats] Verify admin exception:', err);
     return { isAdmin: false };
   }
 }
@@ -181,7 +177,6 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Get stats error:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

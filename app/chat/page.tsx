@@ -52,7 +52,7 @@ export default function ChatPage() {
     const checkAdminStatus = async () => {
       if (!user) return;
       try {
-        const response = await fetch('/api/admin/check');
+        const response = await fetch('/api/admin/check', { cache: 'no-store' });
         if (response.ok) {
           const data = await response.json();
           setIsAdmin(data.isAdmin || false);
@@ -86,7 +86,7 @@ export default function ChatPage() {
         'Content-Type': 'application/json'
       };
 
-      const response = await fetch('/api/chat/list', { headers });
+      const response = await fetch('/api/chat/list', { headers, cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setChats(data.chats || []);

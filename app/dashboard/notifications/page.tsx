@@ -65,6 +65,7 @@ export default function NotificationsPage() {
         headers: {
           'Authorization': `Bearer ${session?.access_token}`,
         },
+        cache: 'no-store',
       });
       if (response.ok) {
         const data = await response.json();
@@ -89,6 +90,7 @@ export default function NotificationsPage() {
         headers: {
           'Authorization': `Bearer ${session?.access_token}`,
         },
+        cache: 'no-store',
       });
 
       if (response.ok) {
@@ -115,6 +117,7 @@ export default function NotificationsPage() {
         headers: {
           'Authorization': `Bearer ${session?.access_token}`,
         },
+        cache: 'no-store',
       });
 
       if (response.ok) {

@@ -132,6 +132,7 @@ export default function ProfileSetupWizard() {
                 'Authorization': `Bearer ${session?.access_token}`,
               },
               body: photoFormData,
+              cache: 'no-store',
             });
 
             if (!photoResponse.ok) {
@@ -156,6 +157,7 @@ export default function ProfileSetupWizard() {
           'Authorization': `Bearer ${session?.access_token}`,
         },
         body: JSON.stringify(profileData),
+        cache: 'no-store',
       });
 
       if (!response.ok) {

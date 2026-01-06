@@ -36,7 +36,7 @@ export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStat
   const checkPaymentStatus = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/payments/status/${paymentId}`);
+      const response = await fetch(`/api/payments/status/${paymentId}`, { cache: 'no-store' });
       
       if (response.ok) {
         const data = await response.json();

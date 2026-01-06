@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/server';
+import { createNotification } from '@/lib/services/notifications';
 import type { SwipeActionEnum } from '@/types/database';
 
 /**
@@ -226,11 +227,11 @@ export async function POST(request: NextRequest) {
 
       if (mutualSwipe) {
         isMatched = true;
-        
+
         // 获取匹配记录
         const user1 = user.id < targetUserId ? user.id : targetUserId;
         const user2 = user.id < targetUserId ? targetUserId : user.id;
-        
+
         const { data: match } = await supabase
           .from('matches')
           .select('id, match_score, matched_at')
@@ -244,6 +245,74 @@ export async function POST(request: NextRequest) {
             matchScore: match.match_score,
             matchedAt: match.matched_at
           };
+
+          // 获取双方用户信息用于通知
+          const { data: currentUserInfo } = await supabase
+            .from('users')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+
+          const { data: targetUserInfo } = await supabase
+            .from('users')
+            .select('full_name')
+            .eq('id', targetUserId)
+            .single();
+
+          const currentUserName = currentUserInfo?.full_name || '有人';
+          const targetUserName = targetUserInfo?.full_name || '有人';
+
+          // 给对方发送匹配成功通知（当前用户会通过前端 toast 看到）
+          await createNotification({
+            userId: targetUserId,
+            type: 'match',
+            title: '🎉 匹配成功！',
+            message: `恭喜！你和 ${currentUserName} 互相喜欢，快去聊天吧！`,
+            actionUrl: `/chat?matchId=${match.id}`,
+            metadata: {
+              matchId: match.id,
+              matchedUserId: user.id,
+              matchedUserName: currentUserName,
+              matchScore: match.match_score
+            }
+          });
+
+          // 给当前用户也发送通知（作为记录，同时支持通知页面查看）
+          await createNotification({
+            userId: user.id,
+            type: 'match',
+            title: '🎉 匹配成功！',
+            message: `恭喜！你和 ${targetUserName} 互相喜欢，快去聊天吧！`,
+            actionUrl: `/chat?matchId=${match.id}`,
+            metadata: {
+              matchId: match.id,
+              matchedUserId: targetUserId,
+              matchedUserName: targetUserName,
+              matchScore: match.match_score
+            }
+          });
+        }
+      } else {
+        // 单方面 like，给对方发送"有人喜欢你"的通知
+        const notificationMessage = action === 'super_like'
+          ? '有人超级喜欢你！快去匹配页面看看吧 💖'
+          : '有人喜欢你！快去匹配页面看看吧 ❤️';
+
+        const notifyResult = await createNotification({
+          userId: targetUserId,
+          type: 'match',
+          title: action === 'super_like' ? '💖 收到超级喜欢！' : '❤️ 有人喜欢你！',
+          message: notificationMessage,
+          actionUrl: '/matching',
+          metadata: {
+            type: 'someone_liked_you',
+            action: action,
+            fromUserId: user.id // 记录谁喜欢的（用于后续功能）
+          }
+        });
+
+        if (!notifyResult.success) {
+          console.error('Failed to create like notification:', notifyResult.error);
         }
       }
     }

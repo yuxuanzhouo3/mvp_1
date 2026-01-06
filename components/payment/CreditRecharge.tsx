@@ -245,6 +245,7 @@ export default function CreditRecharge() {
           amount: selectedPackage.price,
           credits: selectedPackage.credits,
         }),
+        cache: 'no-store',
       });
 
       if (response.ok) {

@@ -59,6 +59,7 @@ export default function PhotoAuditStatus({
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        cache: 'no-store',
       });
 
       if (!response.ok) {

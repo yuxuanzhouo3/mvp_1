@@ -162,6 +162,7 @@ export async function GET(request: NextRequest) {
       mbti: profileData?.mbti,
       interests: interestsData?.map(i => (i.interests as any)?.name).filter(Boolean) || [],
       credits: 100,
+      is_profile_complete: profileData?.is_profile_complete || false,
       created_at: userData?.created_at || new Date().toISOString(),
       updated_at: profileData?.updated_at || userData?.updated_at || new Date().toISOString()
     };

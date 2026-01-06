@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Log environment variables status
-console.log('[admin/photos/pending] Loading API route...');
-console.log('[admin/photos/pending] NEXT_PUBLIC_SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'NOT SET');
-console.log('[admin/photos/pending] SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'NOT SET');
+// Force dynamic rendering to avoid caching issues
+export const dynamic = 'force-dynamic';
 
 // Create Supabase admin client
 let supabaseAdmin: ReturnType<typeof createClient>;
@@ -23,7 +21,6 @@ try {
       }
     }
   );
-  console.log('[admin/photos/pending] Supabase admin client created successfully');
 } catch (err) {
   console.error('[admin/photos/pending] Failed to create Supabase client:', err);
   throw err;
@@ -35,11 +32,8 @@ async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: 
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
 
     if (error || !user) {
-      console.error('Auth error:', error);
       return { isAdmin: false };
     }
-
-    console.log('Verifying admin for user:', user.id);
 
     // Check if user is in admin_roles table - use maybeSingle() to avoid errors
     const { data: adminRole, error: adminError } = await supabaseAdmin
@@ -49,19 +43,15 @@ async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: 
       .maybeSingle();
 
     if (adminError) {
-      console.error('Admin role query error:', adminError);
       return { isAdmin: false };
     }
 
     if (!adminRole) {
-      console.log('No admin role found for user:', user.id);
       return { isAdmin: false };
     }
 
-    console.log('Admin verified:', user.id, 'role:', adminRole.role);
     return { isAdmin: true, userId: user.id };
   } catch (err) {
-    console.error('Verify admin exception:', err);
     return { isAdmin: false };
   }
 }
@@ -95,6 +85,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') || 'asc';
     const status = searchParams.get('status') || 'pending';
     const userId = searchParams.get('userId');
+    const unrated = searchParams.get('unrated') === 'true';
 
     // Validate pagination
     const validPage = Math.max(1, page);
@@ -110,6 +101,12 @@ export async function GET(request: NextRequest) {
       `, { count: 'exact' })
       .eq('audit_status', status);
 
+    // Filter for unrated photos (admin_rating is null) - used for rating approved photos
+    // Only show primary photos for rating
+    if (unrated) {
+      query = query.is('admin_rating', null).eq('is_primary', true);
+    }
+
     // Filter by user ID if provided
     if (userId) {
       query = query.eq('user_id', userId);
@@ -124,7 +121,6 @@ export async function GET(request: NextRequest) {
     const { data: photos, count, error } = await query;
 
     if (error) {
-      console.error('Error fetching photos:', error);
       return NextResponse.json(
         { success: false, error: 'Failed to fetch photos' },
         { status: 500 }
@@ -141,7 +137,6 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Get pending photos error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

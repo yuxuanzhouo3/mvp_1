@@ -34,7 +34,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   // Check admin status
   useEffect(() => {
     const checkAdminStatus = async () => {
-      if (authLoading || !user) {
+      if (authLoading) {
+        return;
+      }
+
+      if (!user) {
+        setIsLoading(false);
+        router.push('/auth/login');
         return;
       }
 
@@ -43,14 +49,18 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         const token = session?.access_token;
 
         if (!token) {
+          setIsLoading(false);
           router.push('/auth/login');
           return;
         }
 
         const response = await fetch('/api/admin/check', {
+          method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
+          cache: 'no-store',
         });
 
         if (!response.ok || response.status === 401) {
@@ -72,7 +82,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
         setIsAdmin(true);
       } catch (error) {
-        console.error('Admin check error:', error);
         router.push('/dashboard');
       } finally {
         setIsLoading(false);
@@ -80,14 +89,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     };
 
     checkAdminStatus();
-  }, [user, authLoading, router, toast, supabase.auth]);
+  }, [user, authLoading, router, toast, supabase.auth, t.admin.layout.accessDenied, t.admin.layout.noPermission]);
 
   const handleSignOut = async () => {
     try {
       await signOut();
       window.location.href = '/auth/login';
     } catch (error) {
-      console.error('Logout error:', error);
+      // Silent fail
     }
   };
 

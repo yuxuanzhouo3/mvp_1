@@ -61,6 +61,7 @@ export default function SettingsPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
+        cache: 'no-store',
       });
 
       if (response.ok) {

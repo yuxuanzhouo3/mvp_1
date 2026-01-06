@@ -49,6 +49,7 @@ export default function AdminPage() {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
+          cache: 'no-store',
         });
 
         if (response.ok) {

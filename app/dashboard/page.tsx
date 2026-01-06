@@ -123,7 +123,7 @@ export default function DashboardPage() {
       };
 
       // Load profile
-      const profileRes = await fetch('/api/user/profile', { headers });
+      const profileRes = await fetch('/api/user/profile', { headers, cache: 'no-store' });
       if (profileRes.ok) {
         const profileData = await profileRes.json();
         setProfile(profileData.profile);
@@ -132,7 +132,7 @@ export default function DashboardPage() {
       }
 
       // Load recent matches
-      const matchesRes = await fetch('/api/user/matches', { headers });
+      const matchesRes = await fetch('/api/user/matches', { headers, cache: 'no-store' });
       if (matchesRes.ok) {
         const matchesData = await matchesRes.json();
         setRecentMatches(matchesData.matches?.slice(0, 5) || []);
@@ -141,7 +141,7 @@ export default function DashboardPage() {
       }
 
       // Load stats
-      const statsRes = await fetch('/api/user/stats', { headers });
+      const statsRes = await fetch('/api/user/stats', { headers, cache: 'no-store' });
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         setStats(statsData.stats);
@@ -151,7 +151,7 @@ export default function DashboardPage() {
 
       // Check if user is admin (silently fail if not admin)
       try {
-        const adminRes = await fetch('/api/admin/check', { headers });
+        const adminRes = await fetch('/api/admin/check', { headers, cache: 'no-store' });
         if (adminRes.ok) {
           const adminData = await adminRes.json();
           setIsAdmin(adminData.isAdmin);
@@ -209,9 +209,9 @@ export default function DashboardPage() {
       return;
     }
 
-    // If profile is null after loading, redirect to setup
-    if (profile === null && hasLoadedRef.current) {
-      console.log('📋 No profile found, redirecting to profile setup');
+    // If profile is null or incomplete after loading, redirect to setup
+    if (hasLoadedRef.current && (!profile || !profile.is_profile_complete)) {
+      console.log('📋 No profile or incomplete profile found, redirecting to profile setup');
       isRedirectingRef.current = true;
       // Use setTimeout to avoid setState during render
       setTimeout(() => {
@@ -231,7 +231,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (!profile) {
+  if (!profile || !profile.is_profile_complete) {
     // Show loading while redirecting to profile setup
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -552,7 +552,7 @@ export default function DashboardPage() {
               <PhotoAuditStatus
                 userId={user.id}
                 token={sessionToken}
-                onUploadClick={() => router.push('/profile/edit')}
+                onUploadClick={() => router.push('/profile/photos')}
               />
             </div>
           )}

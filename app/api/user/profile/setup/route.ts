@@ -81,6 +81,13 @@ export async function POST(request: NextRequest) {
 
     if (userError) {
       console.error('Error updating users table:', userError);
+      // Check for unique constraint violation on username
+      if (userError.code === '23505' && userError.message?.includes('username')) {
+        return NextResponse.json(
+          { success: false, error: 'Username already taken. Please choose a different username.' },
+          { status: 409 }
+        );
+      }
       return NextResponse.json(
         { success: false, error: 'Failed to update user' },
         { status: 500 }
@@ -112,6 +119,7 @@ export async function POST(request: NextRequest) {
         bio,
         location: locationValue,
         city_name,
+        is_profile_complete: true,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'user_id'

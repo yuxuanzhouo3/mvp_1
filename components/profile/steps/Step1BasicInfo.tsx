@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
-import { User, MapPin, Calendar, Sparkles, Loader2, Navigation } from 'lucide-react';
+import { useAuth } from '@/app/providers/AuthProvider';
+import { User, MapPin, Calendar, Sparkles, Loader2, Navigation, CheckCircle, XCircle } from 'lucide-react';
 import type { CompleteProfileData, GenderEnum } from '@/types/database';
 
 interface Step1Props {
@@ -19,6 +20,7 @@ interface Step1Props {
 export default function Step1BasicInfo({ data, onUpdate, onValidChange }: Step1Props) {
   const { language } = useLanguage();
   const t = useTranslations(language);
+  const { user } = useAuth();
 
   const [username, setUsername] = useState(data.username || '');
   const [gender, setGender] = useState<GenderEnum | ''>(data.gender || '');
@@ -29,6 +31,57 @@ export default function Step1BasicInfo({ data, onUpdate, onValidChange }: Step1P
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Username availability check
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const usernameCheckTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Check username availability with debounce
+  const checkUsernameAvailability = useCallback(async (usernameToCheck: string) => {
+    if (!usernameToCheck || usernameToCheck.length < 2) {
+      setUsernameAvailable(null);
+      return;
+    }
+
+    setIsCheckingUsername(true);
+    try {
+      const response = await fetch(
+        `/api/user/check-username?username=${encodeURIComponent(usernameToCheck)}${user?.id ? `&userId=${user.id}` : ''}`,
+        { cache: 'no-store' }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setUsernameAvailable(data.available);
+      }
+    } catch (error) {
+      console.error('Username check error:', error);
+    } finally {
+      setIsCheckingUsername(false);
+    }
+  }, [user?.id]);
+
+  // Debounced username check
+  useEffect(() => {
+    if (usernameCheckTimeout.current) {
+      clearTimeout(usernameCheckTimeout.current);
+    }
+
+    if (username && username.length >= 2) {
+      usernameCheckTimeout.current = setTimeout(() => {
+        checkUsernameAvailability(username);
+      }, 500);
+    } else {
+      setUsernameAvailable(null);
+    }
+
+    return () => {
+      if (usernameCheckTimeout.current) {
+        clearTimeout(usernameCheckTimeout.current);
+      }
+    };
+  }, [username, checkUsernameAvailability]);
 
   // Calculate age from birth date
   const calculateAge = (birthDateStr: string): number => {
@@ -119,12 +172,14 @@ export default function Step1BasicInfo({ data, onUpdate, onValidChange }: Step1P
   // Validate and update
   useEffect(() => {
     const newErrors: Record<string, string> = {};
-    
+
     // Username validation
     if (!username || username.length < 2) {
       newErrors.username = t.profileSetup?.usernameMinChars || 'Username must be at least 2 characters';
     } else if (username.length > 50) {
       newErrors.username = t.profileSetup?.usernameMaxChars || 'Username cannot exceed 50 characters';
+    } else if (usernameAvailable === false) {
+      newErrors.username = t.profileSetup?.usernameTaken || 'This username is already taken';
     }
 
     // Gender validation
@@ -151,7 +206,8 @@ export default function Step1BasicInfo({ data, onUpdate, onValidChange }: Step1P
 
     setErrors(newErrors);
 
-    const isValid = Object.keys(newErrors).length === 0;
+    // Only valid when no errors and username is confirmed available
+    const isValid = Object.keys(newErrors).length === 0 && usernameAvailable !== false;
     onValidChange(isValid);
 
     if (isValid) {
@@ -164,7 +220,7 @@ export default function Step1BasicInfo({ data, onUpdate, onValidChange }: Step1P
         longitude: longitude || undefined,
       });
     }
-  }, [username, gender, birthDate, cityName, latitude, longitude]);
+  }, [username, gender, birthDate, cityName, latitude, longitude, usernameAvailable]);
 
   const age = calculateAge(birthDate);
 
@@ -186,17 +242,33 @@ export default function Step1BasicInfo({ data, onUpdate, onValidChange }: Step1P
           <User className="w-4 h-4 text-primary" />
           {t.profileSetup?.username || 'Nickname'} <span className="text-red-500">*</span>
         </Label>
-        <Input
-          id="username"
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          placeholder={t.profileSetup?.usernamePlaceholder || 'Enter your nickname'}
-          className={errors.username ? 'border-red-500' : ''}
-          maxLength={50}
-        />
+        <div className="relative">
+          <Input
+            id="username"
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder={t.profileSetup?.usernamePlaceholder || 'Enter your nickname'}
+            className={`pr-10 ${errors.username ? 'border-red-500' : usernameAvailable === true ? 'border-green-500' : ''}`}
+            maxLength={50}
+          />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            {isCheckingUsername && (
+              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+            )}
+            {!isCheckingUsername && usernameAvailable === true && username.length >= 2 && (
+              <CheckCircle className="w-4 h-4 text-green-500" />
+            )}
+            {!isCheckingUsername && usernameAvailable === false && (
+              <XCircle className="w-4 h-4 text-red-500" />
+            )}
+          </div>
+        </div>
         {errors.username && (
           <p className="text-sm text-red-500">{errors.username}</p>
+        )}
+        {!errors.username && usernameAvailable === true && username.length >= 2 && (
+          <p className="text-sm text-green-500">{t.profileSetup?.usernameAvailable || 'Username is available'}</p>
         )}
       </div>
 

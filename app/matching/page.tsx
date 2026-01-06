@@ -41,6 +41,7 @@ interface Recommendation {
   } | null;
   matchScore: number;
   algorithmType: AlgorithmType;
+  likedMe?: boolean; // 对方是否已经喜欢了我
   scoreDetails: {
     userBaseScore: number;
     targetBaseScore: number;
@@ -123,7 +124,7 @@ export default function MatchingPage() {
     const checkAdminStatus = async () => {
       if (!user) return;
       try {
-        const response = await fetch('/api/admin/check');
+        const response = await fetch('/api/admin/check', { cache: 'no-store' });
         if (response.ok) {
           const data = await response.json();
           setIsAdmin(data.isAdmin || false);
@@ -217,16 +218,25 @@ export default function MatchingPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          target_id: rec.targetUser.id,
-          action: 'like'
+          targetUserId: rec.targetUser.id,
+          action: 'like',
+          recommendationId: rec.id || null
         }),
       });
 
       if (response.ok) {
-        toast({
-          title: t.common.success,
-          description: interpolate(t.matching.likeSuccessDesc, { name: rec.targetUser.full_name || 'TA' }),
-        });
+        const data = await response.json();
+        if (data.data?.isMatched) {
+          toast({
+            title: '🎉 ' + t.matching.matchSuccess,
+            description: interpolate(t.matching.matchSuccessDesc, { name: rec.targetUser.full_name || t.matching.unknownUser }),
+          });
+        } else {
+          toast({
+            title: t.common.success,
+            description: interpolate(t.matching.likeSuccessDesc, { name: rec.targetUser.full_name || t.matching.unknownUser }),
+          });
+        }
       }
     } catch (error) {
       console.error('Error liking candidate:', error);
@@ -251,8 +261,9 @@ export default function MatchingPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          target_id: rec.targetUser.id,
-          action: 'pass'
+          targetUserId: rec.targetUser.id,
+          action: 'pass',
+          recommendationId: rec.id || null
         }),
       });
     } catch (error) {
@@ -294,6 +305,24 @@ export default function MatchingPage() {
       default:
         return { label: t.matching.matchScore, value: rec.matchScore };
     }
+  };
+
+  // 翻译学历
+  const translateEducation = (education: string) => {
+    const educationMap: Record<string, string> = {
+      'high_school': t.profileSetup.education_high_school,
+      'associate': t.profileSetup.education_associate,
+      'bachelor': t.profileSetup.education_bachelor,
+      'master': t.profileSetup.education_master,
+      'doctorate': t.profileSetup.education_doctorate,
+      // 兼容其他可能的格式
+      'High School': t.profileSetup.education_high_school,
+      'Associate Degree': t.profileSetup.education_associate,
+      "Bachelor's Degree": t.profileSetup.education_bachelor,
+      "Master's Degree": t.profileSetup.education_master,
+      'Doctorate (PhD)': t.profileSetup.education_doctorate,
+    };
+    return educationMap[education] || education;
   };
 
   if (loading || authLoading || !mounted) {
@@ -523,6 +552,16 @@ export default function MatchingPage() {
                         </span>
                       </div>
                     </div>
+
+                    {/* Liked Me Badge */}
+                    {currentRecommendation.likedMe && (
+                      <div className="absolute bottom-4 left-4 bg-pink-500 text-white rounded-full px-4 py-2 shadow-lg animate-pulse">
+                        <div className="flex items-center space-x-1">
+                          <Heart className="h-4 w-4 fill-current" />
+                          <span className="text-sm font-bold">{t.matching.likedYou || 'TA喜欢你！'}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Info Section */}
@@ -549,7 +588,7 @@ export default function MatchingPage() {
                       )}
                       {currentRecommendation.targetUser.education_level && (
                         <div className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-full">
-                          {currentRecommendation.targetUser.education_level}
+                          {translateEducation(currentRecommendation.targetUser.education_level)}
                         </div>
                       )}
                       {currentRecommendation.targetUser.occupation && (
@@ -567,14 +606,14 @@ export default function MatchingPage() {
                     )}
 
                     {/* Algorithm Message */}
-                    {currentRecommendation.scoreDetails.message && (
+                    {selectedAlgorithm && (
                       <div className={`
                         p-3 rounded-lg mb-6 text-sm
                         ${algorithmOptions.find(o => o.key === selectedAlgorithm)?.bgColor}
                         ${algorithmOptions.find(o => o.key === selectedAlgorithm)?.color}
                       `}>
                         <Sparkles className="h-4 w-4 inline mr-2" />
-                        {currentRecommendation.scoreDetails.message}
+                        {(t.matching.scoreMessages as Record<AlgorithmType, string>)[selectedAlgorithm]}
                       </div>
                     )}
 

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Force dynamic rendering to avoid caching issues
+export const dynamic = 'force-dynamic';
+
 // Create Supabase admin client
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -73,6 +76,8 @@ export async function POST(request: NextRequest) {
         return handleBatchApprove(body.photoIds, adminId);
       case 'batch-reject':
         return handleBatchReject(body.photoIds, body.reason, adminId);
+      case 'rate':
+        return handleRate(body.photoId, body.rating, adminId);
       default:
         return NextResponse.json(
           { success: false, error: 'Invalid action' },
@@ -81,7 +86,6 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Photo review error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -110,7 +114,6 @@ async function handleApprove(photoId: string, adminId: string) {
     .eq('audit_status', 'pending');
 
   if (updateError) {
-    console.error('Error approving photo:', updateError);
     return NextResponse.json(
       { success: false, error: 'Failed to approve photo' },
       { status: 500 }
@@ -160,7 +163,6 @@ async function handleReject(photoId: string, reason: string, adminId: string) {
     .eq('audit_status', 'pending');
 
   if (updateError) {
-    console.error('Error rejecting photo:', updateError);
     return NextResponse.json(
       { success: false, error: 'Failed to reject photo' },
       { status: 500 }
@@ -213,7 +215,6 @@ async function handleBatchApprove(photoIds: string[], adminId: string) {
     .eq('audit_status', 'pending');
 
   if (updateError) {
-    console.error('Error batch approving photos:', updateError);
     return NextResponse.json(
       { success: false, error: 'Failed to approve photos' },
       { status: 500 }
@@ -276,7 +277,6 @@ async function handleBatchReject(photoIds: string[], reason: string, adminId: st
     .eq('audit_status', 'pending');
 
   if (updateError) {
-    console.error('Error batch rejecting photos:', updateError);
     return NextResponse.json(
       { success: false, error: 'Failed to reject photos' },
       { status: 500 }
@@ -298,5 +298,81 @@ async function handleBatchReject(photoIds: string[], reason: string, adminId: st
     success: true,
     message: `${photoIds.length} photos rejected successfully`,
     count: photoIds.length,
+  });
+}
+
+// Handle photo appearance rating (INTL only)
+async function handleRate(photoId: string, rating: number, adminId: string) {
+  // Validate photo ID
+  if (!photoId) {
+    return NextResponse.json(
+      { success: false, error: 'Photo ID is required' },
+      { status: 400 }
+    );
+  }
+
+  // Validate rating range (1-100)
+  if (!rating || typeof rating !== 'number' || rating < 1 || rating > 100) {
+    return NextResponse.json(
+      { success: false, error: 'Rating must be between 1 and 100' },
+      { status: 400 }
+    );
+  }
+
+  // Check if the photo is primary
+  const { data: photo, error: fetchError } = await supabaseAdmin
+    .from('user_photos')
+    .select('is_primary, audit_status')
+    .eq('id', photoId)
+    .single();
+
+  if (fetchError || !photo) {
+    return NextResponse.json(
+      { success: false, error: 'Photo not found' },
+      { status: 404 }
+    );
+  }
+
+  if (!photo.is_primary) {
+    return NextResponse.json(
+      { success: false, error: 'Only primary photos can be rated' },
+      { status: 400 }
+    );
+  }
+
+  // Update the rating
+  const { error: updateError } = await supabaseAdmin
+    .from('user_photos')
+    .update({
+      admin_rating: rating,
+      rated_by: adminId,
+      rated_at: new Date().toISOString(),
+    })
+    .eq('id', photoId);
+
+  if (updateError) {
+    return NextResponse.json(
+      { success: false, error: 'Failed to rate photo' },
+      { status: 500 }
+    );
+  }
+
+  // Log the action (non-blocking, ignore errors)
+  try {
+    await supabaseAdmin.from('photo_audit_logs').insert({
+      photo_id: photoId,
+      action: 'approved',
+      reason: `Appearance rating: ${rating}/100`,
+      reviewed_by: adminId,
+      reviewed_at: new Date().toISOString(),
+    });
+  } catch {
+    // Ignore audit log errors
+  }
+
+  return NextResponse.json({
+    success: true,
+    message: 'Photo rated successfully',
+    rating,
   });
 }

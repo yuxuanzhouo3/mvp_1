@@ -331,8 +331,8 @@ export function scoreBMI(bmi: number | null): number {
 }
 
 /**
- * 外貌评分函数（占位）
- * TODO: 未来接入AI识图API或管理员打分机制
+ * 外貌评分函数
+ * 优先级: 管理员评分 > AI评分 > 默认值
  * @param photos - 用户照片数组
  * @returns 评分 (0-100)
  */
@@ -340,21 +340,25 @@ export function scoreAppearance(photos: UserPhoto[]): number {
   if (!photos || photos.length === 0) {
     return DEFAULT_SCORES.APPEARANCE;
   }
-  
+
   // 查找主照片
   const primaryPhoto = photos.find(p => p.is_primary);
-  
+
   if (!primaryPhoto) {
     return DEFAULT_SCORES.APPEARANCE;
   }
-  
-  // 检查是否有AI评分
+
+  // 优先使用管理员评分 (INTL环境)
+  if (primaryPhoto.admin_rating) {
+    return Math.min(100, Math.max(0, primaryPhoto.admin_rating));
+  }
+
+  // 其次使用AI评分
   if (primaryPhoto.ai_scores?.beauty) {
     return Math.min(100, Math.max(0, primaryPhoto.ai_scores.beauty));
   }
-  
-  // 无AI评分时返回默认值
-  // TODO: 接入管理员评分系统
+
+  // 无评分时返回默认值
   return DEFAULT_SCORES.APPEARANCE;
 }
 

@@ -36,7 +36,7 @@ export default function ActivityTimeline({ userId }: ActivityTimelineProps) {
 
   const fetchActivities = async () => {
     try {
-      const response = await fetch(`/api/user/activities?limit=10`)
+      const response = await fetch(`/api/user/activities?limit=10`, { cache: 'no-store' })
       if (response.ok) {
         const data = await response.json()
         setActivities(data.activities || [])

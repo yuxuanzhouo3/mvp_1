@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+// Force dynamic rendering to avoid caching issues
+export const dynamic = 'force-dynamic';
+
 // Create Supabase admin client
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,7 +22,6 @@ async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: 
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
 
     if (error || !user) {
-      console.error('Auth error:', error);
       return { isAdmin: false };
     }
 
@@ -31,7 +33,6 @@ async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: 
       .maybeSingle();
 
     if (adminError) {
-      console.error('Admin role query error:', adminError);
       return { isAdmin: false };
     }
 
@@ -41,7 +42,6 @@ async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: 
 
     return { isAdmin: true, userId: user.id, role: adminRole.role };
   } catch (err) {
-    console.error('Verify admin exception:', err);
     return { isAdmin: false };
   }
 }
@@ -49,11 +49,9 @@ async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: 
 // GET - Check if current user is admin
 export async function GET(request: NextRequest) {
   try {
-    // Verify authorization
     const authHeader = request.headers.get('authorization');
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      // Return 200 with isAdmin: false instead of 401
-      // This endpoint checks admin status, not enforces authentication
       return NextResponse.json({
         success: true,
         isAdmin: false
@@ -78,7 +76,6 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Check admin status error:', error);
     return NextResponse.json(
       { success: false, isAdmin: false, error: 'Internal server error' },
       { status: 500 }

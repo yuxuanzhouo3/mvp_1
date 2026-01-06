@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
+import { isInternationalDeployment } from '@/lib/config/deployment.config';
 import {
   Dialog,
   DialogContent,
@@ -47,7 +48,9 @@ interface Photo {
   user_id: string;
   url: string;
   thumbnail_url?: string;
+  is_primary: boolean;
   audit_status: 'pending' | 'approved' | 'rejected';
+  admin_rating?: number;
   created_at: string;
   user?: {
     id: string;
@@ -97,6 +100,7 @@ export default function PhotoReviewPage() {
   // Filter state
   const [searchUserId, setSearchUserId] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [viewMode, setViewMode] = useState<'pending' | 'unrated'>('pending');
 
   // Modal state
   const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
@@ -112,6 +116,11 @@ export default function PhotoReviewPage() {
 
   // Current focused photo index (for keyboard navigation)
   const [focusedIndex, setFocusedIndex] = useState(0);
+
+  // Rating state (INTL only)
+  const [photoRatings, setPhotoRatings] = useState<Record<string, number>>({});
+  const [isRating, setIsRating] = useState(false);
+  const isINTL = isInternationalDeployment();
 
   // Load photos
   const loadPhotos = useCallback(async () => {
@@ -133,8 +142,13 @@ export default function PhotoReviewPage() {
         page: pagination.page.toString(),
         pageSize: pagination.pageSize.toString(),
         sortOrder,
-        status: 'pending',
+        status: viewMode === 'pending' ? 'pending' : 'approved',
       });
+
+      // For unrated mode, add unrated filter
+      if (viewMode === 'unrated') {
+        params.set('unrated', 'true');
+      }
 
       if (searchUserId) {
         params.set('userId', searchUserId);
@@ -145,6 +159,7 @@ export default function PhotoReviewPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -181,7 +196,7 @@ export default function PhotoReviewPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [pagination.page, pagination.pageSize, sortOrder, searchUserId, router, toast]);
+  }, [pagination.page, pagination.pageSize, sortOrder, searchUserId, viewMode, router, toast]);
 
   useEffect(() => {
     loadPhotos();
@@ -198,12 +213,18 @@ export default function PhotoReviewPage() {
 
       switch (e.key.toLowerCase()) {
         case 'a':
-          e.preventDefault();
-          handleApprove(focusedPhoto.id);
+          // Only handle approve in pending mode
+          if (viewMode === 'pending') {
+            e.preventDefault();
+            handleApprove(focusedPhoto.id);
+          }
           break;
         case 'r':
-          e.preventDefault();
-          openRejectDialog(focusedPhoto);
+          // Only handle reject in pending mode
+          if (viewMode === 'pending') {
+            e.preventDefault();
+            openRejectDialog(focusedPhoto);
+          }
           break;
         case ' ':
           e.preventDefault();
@@ -231,7 +252,7 @@ export default function PhotoReviewPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [photos, focusedIndex, rejectDialogOpen, batchRejectDialogOpen, viewPhotoUrl, pagination]);
+  }, [photos, focusedIndex, rejectDialogOpen, batchRejectDialogOpen, viewPhotoUrl, pagination, viewMode]);
 
   // Handle approve
   const handleApprove = async (photoId: string) => {
@@ -495,6 +516,87 @@ export default function PhotoReviewPage() {
     }
   };
 
+  // Handle photo rating (INTL only)
+  const handleRate = async (photoId: string) => {
+    const rating = photoRatings[photoId];
+    if (!rating || rating < 1 || rating > 100) {
+      toast({
+        title: t.admin.photoReview.error,
+        description: t.admin.photoReview.ratingRange || 'Rating must be between 1 and 100',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsRating(true);
+
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      if (!token) {
+        toast({
+          title: t.admin.photoReview.error,
+          description: 'No authentication token',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const response = await fetch('/api/admin/photos/review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'rate',
+          photoId,
+          rating,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to rate photo');
+      }
+
+      toast({
+        title: t.admin.photoReview.ratingSubmitted || 'Rating Submitted',
+        description: `${t.admin.photoReview.appearanceRating || 'Appearance Rating'}: ${rating}/100`,
+      });
+
+      // In unrated mode, remove the photo from the list after rating
+      if (viewMode === 'unrated') {
+        setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+        setPagination((prev) => ({ ...prev, total: prev.total - 1 }));
+      } else {
+        // Update local state to show the rating
+        setPhotos((prev) =>
+          prev.map((p) =>
+            p.id === photoId ? { ...p, admin_rating: rating } : p
+          )
+        );
+      }
+
+      // Clear the input
+      setPhotoRatings((prev) => {
+        const newRatings = { ...prev };
+        delete newRatings[photoId];
+        return newRatings;
+      });
+    } catch (error) {
+      toast({
+        title: t.admin.photoReview.error,
+        description: error instanceof Error ? error.message : 'Failed to rate photo',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRating(false);
+    }
+  };
+
   // Toggle photo selection
   const togglePhotoSelection = (photoId: string) => {
     setSelectedPhotos((prev) => {
@@ -576,6 +678,24 @@ export default function PhotoReviewPage() {
                 />
               </div>
 
+              {/* View mode selector */}
+              <Select
+                value={viewMode}
+                onValueChange={(value: 'pending' | 'unrated') => {
+                  setViewMode(value);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                  setSelectedPhotos(new Set());
+                }}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder={t.admin.photoReview.viewMode || 'View Mode'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">{t.admin.photoReview.pendingReview || 'Pending Review'}</SelectItem>
+                  <SelectItem value="unrated">{t.admin.photoReview.pendingRating || 'Pending Rating'}</SelectItem>
+                </SelectContent>
+              </Select>
+
               {/* Sort order */}
               <Select
                 value={sortOrder}
@@ -591,8 +711,8 @@ export default function PhotoReviewPage() {
                 </SelectContent>
               </Select>
 
-              {/* Batch actions */}
-              {selectedPhotos.size > 0 && (
+              {/* Batch actions - only show for pending mode */}
+              {viewMode === 'pending' && selectedPhotos.size > 0 && (
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -635,10 +755,14 @@ export default function PhotoReviewPage() {
             <CardContent className="text-center py-12">
               <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {t.admin.photoReview.noPendingPhotos}
+                {viewMode === 'pending'
+                  ? t.admin.photoReview.noPendingPhotos
+                  : t.admin.photoReview.noUnratedPhotos}
               </h3>
               <p className="text-gray-600">
-                {t.admin.photoReview.allReviewed}
+                {viewMode === 'pending'
+                  ? t.admin.photoReview.allReviewed
+                  : t.admin.photoReview.allRated}
               </p>
             </CardContent>
           </Card>
@@ -721,43 +845,94 @@ export default function PhotoReviewPage() {
                     <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
                       <Clock className="h-3 w-3" />
                       <span>{getTimeSince(photo.created_at)}</span>
+                      {photo.is_primary && (
+                        <Badge variant="secondary" className="ml-auto text-xs">
+                          Primary
+                        </Badge>
+                      )}
                     </div>
 
-                    {/* Action buttons */}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-green-600 border-green-600 hover:bg-green-50"
-                        onClick={() => handleApprove(photo.id)}
-                        disabled={isProcessing}
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        {t.admin.photoReview.approve}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex-1 text-red-600 border-red-600 hover:bg-red-50"
-                        onClick={() => openRejectDialog(photo)}
-                        disabled={isProcessing}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        {t.admin.photoReview.reject}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-gray-400"
-                        onClick={() => {
-                          if (index < photos.length - 1) {
-                            setFocusedIndex(index + 1);
-                          }
-                        }}
-                      >
-                        <SkipForward className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    {/* Appearance Rating - INTL only for pending mode (primary photos only), or always show in unrated mode */}
+                    {((isINTL && photo.is_primary && viewMode === 'pending') || viewMode === 'unrated') && (
+                      <div className="mb-3 p-2 bg-gray-50 rounded-md">
+                        <label className="text-xs text-gray-500 block mb-1">
+                          {t.admin.photoReview.appearanceRating || 'Appearance Rating'}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={photoRatings[photo.id] ?? photo.admin_rating ?? ''}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value);
+                              setPhotoRatings((prev) => ({
+                                ...prev,
+                                [photo.id]: isNaN(value) ? 0 : value,
+                              }));
+                            }}
+                            className="w-20 h-7 text-sm"
+                            placeholder="1-100"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRate(photo.id);
+                            }}
+                            disabled={isRating || !photoRatings[photo.id]}
+                          >
+                            {t.admin.photoReview.submitRating || 'Rate'}
+                          </Button>
+                          {photo.admin_rating && (
+                            <span className="text-xs text-green-600 ml-auto">
+                              {photo.admin_rating}/100
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action buttons - only show for pending mode */}
+                    {viewMode === 'pending' && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-green-600 border-green-600 hover:bg-green-50"
+                          onClick={() => handleApprove(photo.id)}
+                          disabled={isProcessing}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          {t.admin.photoReview.approve}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 text-red-600 border-red-600 hover:bg-red-50"
+                          onClick={() => openRejectDialog(photo)}
+                          disabled={isProcessing}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          {t.admin.photoReview.reject}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-gray-400"
+                          onClick={() => {
+                            if (index < photos.length - 1) {
+                              setFocusedIndex(index + 1);
+                            }
+                          }}
+                        >
+                          <SkipForward className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}

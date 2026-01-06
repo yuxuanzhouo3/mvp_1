@@ -341,8 +341,8 @@ export const MATCHING_CONFIG = {
     // 算法3: 随机盲盒 - ±40分
     serendipity: { minDiff: -40, maxDiff: 40 },
     
-    // 算法4: 务实捡漏 - -20 ~ -10分
-    pragmatic: { minDiff: -20, maxDiff: -10 }
+    // 算法4: 务实捡漏 - -20 ~ +5分（优先低分，但包含相近的）
+    pragmatic: { minDiff: -20, maxDiff: 5 }
   },
   
   // 活跃用户定义（天）

@@ -75,7 +75,7 @@ export default function MatchingHistoryPage() {
     try {
       setIsLoading(true);
 
-      const response = await fetch('/api/user/matches');
+      const response = await fetch('/api/user/matches', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setMatches(data.matches);

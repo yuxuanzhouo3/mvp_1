@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+
+// Admin client for checking user profile
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -34,10 +47,10 @@ export async function GET(request: NextRequest) {
         },
       }
     );
-    
+
     try {
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-      
+
       if (error) {
         console.error('Session exchange error:', error);
         return NextResponse.redirect(
@@ -46,7 +59,20 @@ export async function GET(request: NextRequest) {
       }
 
       if (data.user) {
-        // Successfully authenticated, redirect to dashboard
+        // Check if user has completed profile setup
+        const { data: profile, error: profileError } = await supabaseAdmin
+          .from('user_profiles')
+          .select('id, is_profile_complete')
+          .eq('user_id', data.user.id)
+          .single();
+
+        if (profileError || !profile || !profile.is_profile_complete) {
+          // New user or incomplete profile - redirect to profile setup
+          console.log('📋 New user or incomplete profile, redirecting to profile setup');
+          return NextResponse.redirect(`${requestUrl.origin}/profile/setup`);
+        }
+
+        // Existing user with complete profile - redirect to dashboard
         return NextResponse.redirect(`${requestUrl.origin}/dashboard`);
       }
     } catch (error) {

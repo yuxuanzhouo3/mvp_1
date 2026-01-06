@@ -54,7 +54,7 @@ export default function BillingPage() {
     try {
       setIsLoading(true);
       
-      const response = await fetch('/api/user/billing');
+      const response = await fetch('/api/user/billing', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
         setBillingRecords(data.records);
@@ -81,7 +81,7 @@ export default function BillingPage() {
         return;
       }
 
-      const response = await fetch(`/api/user/billing/${recordId}/invoice`);
+      const response = await fetch(`/api/user/billing/${recordId}/invoice`, { cache: 'no-store' });
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);

@@ -101,7 +101,7 @@ export default function AdminDashboard() {
   };
 
   const loadUsers = async () => {
-    const response = await fetch('/api/ops/users');
+    const response = await fetch('/api/ops/users', { cache: 'no-store' });
     if (response.ok) {
       const data = await response.json();
       setUsers(data.users);
@@ -109,7 +109,7 @@ export default function AdminDashboard() {
   };
 
   const loadTransactions = async () => {
-    const response = await fetch('/api/ops/payments');
+    const response = await fetch('/api/ops/payments', { cache: 'no-store' });
     if (response.ok) {
       const data = await response.json();
       setTransactions(data.transactions);
@@ -117,7 +117,7 @@ export default function AdminDashboard() {
   };
 
   const loadChatMessages = async () => {
-    const response = await fetch('/api/ops/chats');
+    const response = await fetch('/api/ops/chats', { cache: 'no-store' });
     if (response.ok) {
       const data = await response.json();
       setChatMessages(data.messages);
@@ -125,7 +125,7 @@ export default function AdminDashboard() {
   };
 
   const loadMatchStats = async () => {
-    const response = await fetch('/api/ops/match-stats');
+    const response = await fetch('/api/ops/match-stats', { cache: 'no-store' });
     if (response.ok) {
       const data = await response.json();
       setMatchStats(data.stats);

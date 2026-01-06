@@ -129,8 +129,11 @@ export function matchRomanticPursuit(
       // B比A优秀，满分
       interestAToB = 100;
     } else {
-      // B不如A，打折：70 + (B/A) × 30
-      interestAToB = 70 + (candidateScore / userScore) * 30;
+      // B不如A，根据差距降低兴趣度
+      // 差距越大兴趣越低: 50 + (B/A) × 50
+      // 如果B是A的70%，则兴趣度 = 50 + 0.7 × 50 = 85%
+      // 如果B是A的50%，则兴趣度 = 50 + 0.5 × 50 = 75%
+      interestAToB = 50 + (candidateScore / userScore) * 50;
     }
     
     // B接受A的可能性（双向评估）
@@ -192,17 +195,29 @@ function calculateAcceptance(
 ): number {
   // B的择偶标准（基于性别差异权重）
   const weights = getAlgorithmWeights('romantic', userB.gender, userA.gender);
-  
+
   // A在B眼中的吸引力分数
   const attractiveness = calculateWeightedAttractiveness(userA, weights);
-  
-  // 计算接受度
+
+  // B的期望值（自身分数）
   const bScore = userB.totalScore;
-  
-  // 如果A的综合吸引力 >= B的期望（80%），接受度高
-  if (attractiveness >= bScore * 0.8) return 90;
-  if (attractiveness >= bScore * 0.6) return 70;
-  return 50;
+
+  // 计算接受度（连续渐进公式）
+  // 比率 = A的吸引力 / B的期望
+  // 比率 >= 1.0 时接受度 95%
+  // 比率 = 0.8 时接受度 80%
+  // 比率 = 0.6 时接受度 60%
+  // 比率 <= 0.4 时接受度 40%
+  const ratio = attractiveness / (bScore || 1);
+
+  if (ratio >= 1.0) {
+    return 95;
+  }
+
+  // 线性插值: acceptance = 40 + ratio * 55 (ratio在0.4-1.0之间时从40到95)
+  // 简化为: acceptance = 40 + min(ratio, 1) * 55
+  const acceptance = 40 + Math.min(ratio, 1) * 55;
+  return Math.round(Math.max(40, Math.min(95, acceptance)));
 }
 
 // ========================================
@@ -274,6 +289,7 @@ export function matchSerendipity(
 // ========================================
 // 算法4: 稳稳幸福（务实捡漏）
 // 核心思想：优先推荐比自己低10-20分的对象，成功率更高
+// 但也包含相近的对象，扩大可选范围
 // ========================================
 
 /**
@@ -290,34 +306,54 @@ export function matchPragmatic(
 ): MatchResult[] {
   const userScore = user.totalScore;
   const scoreRange = getCandidateScoreRange(userScore, 'pragmatic');
-  
+
   const results: MatchResult[] = [];
-  
+
   for (const candidate of candidates) {
-    // 筛选分数范围内的候选人（比自己低10-20分）
+    // 筛选分数范围内的候选人
     if (candidate.totalScore < scoreRange.min || candidate.totalScore > scoreRange.max) {
       continue;
     }
-    
+
     const candidateScore = candidate.totalScore;
-    const scoreDiff = userScore - candidateScore;
-    
-    // 成功率 = 分数差距越大，成功率越高
-    // 70 + scoreDiff × 1.5，差10分=85%，差20分=100%
-    const successRate = Math.min(100, 70 + scoreDiff * 1.5);
-    
-    // B对A的接受度（A比B优秀，B很可能接受）
-    const acceptanceBToA = 95;
-    
+    const scoreDiff = userScore - candidateScore; // 可能为负（候选人分数更高）
+
+    // 成功率计算（务实策略）
+    // 候选人分数低于自己时：成功率高（70% + 差距加成）
+    // 候选人分数高于自己时：成功率降低
+    let successRate: number;
+    if (scoreDiff >= 0) {
+      // 候选人分数 <= 用户分数
+      // 差10分=85%, 差20分=100%
+      successRate = Math.min(100, 70 + scoreDiff * 1.5);
+    } else {
+      // 候选人分数 > 用户分数
+      // 差-5分时成功率约62%
+      successRate = Math.max(50, 70 + scoreDiff * 1.5);
+    }
+
+    // B对A的接受度（根据分数差计算）
+    let acceptanceBToA: number;
+    if (scoreDiff >= 10) {
+      // A明显比B优秀，B接受度很高
+      acceptanceBToA = 95;
+    } else if (scoreDiff >= 0) {
+      // A略优于或等于B
+      acceptanceBToA = 85 + scoreDiff;
+    } else {
+      // A不如B，B接受度降低
+      acceptanceBToA = Math.max(50, 80 + scoreDiff * 2);
+    }
+
     // 匹配分 = (成功率 + 接受度) / 2
     const matchScore = clampScore((successRate + acceptanceBToA) / 2);
-    
+
     // 计算兴趣重合度
     const interestOverlap = calculateInterestOverlap(user.interests, candidate.interests);
-    
+
     // 计算距离
     const distance = calculateGeographicDistance(user.location, candidate.location);
-    
+
     results.push({
       targetUserId: candidate.id,
       matchScore,
@@ -326,17 +362,21 @@ export function matchPragmatic(
         userBaseScore: userScore,
         targetBaseScore: candidateScore,
         successRate: Math.round(successRate),
-        acceptanceBToA,
+        acceptanceBToA: Math.round(acceptanceBToA),
         mutualInterests: interestOverlap.mutualInterests,
         distance: distance ?? undefined,
-        message: `成功率：${Math.round(successRate)}%，稳稳的幸福`
+        message: scoreDiff >= 10
+          ? `成功率：${Math.round(successRate)}%，稳稳的幸福`
+          : scoreDiff >= 0
+          ? `成功率：${Math.round(successRate)}%，条件相当`
+          : `TA略优秀，成功率：${Math.round(successRate)}%`
       }
     });
   }
-  
-  // 按成功率排序
+
+  // 按匹配分排序（综合考虑成功率和接受度）
   return results
-    .sort((a, b) => (b.scoreDetails.successRate || 0) - (a.scoreDetails.successRate || 0))
+    .sort((a, b) => b.matchScore - a.matchScore)
     .slice(0, limit);
 }
 

@@ -111,14 +111,14 @@ export default function ChatDetailPage() {
       };
 
       // Load chat messages
-      const messagesResponse = await fetch(`/api/chat/${chatId}/messages`, { headers });
+      const messagesResponse = await fetch(`/api/chat/${chatId}/messages`, { headers, cache: 'no-store' });
       if (messagesResponse.ok) {
         const messagesData = await messagesResponse.json();
         setMessages(messagesData.messages);
       }
 
       // Load chat user info
-      const userResponse = await fetch(`/api/chat/${chatId}/user`, { headers });
+      const userResponse = await fetch(`/api/chat/${chatId}/user`, { headers, cache: 'no-store' });
       if (userResponse.ok) {
         const userData = await userResponse.json();
         setChatUser(userData.user);

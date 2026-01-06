@@ -111,6 +111,10 @@ export interface UserPhoto {
   };
   audit_status: 'pending' | 'approved' | 'rejected';
   created_at: string;
+  // 管理员评分字段 (仅INTL环境)
+  admin_rating?: number;      // 外貌评分 1-100
+  rated_by?: string;          // 评分管理员ID
+  rated_at?: string;          // 评分时间
 }
 
 // ========================================

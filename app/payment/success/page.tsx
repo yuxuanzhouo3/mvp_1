@@ -41,6 +41,7 @@ export default function PaymentSuccessPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId }),
+        cache: 'no-store',
       });
 
       if (response.ok) {

@@ -23,7 +23,7 @@ export default function PaymentRechargePage() {
     const checkAdminStatus = async () => {
       if (!user) return;
       try {
-        const response = await fetch('/api/admin/check');
+        const response = await fetch('/api/admin/check', { cache: 'no-store' });
         if (response.ok) {
           const data = await response.json();
           setIsAdmin(data.isAdmin || false);
