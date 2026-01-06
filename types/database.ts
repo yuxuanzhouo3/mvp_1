@@ -76,7 +76,10 @@ export interface UserProfile {
     longitude: number;
   } | null;
   city_name: string | null;
-  
+
+  // 资料完成状态
+  is_profile_complete: boolean;
+
   updated_at: string;
 }
 
