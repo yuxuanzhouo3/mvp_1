@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MessageSquare, Heart, MapPin, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useLanguage } from '@/components/language-provider'
+import { useTranslations } from '@/lib/i18n'
 
 interface Match {
   id: string
@@ -27,6 +29,8 @@ export default function RecentMatches({ userId }: RecentMatchesProps) {
   const [matches, setMatches] = useState<Match[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const { language } = useLanguage()
+  const t = useTranslations(language)
 
   useEffect(() => {
     fetchRecentMatches()
@@ -54,10 +58,10 @@ export default function RecentMatches({ userId }: RecentMatchesProps) {
   }
 
   const getCompatibilityText = (score: number) => {
-    if (score >= 90) return '完美匹配'
-    if (score >= 80) return '高度匹配'
-    if (score >= 70) return '良好匹配'
-    return '一般匹配'
+    if (score >= 90) return t.matching?.perfectMatch || 'Perfect Match'
+    if (score >= 80) return t.matching?.highMatch || 'High Match'
+    if (score >= 70) return t.matching?.goodMatch || 'Good Match'
+    return t.matching?.averageMatch || 'Average Match'
   }
 
   const handleStartChat = (matchId: string) => {
@@ -99,12 +103,12 @@ export default function RecentMatches({ userId }: RecentMatchesProps) {
         <CardContent className="p-8 text-center">
           <div className="text-muted-foreground">
             <Heart className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium mb-2">暂无匹配</h3>
+            <h3 className="text-lg font-medium mb-2">{t.matching?.noMatchesYet || 'No matches yet'}</h3>
             <p className="text-sm mb-4">
-              完善您的个人资料，开始寻找心仪的匹配
+              {t.matching?.completeProfilePrompt || 'Complete your profile to find matches'}
             </p>
             <Button asChild>
-              <a href="/matching">开始匹配</a>
+              <a href="/matching">{t.matching?.startChat || 'Start Matching'}</a>
             </Button>
           </div>
         </CardContent>
@@ -172,14 +176,14 @@ export default function RecentMatches({ userId }: RecentMatchesProps) {
                   className="flex items-center"
                 >
                   <MessageSquare className="h-3 w-3 mr-1" />
-                  聊天
+                  {t.matching?.chat || 'Chat'}
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handleViewProfile(match.id)}
                 >
-                  查看资料
+                  {t.matching?.viewProfile || 'View Profile'}
                 </Button>
               </div>
             </div>
@@ -190,7 +194,7 @@ export default function RecentMatches({ userId }: RecentMatchesProps) {
       {matches.length > 0 && (
         <div className="text-center pt-4">
           <Button variant="outline" asChild>
-            <a href="/matching">查看全部匹配</a>
+            <a href="/matching">{t.matching?.viewAllMatches || 'View All Matches'}</a>
           </Button>
         </div>
       )}

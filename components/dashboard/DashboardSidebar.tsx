@@ -96,7 +96,7 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
       <button
         onClick={() => setOpen((v) => !v)}
         className="absolute -left-12 top-4 z-50 p-2 rounded-md bg-background border shadow-md hover:bg-muted focus:outline-none transition-colors"
-        title={open ? '收起侧边栏' : '展开侧边栏'}
+        title={open ? (language === 'zh' ? '收起侧边栏' : 'Collapse sidebar') : (language === 'zh' ? '展开侧边栏' : 'Expand sidebar')}
       >
         {open ? (
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>

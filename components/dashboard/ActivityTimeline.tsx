@@ -3,15 +3,29 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { 
-  MessageSquare, 
-  Heart, 
-  CreditCard, 
-  User, 
+import {
+  MessageSquare,
+  Heart,
+  CreditCard,
+  User,
   Settings,
   Calendar,
   Clock
 } from 'lucide-react'
+import { useLanguage } from '@/components/language-provider'
+
+const TRANSLATIONS = {
+  zh: {
+    justNow: '刚刚',
+    hoursAgo: (n: number) => `${n}小时前`,
+    daysAgo: (n: number) => `${n}天前`,
+  },
+  en: {
+    justNow: 'Just now',
+    hoursAgo: (n: number) => `${n} hour${n > 1 ? 's' : ''} ago`,
+    daysAgo: (n: number) => `${n} day${n > 1 ? 's' : ''} ago`,
+  },
+};
 
 interface Activity {
   id: string
@@ -29,6 +43,8 @@ interface ActivityTimelineProps {
 export default function ActivityTimeline({ userId }: ActivityTimelineProps) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
+  const { language } = useLanguage()
+  const t = TRANSLATIONS[language] || TRANSLATIONS.zh
 
   useEffect(() => {
     fetchActivities()
@@ -86,13 +102,13 @@ export default function ActivityTimeline({ userId }: ActivityTimelineProps) {
     const date = new Date(timestamp)
     const now = new Date()
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
-    
+
     if (diffInHours < 1) {
-      return '刚刚'
+      return t.justNow
     } else if (diffInHours < 24) {
-      return `${diffInHours}小时前`
+      return t.hoursAgo(diffInHours)
     } else if (diffInHours < 168) { // 7 days
-      return `${Math.floor(diffInHours / 24)}天前`
+      return t.daysAgo(Math.floor(diffInHours / 24))
     } else {
       return date.toLocaleDateString()
     }

@@ -344,6 +344,33 @@ export const en = {
     startChatting: 'Start chatting',
     totalChats: 'Total Chats',
     unread: 'Unread',
+
+    // Header
+    online: 'Online',
+    offline: 'Offline',
+    lastSeen: 'Last seen',
+    voiceCall: 'Voice call',
+    videoCall: 'Video call',
+    viewProfile: 'View Profile',
+    blockUser: 'Block User',
+    reportUser: 'Report User',
+
+    // Audio
+    audioLoadError: 'Failed to load audio',
+
+    // Emoji categories
+    emojiCategories: {
+      common: 'Common',
+      gestures: 'Gestures',
+      hearts: 'Hearts',
+      animals: 'Animals',
+      food: 'Food',
+      objects: 'Objects',
+      symbols: 'Symbols',
+    },
+
+    // Message
+    me: 'Me',
   },
 
   // Profile
@@ -393,6 +420,30 @@ export const en = {
     allCandidatesViewed: 'All candidates viewed',
     allCandidatesViewedDesc: 'Please check back later for new matches!',
     yearsOld: '{age} years old',
+
+    // Compatibility labels
+    perfectMatch: 'Perfect Match',
+    highMatch: 'High Match',
+    goodMatch: 'Good Match',
+    averageMatch: 'Average Match',
+
+    // Card details
+    interests: 'Interests',
+    personalityType: 'Personality Type',
+    income: 'Income',
+    hidden: 'Hidden',
+    notFilled: 'Not filled',
+    matchDetails: 'Match Details',
+    personalityMatch: 'Personality',
+    interestsMatch: 'Interests',
+    valuesMatch: 'Values',
+
+    // Recent matches
+    noMatchesYet: 'No matches yet',
+    completeProfilePrompt: 'Complete your profile to find matches',
+    viewProfile: 'View Profile',
+    viewAllMatches: 'View All Matches',
+    chat: 'Chat',
     likeSuccess: 'Liked!',
     likeSuccessDesc: 'You liked {name}',
     matchSuccess: "It's a Match!",

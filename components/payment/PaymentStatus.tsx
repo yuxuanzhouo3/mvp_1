@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { useLanguage } from '@/components/language-provider';
 
 interface PaymentStatusProps {
   paymentId: string;
@@ -23,8 +24,53 @@ interface PaymentData {
   updatedAt: string;
 }
 
+const TRANSLATIONS = {
+  zh: {
+    fetchFailed: '获取支付状态失败',
+    tryLater: '请稍后重试',
+    loading: '加载支付状态...',
+    noPaymentInfo: '无法获取支付信息',
+    paymentStatus: '支付状态',
+    refresh: '刷新',
+    completed: '支付成功',
+    failed: '支付失败',
+    pending: '等待支付',
+    processing: '处理中',
+    unknown: '未知状态',
+    amount: '金额:',
+    paymentMethod: '支付方式:',
+    createdAt: '创建时间:',
+    updatedAt: '更新时间:',
+    pendingHint: '请完成支付流程。如果支付已完成但状态未更新，请点击刷新按钮。',
+    failedHint: '支付失败，请重新尝试或联系客服。',
+    completedHint: '支付成功！积分已添加到您的账户。',
+  },
+  en: {
+    fetchFailed: 'Failed to fetch payment status',
+    tryLater: 'Please try again later',
+    loading: 'Loading payment status...',
+    noPaymentInfo: 'Unable to get payment information',
+    paymentStatus: 'Payment Status',
+    refresh: 'Refresh',
+    completed: 'Payment Successful',
+    failed: 'Payment Failed',
+    pending: 'Pending Payment',
+    processing: 'Processing',
+    unknown: 'Unknown Status',
+    amount: 'Amount:',
+    paymentMethod: 'Payment Method:',
+    createdAt: 'Created At:',
+    updatedAt: 'Updated At:',
+    pendingHint: 'Please complete the payment process. If payment is completed but status not updated, click refresh.',
+    failedHint: 'Payment failed. Please try again or contact support.',
+    completedHint: 'Payment successful! Credits have been added to your account.',
+  },
+};
+
 export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStatusProps) {
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = TRANSLATIONS[language] || TRANSLATIONS.zh;
   const [payment, setPayment] = useState<PaymentData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -47,8 +93,8 @@ export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStat
       }
     } catch (error) {
       toast({
-        title: '获取支付状态失败',
-        description: '请稍后重试',
+        title: t.fetchFailed,
+        description: t.tryLater,
         variant: 'destructive',
       });
     } finally {
@@ -93,15 +139,15 @@ export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStat
   const getStatusText = (status: string) => {
     switch (status) {
       case 'completed':
-        return '支付成功';
+        return t.completed;
       case 'failed':
-        return '支付失败';
+        return t.failed;
       case 'pending':
-        return '等待支付';
+        return t.pending;
       case 'processing':
-        return '处理中';
+        return t.processing;
       default:
-        return '未知状态';
+        return t.unknown;
     }
   };
 
@@ -111,7 +157,7 @@ export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStat
         <CardContent className="p-6">
           <div className="flex items-center justify-center">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
-            <span>加载支付状态...</span>
+            <span>{t.loading}</span>
           </div>
         </CardContent>
       </Card>
@@ -123,7 +169,7 @@ export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStat
       <Card>
         <CardContent className="p-6">
           <div className="text-center text-gray-500">
-            无法获取支付信息
+            {t.noPaymentInfo}
           </div>
         </CardContent>
       </Card>
@@ -134,7 +180,7 @@ export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStat
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">支付状态</CardTitle>
+          <CardTitle className="text-lg">{t.paymentStatus}</CardTitle>
           <Button
             variant="outline"
             size="sm"
@@ -142,7 +188,7 @@ export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStat
             disabled={isRefreshing}
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            刷新
+            {t.refresh}
           </Button>
         </div>
       </CardHeader>
@@ -163,23 +209,23 @@ export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStat
 
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-gray-600 dark:text-gray-400">金额:</span>
+            <span className="text-gray-600 dark:text-gray-400">{t.amount}</span>
             <span className="ml-2 font-medium">
               {payment.currency} {payment.amount}
             </span>
           </div>
           <div>
-            <span className="text-gray-600 dark:text-gray-400">支付方式:</span>
+            <span className="text-gray-600 dark:text-gray-400">{t.paymentMethod}</span>
             <span className="ml-2 font-medium">{payment.paymentMethod}</span>
           </div>
           <div>
-            <span className="text-gray-600 dark:text-gray-400">创建时间:</span>
+            <span className="text-gray-600 dark:text-gray-400">{t.createdAt}</span>
             <span className="ml-2 font-medium">
               {new Date(payment.createdAt).toLocaleString()}
             </span>
           </div>
           <div>
-            <span className="text-gray-600 dark:text-gray-400">更新时间:</span>
+            <span className="text-gray-600 dark:text-gray-400">{t.updatedAt}</span>
             <span className="ml-2 font-medium">
               {new Date(payment.updatedAt).toLocaleString()}
             </span>
@@ -189,7 +235,7 @@ export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStat
         {payment.status === 'pending' && (
           <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-3">
             <p className="text-sm text-yellow-800 dark:text-yellow-200">
-              请完成支付流程。如果支付已完成但状态未更新，请点击刷新按钮。
+              {t.pendingHint}
             </p>
           </div>
         )}
@@ -197,7 +243,7 @@ export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStat
         {payment.status === 'failed' && (
           <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
             <p className="text-sm text-red-800 dark:text-red-200">
-              支付失败，请重新尝试或联系客服。
+              {t.failedHint}
             </p>
           </div>
         )}
@@ -205,7 +251,7 @@ export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStat
         {payment.status === 'completed' && (
           <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
             <p className="text-sm text-green-800 dark:text-green-200">
-              支付成功！积分已添加到您的账户。
+              {t.completedHint}
             </p>
           </div>
         )}

@@ -198,28 +198,82 @@ export interface Match {
 }
 
 // ========================================
-// 聊天与消息
+// 聊天与消息 (INTL 环境 - Supabase Realtime)
 // ========================================
+
+// 消息类型枚举
+export type MessageTypeEnum = 'text' | 'image' | 'audio' | 'video' | 'location' | 'sticker' | 'system';
 
 export interface ChatRoom {
   id: string;
   match_id: string;
   last_message_content: string | null;
-  last_message_type: string | null;
+  last_message_type: MessageTypeEnum;
   last_message_at: string | null;
   unread_counts: Record<string, number>;
+  typing_status: Record<string, string>;
   is_active: boolean;
   created_at: string;
+  updated_at: string;
+}
+
+export interface ChatRoomWithUser extends ChatRoom {
+  other_user_id: string;
+  other_user_username: string;
+  other_user_avatar_url: string | null;
+  other_user_gender: string | null;
+  other_user_last_active: string | null;
+  unread_count: number;
 }
 
 export interface Message {
   id: string;
   room_id: string;
-  sender_id: string | null;
+  sender_id: string;
   content: string | null;
-  message_type: 'text' | 'image' | 'audio';
+  message_type: MessageTypeEnum;
+  reply_to_message_id: string | null;
+  metadata: MessageMetadata;
   is_read: boolean;
+  read_at: string | null;
   sent_at: string;
+  deleted_at: string | null;
+  created_at: string;
+}
+
+// 消息元数据类型
+export interface MessageMetadata {
+  // 图片消息
+  image_url?: string;
+  thumbnail_url?: string;
+  width?: number;
+  height?: number;
+  // 音频消息
+  audio_url?: string;
+  duration?: number;
+  // 视频消息
+  video_url?: string;
+  // 位置消息
+  latitude?: number;
+  longitude?: number;
+  address?: string;
+  map_thumbnail_url?: string;
+  // 贴纸消息
+  sticker_id?: string;
+  sticker_url?: string;
+}
+
+export interface MessageAttachment {
+  id: string;
+  message_id: string;
+  file_type: string;
+  file_url: string;
+  file_size: number | null;
+  thumbnail_url: string | null;
+  duration: number | null;
+  width: number | null;
+  height: number | null;
+  created_at: string;
 }
 
 // ========================================

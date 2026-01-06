@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { 
-  MoreVertical, 
-  Phone, 
-  Video, 
-  User, 
+import {
+  MoreVertical,
+  Phone,
+  Video,
+  User,
   Ban,
   Flag
 } from 'lucide-react'
@@ -17,6 +17,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useLanguage } from '@/components/language-provider'
+import { useTranslations } from '@/lib/i18n'
 
 interface ChatHeaderProps {
   chatId: string
@@ -31,6 +33,8 @@ interface ChatHeaderProps {
 
 export default function ChatHeader({ chatId, participant }: ChatHeaderProps) {
   const [isOnline, setIsOnline] = useState(participant.online || false)
+  const { language } = useLanguage()
+  const t = useTranslations(language)
 
   const handleCall = () => {
     // 实现语音通话功能
@@ -79,15 +83,15 @@ export default function ChatHeader({ chatId, participant }: ChatHeaderProps) {
             {participant.full_name}
           </h3>
           <div className="flex items-center space-x-2">
-            <Badge 
-              variant={isOnline ? "default" : "secondary"} 
+            <Badge
+              variant={isOnline ? "default" : "secondary"}
               className="text-xs"
             >
-              {isOnline ? '在线' : '离线'}
+              {isOnline ? t.chat?.online || 'Online' : t.chat?.offline || 'Offline'}
             </Badge>
             {!isOnline && participant.last_seen && (
               <span className="text-xs text-muted-foreground">
-                最后在线: {new Date(participant.last_seen).toLocaleString()}
+                {t.chat?.lastSeen || 'Last seen'}: {new Date(participant.last_seen).toLocaleString()}
               </span>
             )}
           </div>
@@ -99,20 +103,20 @@ export default function ChatHeader({ chatId, participant }: ChatHeaderProps) {
           variant="ghost"
           size="icon"
           onClick={handleCall}
-          title="语音通话"
+          title={t.chat?.voiceCall || 'Voice call'}
         >
           <Phone className="h-4 w-4" />
         </Button>
-        
+
         <Button
           variant="ghost"
           size="icon"
           onClick={handleVideoCall}
-          title="视频通话"
+          title={t.chat?.videoCall || 'Video call'}
         >
           <Video className="h-4 w-4" />
         </Button>
-        
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
@@ -122,16 +126,16 @@ export default function ChatHeader({ chatId, participant }: ChatHeaderProps) {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handleViewProfile}>
               <User className="mr-2 h-4 w-4" />
-              查看资料
+              {t.chat?.viewProfile || 'View Profile'}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleBlock} className="text-destructive">
               <Ban className="mr-2 h-4 w-4" />
-              屏蔽用户
+              {t.chat?.blockUser || 'Block User'}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleReport} className="text-destructive">
               <Flag className="mr-2 h-4 w-4" />
-              举报用户
+              {t.chat?.reportUser || 'Report User'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

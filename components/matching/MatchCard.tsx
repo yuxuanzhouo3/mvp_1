@@ -92,10 +92,10 @@ export default function MatchCard({
   }
 
   const getCompatibilityText = (score: number) => {
-    if (score >= 90) return '完美匹配'
-    if (score >= 80) return '高度匹配'
-    if (score >= 70) return '良好匹配'
-    return '一般匹配'
+    if (score >= 90) return t.matching?.perfectMatch || 'Perfect Match'
+    if (score >= 80) return t.matching?.highMatch || 'High Match'
+    if (score >= 70) return t.matching?.goodMatch || 'Good Match'
+    return t.matching?.averageMatch || 'Average Match'
   }
 
   return (
@@ -137,7 +137,7 @@ export default function MatchCard({
               <div className="absolute bottom-4 left-4 right-4 text-white">
                 <h3 className="text-xl font-bold mb-1">
                   {user.full_name}
-                  {user.age && <span className="text-lg font-normal ml-2">{user.age}岁</span>}
+                  {user.age && <span className="text-lg font-normal ml-2">{user.age}{language === 'zh' ? '岁' : ''}</span>}
                 </h3>
                 
                 <div className="flex items-center space-x-2 text-sm opacity-90">
@@ -197,7 +197,7 @@ export default function MatchCard({
                 {/* 兴趣标签 */}
                 {user.interests && user.interests.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium mb-2">兴趣爱好</h4>
+                    <h4 className="text-sm font-medium mb-2">{t.matching?.interests || 'Interests'}</h4>
                     <div className="flex flex-wrap gap-1">
                       {user.interests.slice(0, 6).map((interest, index) => (
                         <Badge key={index} variant="secondary" className="text-xs">
@@ -211,7 +211,7 @@ export default function MatchCard({
                 {/* 性格特征 */}
                 {user.personality_traits?.mbti && (
                   <div>
-                    <h4 className="text-sm font-medium mb-2">性格类型</h4>
+                    <h4 className="text-sm font-medium mb-2">{t.matching?.personalityType || 'Personality Type'}</h4>
                     <Badge variant="outline">{user.personality_traits.mbti}</Badge>
                   </div>
                 )}
@@ -220,38 +220,38 @@ export default function MatchCard({
                 <div>
                   <h4 className="text-sm font-medium mb-2 flex items-center gap-1">
                     <DollarSign className="h-4 w-4" />
-                    收入
+                    {t.matching?.income || 'Income'}
                   </h4>
                   {user.income_hidden ? (
                     <div className="flex items-center gap-1 text-sm text-gray-500">
                       <EyeOff className="h-4 w-4" />
-                      <span>未公开</span>
+                      <span>{t.matching?.hidden || 'Hidden'}</span>
                     </div>
                   ) : user.annual_income_range ? (
                     <Badge variant="secondary">{user.annual_income_range}</Badge>
                   ) : (
-                    <span className="text-sm text-gray-500">未填写</span>
+                    <span className="text-sm text-gray-500">{t.matching?.notFilled || 'Not filled'}</span>
                   )}
                 </div>
 
                 {/* 兼容性详情 */}
                 <div>
-                  <h4 className="text-sm font-medium mb-2">匹配详情</h4>
+                  <h4 className="text-sm font-medium mb-2">{t.matching?.matchDetails || 'Match Details'}</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span>性格匹配</span>
+                      <span>{t.matching?.personalityMatch || 'Personality'}</span>
                       <span className={getCompatibilityColor(compatibility)}>
                         {Math.round(compatibility * 0.4)}%
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span>兴趣匹配</span>
+                      <span>{t.matching?.interestsMatch || 'Interests'}</span>
                       <span className={getCompatibilityColor(compatibility)}>
                         {Math.round(compatibility * 0.3)}%
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span>价值观匹配</span>
+                      <span>{t.matching?.valuesMatch || 'Values'}</span>
                       <span className={getCompatibilityColor(compatibility)}>
                         {Math.round(compatibility * 0.3)}%
                       </span>

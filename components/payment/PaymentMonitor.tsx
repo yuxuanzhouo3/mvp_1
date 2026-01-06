@@ -7,6 +7,102 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Copy, RefreshCw, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { useLanguage } from '@/components/language-provider';
+
+const TRANSLATIONS = {
+  zh: {
+    copied: '已复制',
+    copiedDesc: (label: string) => `${label} 已复制到剪贴板`,
+    copyFailed: '复制失败',
+    copyManually: '请手动复制',
+    verifyFailed: '验证失败',
+    enterHashOrId: '请输入交易哈希或交易ID',
+    verifySuccess: '验证成功',
+    verifySuccessDesc: '支付已验证，积分已添加到您的账户',
+    checkInputInfo: '请检查输入信息是否正确',
+    networkError: '网络错误，请稍后重试',
+    completed: '支付成功',
+    pending: '等待支付',
+    processing: '处理中',
+    failed: '支付失败',
+    unknown: '未知状态',
+    paymentSuccess: '支付成功！',
+    creditsAdded: '您的积分已添加到账户',
+    paymentStatus: '支付状态:',
+    refreshStatus: '刷新状态',
+    paymentInstructions: '支付说明',
+    followSteps: '请按照以下步骤完成支付',
+    paymentAddress: '支付地址',
+    importantTips: '重要提示：',
+    ensureNetwork: (network: string) => `请确保使用 ${network} 网络发送 USDT`,
+    sendAmount: (amount: number) => `发送金额必须为 ${amount} USDT`,
+    addPaymentIdNote: (paymentId: string) => `建议在备注中填写支付ID: ${paymentId}`,
+    confirmTime: '支付确认可能需要 1-3 分钟',
+    alipayQrCode: '支付宝收款码',
+    receiveAccount: '收款账户',
+    paymentTips: '支付说明：',
+    scanQrCode: '使用支付宝扫描上方二维码',
+    payAmount: (amount: number) => `支付金额: ${amount} 元`,
+    addNotePaymentId: (paymentId: string) => `请在备注中填写支付ID: ${paymentId}`,
+    autoCredit: '支付成功后积分将自动到账',
+    manualVerify: '手动验证支付',
+    manualVerifyDesc: '如果您已完成支付但状态未更新，可以手动验证',
+    transactionHash: '交易哈希',
+    enterUsdtHash: '输入USDT交易哈希',
+    sendAddress: '发送地址',
+    enterUsdtAddress: '输入您的USDT发送地址',
+    transactionId: '交易ID',
+    enterAlipayId: '输入支付宝交易ID',
+    verifying: '验证中...',
+    verifyPayment: '验证支付',
+  },
+  en: {
+    copied: 'Copied',
+    copiedDesc: (label: string) => `${label} copied to clipboard`,
+    copyFailed: 'Copy Failed',
+    copyManually: 'Please copy manually',
+    verifyFailed: 'Verification Failed',
+    enterHashOrId: 'Please enter transaction hash or transaction ID',
+    verifySuccess: 'Verification Successful',
+    verifySuccessDesc: 'Payment verified, credits added to your account',
+    checkInputInfo: 'Please check if the input information is correct',
+    networkError: 'Network error, please try again later',
+    completed: 'Payment Successful',
+    pending: 'Pending Payment',
+    processing: 'Processing',
+    failed: 'Payment Failed',
+    unknown: 'Unknown Status',
+    paymentSuccess: 'Payment Successful!',
+    creditsAdded: 'Credits have been added to your account',
+    paymentStatus: 'Payment Status:',
+    refreshStatus: 'Refresh Status',
+    paymentInstructions: 'Payment Instructions',
+    followSteps: 'Please follow the steps below to complete payment',
+    paymentAddress: 'Payment Address',
+    importantTips: 'Important:',
+    ensureNetwork: (network: string) => `Please ensure you send USDT using ${network} network`,
+    sendAmount: (amount: number) => `Amount must be ${amount} USDT`,
+    addPaymentIdNote: (paymentId: string) => `Recommended to add Payment ID in memo: ${paymentId}`,
+    confirmTime: 'Payment confirmation may take 1-3 minutes',
+    alipayQrCode: 'Alipay QR Code',
+    receiveAccount: 'Receiving Account',
+    paymentTips: 'Payment Tips:',
+    scanQrCode: 'Scan the QR code above with Alipay',
+    payAmount: (amount: number) => `Payment amount: ${amount} CNY`,
+    addNotePaymentId: (paymentId: string) => `Please add Payment ID in note: ${paymentId}`,
+    autoCredit: 'Credits will be automatically added after successful payment',
+    manualVerify: 'Manual Verification',
+    manualVerifyDesc: 'If you have completed payment but status not updated, you can verify manually',
+    transactionHash: 'Transaction Hash',
+    enterUsdtHash: 'Enter USDT transaction hash',
+    sendAddress: 'Sending Address',
+    enterUsdtAddress: 'Enter your USDT sending address',
+    transactionId: 'Transaction ID',
+    enterAlipayId: 'Enter Alipay transaction ID',
+    verifying: 'Verifying...',
+    verifyPayment: 'Verify Payment',
+  },
+};
 
 interface PaymentMonitorProps {
   paymentId: string;
@@ -35,6 +131,8 @@ export default function PaymentMonitor({
   onPaymentVerified
 }: PaymentMonitorProps) {
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = TRANSLATIONS[language] || TRANSLATIONS.zh;
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [transactionHash, setTransactionHash] = useState('');
@@ -69,13 +167,13 @@ export default function PaymentMonitor({
     try {
       await navigator.clipboard.writeText(text);
       toast({
-        title: '已复制',
-        description: `${label} 已复制到剪贴板`,
+        title: t.copied,
+        description: t.copiedDesc(label),
       });
     } catch (error) {
       toast({
-        title: '复制失败',
-        description: '请手动复制',
+        title: t.copyFailed,
+        description: t.copyManually,
         variant: 'destructive',
       });
     }
@@ -84,8 +182,8 @@ export default function PaymentMonitor({
   const handleManualVerification = async () => {
     if (!transactionHash && !transactionId) {
       toast({
-        title: '验证失败',
-        description: '请输入交易哈希或交易ID',
+        title: t.verifyFailed,
+        description: t.enterHashOrId,
         variant: 'destructive',
       });
       return;
@@ -108,8 +206,8 @@ export default function PaymentMonitor({
 
       if (response.ok) {
         toast({
-          title: '验证成功',
-          description: '支付已验证，积分已添加到您的账户',
+          title: t.verifySuccess,
+          description: t.verifySuccessDesc,
         });
         checkPaymentStatus();
         if (onPaymentVerified) {
@@ -118,15 +216,15 @@ export default function PaymentMonitor({
       } else {
         const error = await response.json();
         toast({
-          title: '验证失败',
-          description: error.error || '请检查输入信息是否正确',
+          title: t.verifyFailed,
+          description: error.error || t.checkInputInfo,
           variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
-        title: '验证失败',
-        description: '网络错误，请稍后重试',
+        title: t.verifyFailed,
+        description: t.networkError,
         variant: 'destructive',
       });
     } finally {
@@ -151,15 +249,15 @@ export default function PaymentMonitor({
   const getStatusText = (status: string) => {
     switch (status) {
       case 'completed':
-        return '支付成功';
+        return t.completed;
       case 'pending':
-        return '等待支付';
+        return t.pending;
       case 'processing':
-        return '处理中';
+        return t.processing;
       case 'failed':
-        return '支付失败';
+        return t.failed;
       default:
-        return '未知状态';
+        return t.unknown;
     }
   };
 
@@ -171,10 +269,10 @@ export default function PaymentMonitor({
             <CheckCircle className="h-8 w-8 text-green-600" />
             <div>
               <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">
-                支付成功！
+                {t.paymentSuccess}
               </h3>
               <p className="text-green-600 dark:text-green-300">
-                您的积分已添加到账户
+                {t.creditsAdded}
               </p>
             </div>
           </div>
@@ -190,7 +288,7 @@ export default function PaymentMonitor({
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             {getStatusIcon(paymentData?.status || 'pending')}
-            <span>支付状态: {getStatusText(paymentData?.status || 'pending')}</span>
+            <span>{t.paymentStatus} {getStatusText(paymentData?.status || 'pending')}</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -202,7 +300,7 @@ export default function PaymentMonitor({
               disabled={isLoading}
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              刷新状态
+              {t.refreshStatus}
             </Button>
           </div>
         </CardContent>
@@ -211,16 +309,16 @@ export default function PaymentMonitor({
       {/* Payment Instructions */}
       <Card>
         <CardHeader>
-          <CardTitle>支付说明</CardTitle>
+          <CardTitle>{t.paymentInstructions}</CardTitle>
           <CardDescription>
-            请按照以下步骤完成支付
+            {t.followSteps}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {paymentMethod === 'usdt' && paymentAddress && (
             <div className="space-y-4">
               <div>
-                <Label className="text-sm font-medium">支付地址 ({network})</Label>
+                <Label className="text-sm font-medium">{t.paymentAddress} ({network})</Label>
                 <div className="flex items-center space-x-2 mt-1">
                   <Input
                     value={paymentAddress}
@@ -230,22 +328,22 @@ export default function PaymentMonitor({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => copyToClipboard(paymentAddress, '支付地址')}
+                    onClick={() => copyToClipboard(paymentAddress, t.paymentAddress)}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-              
+
               <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
                 <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">
-                  重要提示：
+                  {t.importantTips}
                 </h4>
                 <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
-                  <li>• 请确保使用 {network} 网络发送 USDT</li>
-                  <li>• 发送金额必须为 {amount} USDT</li>
-                  <li>• 建议在备注中填写支付ID: {paymentId}</li>
-                  <li>• 支付确认可能需要 1-3 分钟</li>
+                  <li>• {t.ensureNetwork(network || '')}</li>
+                  <li>• {t.sendAmount(amount)}</li>
+                  <li>• {t.addPaymentIdNote(paymentId)}</li>
+                  <li>• {t.confirmTime}</li>
                 </ul>
               </div>
             </div>
@@ -254,7 +352,7 @@ export default function PaymentMonitor({
           {paymentMethod === 'alipay' && qrCodeUrl && (
             <div className="space-y-4">
               <div>
-                <Label className="text-sm font-medium">支付宝收款码</Label>
+                <Label className="text-sm font-medium">{t.alipayQrCode}</Label>
                 <div className="mt-2">
                   <img
                     src={qrCodeUrl}
@@ -264,9 +362,9 @@ export default function PaymentMonitor({
                   />
                 </div>
               </div>
-              
+
               <div>
-                <Label className="text-sm font-medium">收款账户</Label>
+                <Label className="text-sm font-medium">{t.receiveAccount}</Label>
                 <div className="flex items-center space-x-2 mt-1">
                   <Input
                     value={account || ''}
@@ -276,22 +374,22 @@ export default function PaymentMonitor({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => copyToClipboard(account || '', '收款账户')}
+                    onClick={() => copyToClipboard(account || '', t.receiveAccount)}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-              
+
               <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
                 <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
-                  支付说明：
+                  {t.paymentTips}
                 </h4>
                 <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                  <li>• 使用支付宝扫描上方二维码</li>
-                  <li>• 支付金额: {amount} 元</li>
-                  <li>• 请在备注中填写支付ID: {paymentId}</li>
-                  <li>• 支付成功后积分将自动到账</li>
+                  <li>• {t.scanQrCode}</li>
+                  <li>• {t.payAmount(amount)}</li>
+                  <li>• {t.addNotePaymentId(paymentId)}</li>
+                  <li>• {t.autoCredit}</li>
                 </ul>
               </div>
             </div>
@@ -302,31 +400,31 @@ export default function PaymentMonitor({
       {/* Manual Verification */}
       <Card>
         <CardHeader>
-          <CardTitle>手动验证支付</CardTitle>
+          <CardTitle>{t.manualVerify}</CardTitle>
           <CardDescription>
-            如果您已完成支付但状态未更新，可以手动验证
+            {t.manualVerifyDesc}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {paymentMethod === 'usdt' && (
             <>
               <div>
-                <Label htmlFor="transactionHash">交易哈希</Label>
+                <Label htmlFor="transactionHash">{t.transactionHash}</Label>
                 <Input
                   id="transactionHash"
                   value={transactionHash}
                   onChange={(e) => setTransactionHash(e.target.value)}
-                  placeholder="输入USDT交易哈希"
+                  placeholder={t.enterUsdtHash}
                   className="mt-1"
                 />
               </div>
               <div>
-                <Label htmlFor="fromAddress">发送地址</Label>
+                <Label htmlFor="fromAddress">{t.sendAddress}</Label>
                 <Input
                   id="fromAddress"
                   value={fromAddress}
                   onChange={(e) => setFromAddress(e.target.value)}
-                  placeholder="输入您的USDT发送地址"
+                  placeholder={t.enterUsdtAddress}
                   className="mt-1"
                 />
               </div>
@@ -335,12 +433,12 @@ export default function PaymentMonitor({
 
           {paymentMethod === 'alipay' && (
             <div>
-              <Label htmlFor="transactionId">交易ID</Label>
+              <Label htmlFor="transactionId">{t.transactionId}</Label>
               <Input
                 id="transactionId"
                 value={transactionId}
                 onChange={(e) => setTransactionId(e.target.value)}
-                placeholder="输入支付宝交易ID"
+                placeholder={t.enterAlipayId}
                 className="mt-1"
               />
             </div>
@@ -354,10 +452,10 @@ export default function PaymentMonitor({
             {isVerifying ? (
               <>
                 <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                验证中...
+                {t.verifying}
               </>
             ) : (
-              '验证支付'
+              t.verifyPayment
             )}
           </Button>
         </CardContent>

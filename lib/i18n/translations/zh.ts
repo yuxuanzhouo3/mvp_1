@@ -345,6 +345,58 @@ export const zh = {
     startChatting: '开始聊天吧',
     totalChats: '总对话',
     unread: '未读消息',
+
+    // Header
+    online: '在线',
+    offline: '离线',
+    lastSeen: '最后在线',
+    voiceCall: '语音通话',
+    videoCall: '视频通话',
+    viewProfile: '查看资料',
+    blockUser: '屏蔽用户',
+    reportUser: '举报用户',
+
+    // Audio
+    audioLoadError: '无法加载音频',
+
+    // Emoji categories
+    emojiCategories: {
+      common: '常用',
+      gestures: '手势',
+      hearts: '爱心',
+      animals: '动物',
+      food: '食物',
+      objects: '物品',
+      symbols: '符号',
+    },
+
+    // Message
+    me: '我',
+
+    // INTL 实时聊天
+    typing: '正在输入...',
+    recalled: '已撤回',
+    recallMessage: '撤回',
+    reply: '回复',
+    replyingTo: '回复',
+    loadMore: '加载更多',
+    today: '今天',
+    image: '[图片]',
+    audio: '[语音]',
+    video: '[视频]',
+    location: '[位置]',
+    sticker: '[表情]',
+    unknownUser: '未知用户',
+    sendImage: '发送图片',
+    sendEmoji: '发送表情',
+    messageRecalled: '你撤回了一条消息',
+    otherRecalled: '对方撤回了一条消息',
+    cannotRecall: '超过2分钟无法撤回',
+    uploadingImage: '上传图片中...',
+    uploadFailed: '上传失败',
+    enableNotifications: '开启消息通知',
+    notificationEnabled: '消息通知已开启',
+    notificationFailed: '开启通知失败',
   },
 
   // 个人资料
@@ -394,6 +446,30 @@ export const zh = {
     allCandidatesViewed: '已查看所有候选人',
     allCandidatesViewedDesc: '请稍后再来查看新的匹配！',
     yearsOld: '{age}岁',
+
+    // 兼容性标签
+    perfectMatch: '完美匹配',
+    highMatch: '高度匹配',
+    goodMatch: '良好匹配',
+    averageMatch: '一般匹配',
+
+    // 卡片详情
+    interests: '兴趣爱好',
+    personalityType: '性格类型',
+    income: '收入',
+    hidden: '未公开',
+    notFilled: '未填写',
+    matchDetails: '匹配详情',
+    personalityMatch: '性格匹配',
+    interestsMatch: '兴趣匹配',
+    valuesMatch: '价值观匹配',
+
+    // 最近匹配
+    noMatchesYet: '暂无匹配',
+    completeProfilePrompt: '完善您的个人资料，开始寻找心仪的匹配',
+    viewProfile: '查看资料',
+    viewAllMatches: '查看全部匹配',
+    chat: '聊天',
     likeSuccess: '喜欢成功！',
     likeSuccessDesc: '你喜欢了{name}',
     matchSuccess: '匹配成功！',

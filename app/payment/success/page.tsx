@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,7 @@ interface PaymentSuccessData {
   transactionId: string;
 }
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -99,7 +99,7 @@ export default function PaymentSuccessPage() {
               {t.payment.success.description}
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="space-y-6">
             {paymentData ? (
               <div className="space-y-4">
@@ -139,7 +139,7 @@ export default function PaymentSuccessPage() {
             )}
 
             <div className="space-y-3">
-              <Button 
+              <Button
                 onClick={handleGoToMatching}
                 className="w-full"
                 size="lg"
@@ -147,8 +147,8 @@ export default function PaymentSuccessPage() {
                 <ArrowRight className="h-4 w-4 mr-2" />
                 {t.payment.success.startMatching}
               </Button>
-              
-              <Button 
+
+              <Button
                 onClick={handleGoToDashboard}
                 variant="outline"
                 className="w-full"
@@ -166,5 +166,20 @@ export default function PaymentSuccessPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 } 
