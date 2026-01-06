@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLanguage } from '@/components/language-provider'
+import { useTranslations } from '@/lib/i18n'
 
 interface MatchCardProps {
   user: {
@@ -58,7 +59,8 @@ export default function MatchCard({
 }: MatchCardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
   const [isAnimating, setIsAnimating] = useState(false)
-  const { t } = useLanguage()
+  const { language } = useLanguage()
+  const t = useTranslations(language)
 
   // Get display location (city_name is always visible, exact location may be hidden)
   const displayLocation = user.city_name || user.location || ''
