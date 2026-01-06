@@ -33,6 +33,12 @@ interface UserData {
   };
 }
 
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
 interface DashboardSidebarProps {
   user: UserData | null;
   isAdmin?: boolean;
@@ -47,7 +53,7 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
   const { language } = useLanguage()
   const t = useTranslations(language)
 
-  const navigation = [
+  const navigation: NavigationItem[] = [
     { name: t.dashboard.sidebar.home, href: '/dashboard', icon: Home },
     { name: t.dashboard.sidebar.chat, href: '/chat', icon: MessageSquare },
     { name: t.dashboard.sidebar.matching, href: '/matching', icon: Heart },
