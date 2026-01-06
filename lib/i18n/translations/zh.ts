@@ -2024,6 +2024,8 @@ export const zh = {
     pendingReviewMessage: '通常 1-3 小时内完成审核',
     photoPendingReview: '张照片正在审核中',
     pendingReviewDesc: '我们的团队会在 1-3 小时内完成审核。审核通过后，您的照片将显示在个人资料中。',
+    maxPhotosReached: '已达到照片上限',
+    maxPhotosDesc: '最多只能上传 6 张照片',
   },
 } as const;
 

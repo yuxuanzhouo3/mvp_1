@@ -2044,6 +2044,8 @@ export const en = {
     pendingReviewMessage: 'Usually reviewed within 1-3 hours',
     photoPendingReview: 'photo(s) pending review',
     pendingReviewDesc: 'Our team will review within 1-3 hours. Once approved, your photos will be visible on your profile.',
+    maxPhotosReached: 'Maximum photos reached',
+    maxPhotosDesc: 'You can only have up to 6 photos',
   },
 } as const;
 
