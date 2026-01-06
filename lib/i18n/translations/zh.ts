@@ -2026,6 +2026,17 @@ export const zh = {
     pendingReviewDesc: '我们的团队会在 1-3 小时内完成审核。审核通过后，您的照片将显示在个人资料中。',
     maxPhotosReached: '已达到照片上限',
     maxPhotosDesc: '最多只能上传 6 张照片',
+    uploadFailed: '上传失败',
+    uploaded: '上传成功',
+    uploadedDesc: '您的照片正在等待审核',
+    uploading: '上传中...',
+    photosUploaded: '张照片',
+    managePhotos: '管理照片',
+    managePhotosDesc: '上传和管理您的个人资料照片',
+    uploadDesc: '拖放照片或点击上传',
+    primarySet: '主照片已更新',
+    primarySetDesc: '您的主照片已成功更新',
+    error: '错误',
   },
 } as const;
 

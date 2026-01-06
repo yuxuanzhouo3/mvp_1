@@ -2046,6 +2046,17 @@ export const en = {
     pendingReviewDesc: 'Our team will review within 1-3 hours. Once approved, your photos will be visible on your profile.',
     maxPhotosReached: 'Maximum photos reached',
     maxPhotosDesc: 'You can only have up to 6 photos',
+    uploadFailed: 'Upload Failed',
+    uploaded: 'Photo Uploaded',
+    uploadedDesc: 'Your photo is now pending review',
+    uploading: 'Uploading...',
+    photosUploaded: 'photos',
+    managePhotos: 'Manage Photos',
+    managePhotosDesc: 'Upload and manage your profile photos',
+    uploadDesc: 'Drag and drop photos or click to upload',
+    primarySet: 'Primary Photo Updated',
+    primarySetDesc: 'Your primary photo has been updated',
+    error: 'Error',
   },
 } as const;
 
