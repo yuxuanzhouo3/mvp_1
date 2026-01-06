@@ -49,6 +49,7 @@ interface UserProfile {
   education_level?: string;
   occupation?: string;
   mbti?: string;
+  is_profile_complete?: boolean;
 }
 
 interface RecentMatch {
