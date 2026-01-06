@@ -743,6 +743,7 @@ export const en = {
     contactEmail: 'Email: privacy@personalink.ai',
     contactAddress: 'Address: PersonaLink, San Francisco, CA',
     contactPhone: 'Phone: +1 (555) 123-4567',
+    locationApproximate: 'Approximate location',
   },
 
   // Terms Page

@@ -744,6 +744,7 @@ export const zh = {
     contactEmail: '邮箱：privacy@personalink.ai',
     contactAddress: '地址：PersonaLink，加利福尼亚州旧金山',
     contactPhone: '电话：+1 (555) 123-4567',
+    locationApproximate: '大致位置',
   },
 
   // 条款页面
