@@ -146,7 +146,9 @@ export default function MatchCard({
                       <MapPin className="h-4 w-4 mr-1" />
                       {displayLocation}
                       {user.location_hidden && (
-                        <EyeOff className="h-3 w-3 ml-1 opacity-60" title={t('privacy.locationApproximate')} />
+                        <span title={t.privacy?.locationApproximate || 'Approximate location'}>
+                          <EyeOff className="h-3 w-3 ml-1 opacity-60" />
+                        </span>
                       )}
                     </div>
                   )}
