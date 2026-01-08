@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { clearAllCaches } from '@/lib/utils/cache-cleaner';
 
 interface AuthContextType {
   user: User | null;
@@ -165,27 +166,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     console.log('🚪 SignOut called');
-    
+
     try {
+      // Get user ID before clearing state (for cache cleanup)
+      const currentUserId = userRef.current?.id;
+
+      // Clear all caches first (before Supabase signOut)
+      await clearAllCaches({ userId: currentUserId });
+
       // Clear Supabase session
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('SignOut error:', error);
         throw error;
       }
-      
+
       // Clear local state immediately
       setSession(null);
       setUser(null);
       userRef.current = null;
-      
-      // Clear any localStorage items
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('supabase.auth.token');
-        localStorage.removeItem('supabase.auth.expires_at');
-        localStorage.removeItem('supabase.auth.refresh_token');
-      }
-      
+
       console.log('✅ SignOut completed successfully');
     } catch (error) {
       console.error('SignOut error:', error);
