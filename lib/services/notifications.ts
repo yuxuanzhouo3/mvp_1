@@ -281,4 +281,105 @@ export const NOTIFICATION_TEMPLATES = {
       message: (reason: string) => `您的照片未通过审核：${reason}`,
     },
   },
+  match_success: {
+    en: {
+      title: '🎉 It\'s a Match!',
+      message: (userName: string) => `Congratulations! You and ${userName} liked each other. Start chatting now!`,
+    },
+    zh: {
+      title: '🎉 匹配成功！',
+      message: (userName: string) => `恭喜！你和 ${userName} 互相喜欢，快去聊天吧！`,
+    },
+  },
+  someone_liked_you: {
+    en: {
+      title: '❤️ Someone Likes You!',
+      message: 'Someone likes you! Check out the matching page to find out who.',
+    },
+    zh: {
+      title: '❤️ 有人喜欢你！',
+      message: '有人喜欢你！快去匹配页面看看吧 ❤️',
+    },
+  },
+  super_like_received: {
+    en: {
+      title: '💖 You Got a Super Like!',
+      message: 'Someone super liked you! Check out the matching page to find out who 💖',
+    },
+    zh: {
+      title: '💖 收到超级喜欢！',
+      message: '有人超级喜欢你！快去匹配页面看看吧 💖',
+    },
+  },
 } as const;
+
+/**
+ * Get notification content based on deployment region
+ * INTL region uses English, CN region uses Chinese
+ */
+export function getNotificationContent(
+  templateKey: keyof typeof NOTIFICATION_TEMPLATES,
+  language?: 'en' | 'zh'
+): { title: string; message: string | ((arg: string) => string) } {
+  // Import deployment config dynamically to avoid circular dependencies
+  const lang = language ?? (process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN' ? 'zh' : 'en');
+  const template = NOTIFICATION_TEMPLATES[templateKey];
+  return template[lang];
+}
+
+/**
+ * Create match success notification with i18n support
+ */
+export async function notifyMatchSuccess(
+  userId: string,
+  matchedUserName: string,
+  matchId: string,
+  matchedUserId: string,
+  matchScore: number | null
+): Promise<{ success: boolean; error?: string }> {
+  const lang = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN' ? 'zh' : 'en';
+  const content = NOTIFICATION_TEMPLATES.match_success[lang];
+  const message = typeof content.message === 'function'
+    ? content.message(matchedUserName)
+    : content.message;
+
+  return createNotification({
+    userId,
+    type: 'match',
+    title: content.title,
+    message,
+    actionUrl: `/chat?matchId=${matchId}`,
+    metadata: {
+      matchId,
+      matchedUserId,
+      matchedUserName,
+      matchScore,
+    },
+  });
+}
+
+/**
+ * Create "someone liked you" notification with i18n support
+ */
+export async function notifySomeoneLikedYou(
+  userId: string,
+  fromUserId: string,
+  isSuperLike: boolean = false
+): Promise<{ success: boolean; error?: string }> {
+  const lang = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN' ? 'zh' : 'en';
+  const templateKey = isSuperLike ? 'super_like_received' : 'someone_liked_you';
+  const content = NOTIFICATION_TEMPLATES[templateKey][lang];
+
+  return createNotification({
+    userId,
+    type: 'match',
+    title: content.title,
+    message: content.message as string,
+    actionUrl: '/matching',
+    metadata: {
+      type: 'someone_liked_you',
+      action: isSuperLike ? 'super_like' : 'like',
+      fromUserId,
+    },
+  });
+}

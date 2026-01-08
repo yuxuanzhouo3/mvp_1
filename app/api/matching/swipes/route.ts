@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/server';
-import { createNotification } from '@/lib/services/notifications';
+import { notifyMatchSuccess, notifySomeoneLikedYou } from '@/lib/services/notifications';
 import type { SwipeActionEnum } from '@/types/database';
 
 /**
@@ -302,40 +302,29 @@ export async function POST(request: NextRequest) {
             .eq('id', targetUserId)
             .single();
 
-          const currentUserName = currentUserInfo?.full_name || '有人';
-          const targetUserName = targetUserInfo?.full_name || '有人';
+          const currentUserName = currentUserInfo?.full_name || (process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN' ? '有人' : 'Someone');
+          const targetUserName = targetUserInfo?.full_name || (process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN' ? '有人' : 'Someone');
 
           // 给对方发送匹配成功通知（当前用户会通过前端 toast 看到）
-          const notifyTargetResult = await createNotification({
-            userId: targetUserId,
-            type: 'match',
-            title: '🎉 匹配成功！',
-            message: `恭喜！你和 ${currentUserName} 互相喜欢，快去聊天吧！`,
-            actionUrl: `/chat?matchId=${match.id}`,
-            metadata: {
-              matchId: match.id,
-              matchedUserId: user.id,
-              matchedUserName: currentUserName,
-              matchScore: match.match_score
-            }
-          });
+          // 使用多语言通知函数，根据 INTL/CN 环境自动选择语言
+          const notifyTargetResult = await notifyMatchSuccess(
+            targetUserId,
+            currentUserName,
+            match.id,
+            user.id,
+            match.match_score
+          );
 
           console.log('[Swipes] Target user notification result:', notifyTargetResult);
 
           // 给当前用户也发送通知（作为记录，同时支持通知页面查看）
-          const notifyCurrentResult = await createNotification({
-            userId: user.id,
-            type: 'match',
-            title: '🎉 匹配成功！',
-            message: `恭喜！你和 ${targetUserName} 互相喜欢，快去聊天吧！`,
-            actionUrl: `/chat?matchId=${match.id}`,
-            metadata: {
-              matchId: match.id,
-              matchedUserId: targetUserId,
-              matchedUserName: targetUserName,
-              matchScore: match.match_score
-            }
-          });
+          const notifyCurrentResult = await notifyMatchSuccess(
+            user.id,
+            targetUserName,
+            match.id,
+            targetUserId,
+            match.match_score
+          );
 
           console.log('[Swipes] Current user notification result:', notifyCurrentResult);
         } else {
@@ -343,22 +332,12 @@ export async function POST(request: NextRequest) {
         }
       } else {
         // 单方面 like，给对方发送"有人喜欢你"的通知
-        const notificationMessage = action === 'super_like'
-          ? '有人超级喜欢你！快去匹配页面看看吧 💖'
-          : '有人喜欢你！快去匹配页面看看吧 ❤️';
-
-        const notifyResult = await createNotification({
-          userId: targetUserId,
-          type: 'match',
-          title: action === 'super_like' ? '💖 收到超级喜欢！' : '❤️ 有人喜欢你！',
-          message: notificationMessage,
-          actionUrl: '/matching',
-          metadata: {
-            type: 'someone_liked_you',
-            action: action,
-            fromUserId: user.id // 记录谁喜欢的（用于后续功能）
-          }
-        });
+        // 使用多语言通知函数，根据 INTL/CN 环境自动选择语言
+        const notifyResult = await notifySomeoneLikedYou(
+          targetUserId,
+          user.id,
+          action === 'super_like'
+        );
 
         if (!notifyResult.success) {
           console.error('Failed to create like notification:', notifyResult.error);
