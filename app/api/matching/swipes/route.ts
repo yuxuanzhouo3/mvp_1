@@ -16,12 +16,12 @@ import type { SwipeActionEnum } from '@/types/database';
 export async function GET(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient();
-    
+
     // 获取当前用户
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
-        { success: false, error: '请先登录' },
+        { success: false, error: 'AUTH_REQUIRED', errorCode: 'AUTH_REQUIRED' },
         { status: 401 }
       );
     }
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     if (swipesError) {
       console.error('Error fetching swipes:', swipesError);
       return NextResponse.json(
-        { success: false, error: '获取互动记录失败' },
+        { success: false, error: 'FETCH_SWIPES_FAILED', errorCode: 'FETCH_SWIPES_FAILED' },
         { status: 500 }
       );
     }
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Swipes GET API error:', error);
     return NextResponse.json(
-      { success: false, error: '服务器内部错误' },
+      { success: false, error: 'SERVER_ERROR', errorCode: 'SERVER_ERROR' },
       { status: 500 }
     );
   }
@@ -109,12 +109,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient();
-    
+
     // 获取当前用户
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
-        { success: false, error: '请先登录' },
+        { success: false, error: 'AUTH_REQUIRED', errorCode: 'AUTH_REQUIRED' },
         { status: 401 }
       );
     }
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     // 验证参数
     if (!targetUserId) {
       return NextResponse.json(
-        { success: false, error: '缺少目标用户ID' },
+        { success: false, error: 'TARGET_USER_REQUIRED', errorCode: 'TARGET_USER_REQUIRED' },
         { status: 400 }
       );
     }
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
     const validActions: SwipeActionEnum[] = ['pass', 'like', 'super_like'];
     if (!action || !validActions.includes(action)) {
       return NextResponse.json(
-        { success: false, error: '无效的操作类型，有效值: pass, like, super_like' },
+        { success: false, error: 'INVALID_ACTION', errorCode: 'INVALID_ACTION' },
         { status: 400 }
       );
     }
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
     // 不能对自己操作
     if (targetUserId === user.id) {
       return NextResponse.json(
-        { success: false, error: '不能对自己进行操作' },
+        { success: false, error: 'CANNOT_SWIPE_SELF', errorCode: 'CANNOT_SWIPE_SELF' },
         { status: 400 }
       );
     }
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
 
     if (targetError || !targetUser) {
       return NextResponse.json(
-        { success: false, error: '目标用户不存在' },
+        { success: false, error: 'TARGET_USER_NOT_FOUND', errorCode: 'TARGET_USER_NOT_FOUND' },
         { status: 404 }
       );
     }
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
 
     if (existingSwipe) {
       return NextResponse.json(
-        { success: false, error: '已经对该用户进行过操作' },
+        { success: false, error: 'ALREADY_INTERACTED', errorCode: 'ALREADY_INTERACTED' },
         { status: 409 }
       );
     }
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       console.error('Error creating swipe:', insertError);
       return NextResponse.json(
-        { success: false, error: '记录互动失败' },
+        { success: false, error: 'CREATE_SWIPE_FAILED', errorCode: 'CREATE_SWIPE_FAILED' },
         { status: 500 }
       );
     }
@@ -232,12 +232,55 @@ export async function POST(request: NextRequest) {
         const user1 = user.id < targetUserId ? user.id : targetUserId;
         const user2 = user.id < targetUserId ? targetUserId : user.id;
 
-        const { data: match } = await supabase
-          .from('matches')
-          .select('id, match_score, matched_at')
-          .eq('user_1', user1)
-          .eq('user_2', user2)
-          .single();
+        console.log('[Swipes] Mutual like detected, checking match record:', { user1, user2 });
+
+        // 尝试获取匹配记录，添加重试机制（触发器可能有延迟）
+        let match = null;
+        let matchError = null;
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const { data, error } = await supabase
+            .from('matches')
+            .select('id, match_score, matched_at')
+            .eq('user_1', user1)
+            .eq('user_2', user2)
+            .single();
+
+          if (data) {
+            match = data;
+            break;
+          }
+          matchError = error;
+
+          // 如果没找到，等待100ms后重试
+          if (attempt < 2) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+
+        // 如果触发器没有创建 match，手动创建
+        if (!match) {
+          console.log('[Swipes] Match not found after retries, creating manually...');
+          const { data: newMatch, error: createError } = await supabase
+            .from('matches')
+            .insert({
+              user_1: user1,
+              user_2: user2,
+              match_score: null,
+              algorithm_type: null
+            })
+            .select('id, match_score, matched_at')
+            .single();
+
+          if (newMatch) {
+            match = newMatch;
+            console.log('[Swipes] Match created manually:', match);
+          } else {
+            console.error('[Swipes] Failed to create match manually:', createError);
+          }
+        }
+
+        console.log('[Swipes] Match query result:', { match, matchError });
 
         if (match) {
           matchInfo = {
@@ -263,7 +306,7 @@ export async function POST(request: NextRequest) {
           const targetUserName = targetUserInfo?.full_name || '有人';
 
           // 给对方发送匹配成功通知（当前用户会通过前端 toast 看到）
-          await createNotification({
+          const notifyTargetResult = await createNotification({
             userId: targetUserId,
             type: 'match',
             title: '🎉 匹配成功！',
@@ -277,8 +320,10 @@ export async function POST(request: NextRequest) {
             }
           });
 
+          console.log('[Swipes] Target user notification result:', notifyTargetResult);
+
           // 给当前用户也发送通知（作为记录，同时支持通知页面查看）
-          await createNotification({
+          const notifyCurrentResult = await createNotification({
             userId: user.id,
             type: 'match',
             title: '🎉 匹配成功！',
@@ -291,6 +336,10 @@ export async function POST(request: NextRequest) {
               matchScore: match.match_score
             }
           });
+
+          console.log('[Swipes] Current user notification result:', notifyCurrentResult);
+        } else {
+          console.error('[Swipes] Match record not found! Trigger may have failed.', { user1, user2, matchError });
         }
       } else {
         // 单方面 like，给对方发送"有人喜欢你"的通知
@@ -328,20 +377,20 @@ export async function POST(request: NextRequest) {
         },
         isMatched,
         matchInfo,
-        message: isMatched 
-          ? '恭喜！你们互相喜欢，匹配成功！🎉' 
-          : action === 'like' 
-            ? '已喜欢，等待对方回应' 
+        messageCode: isMatched
+          ? 'MATCH_SUCCESS'
+          : action === 'like'
+            ? 'LIKE_SUCCESS'
             : action === 'super_like'
-              ? '已超级喜欢！对方会优先看到你'
-              : '已跳过'
+              ? 'SUPER_LIKE_SUCCESS'
+              : 'PASS_SUCCESS'
       }
     });
 
   } catch (error) {
     console.error('Swipes POST API error:', error);
     return NextResponse.json(
-      { success: false, error: '服务器内部错误' },
+      { success: false, error: 'SERVER_ERROR', errorCode: 'SERVER_ERROR' },
       { status: 500 }
     );
   }

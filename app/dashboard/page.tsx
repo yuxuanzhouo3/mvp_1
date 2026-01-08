@@ -30,6 +30,7 @@ import { useTranslations, interpolate } from '@/lib/i18n';
 import PhotoAuditStatus from '@/components/profile/PhotoAuditStatus';
 import { useMarketValue } from '@/hooks/useMarketValue';
 import { ScoreBadge } from '@/components/profile/ScoreBadge';
+import { chatClient } from '@/lib/realtime/chat-client';
 
 interface UserProfile {
   id: string;
@@ -271,7 +272,21 @@ export default function DashboardPage() {
   };
 
   const handleViewChats = () => {
-    router.push('/chat');
+    router.push('/dashboard/messages');
+  };
+
+  const handleOpenChat = async (matchId: string) => {
+    try {
+      const roomId = await chatClient.getOrCreateChatRoom(matchId);
+      router.push(`/dashboard/messages/${roomId}`);
+    } catch (error) {
+      console.error('Failed to open chat:', error);
+      toast({
+        title: language === 'zh' ? '打开聊天失败' : 'Failed to open chat',
+        description: language === 'zh' ? '请稍后重试' : 'Please try again later',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -587,7 +602,7 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <button
-                        onClick={() => router.push(`/chat/${match.id}`)}
+                        onClick={() => handleOpenChat(match.id)}
                         className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
                       >
                         {t.dashboard.recentMatches.chat}

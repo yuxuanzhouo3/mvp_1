@@ -19,6 +19,8 @@ export default function DashboardLayout({
 
   // Check if we're on the settings page
   const isSettingsPage = pathname === '/dashboard/settings';
+  // Check if we're in a chat room page
+  const isChatRoomPage = pathname?.startsWith('/dashboard/messages/') && pathname !== '/dashboard/messages';
 
   // Check admin status
   useEffect(() => {
@@ -78,10 +80,10 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className={`flex flex-col md:flex-row ${isChatRoomPage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-gray-50 dark:bg-gray-900`}>
       <DashboardSidebar user={user} isAdmin={isAdmin} />
-      <main className="flex-1 w-full">
-        <div className={`${isSettingsPage ? 'p-0' : 'p-6'}`}>
+      <main className={`flex-1 w-full ${isChatRoomPage ? 'h-full overflow-hidden' : ''}`}>
+        <div className={`${isSettingsPage || isChatRoomPage ? 'p-0 h-full' : 'p-6'}`}>
           {children}
         </div>
       </main>

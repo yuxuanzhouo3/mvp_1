@@ -537,6 +537,35 @@ export const zh = {
       pragmatic: '稳稳的幸福',
       serendipity: '缘分就是这么奇妙',
     },
+
+    // API错误消息
+    errors: {
+      AUTH_REQUIRED: '请先登录',
+      INVALID_ALGORITHM: '无效的算法类型',
+      FETCH_FAILED: '获取推荐列表失败',
+      SERVER_ERROR: '服务器错误，请稍后再试',
+      PROFILE_NOT_FOUND: '获取用户资料失败，请完善个人资料',
+      PROFILE_INCOMPLETE: '请先完善个人资料和市场价值评分',
+      FETCH_CANDIDATES_FAILED: '获取候选人失败',
+      NO_RECOMMENDATIONS: '暂无推荐，请稍后再试',
+      NO_CANDIDATES: '暂无符合条件的候选人',
+      // 滑动相关错误
+      TARGET_USER_REQUIRED: '缺少目标用户ID',
+      INVALID_ACTION: '无效的操作类型',
+      CANNOT_SWIPE_SELF: '不能对自己进行操作',
+      TARGET_USER_NOT_FOUND: '目标用户不存在',
+      ALREADY_INTERACTED: '已经对该用户进行过操作',
+      CREATE_SWIPE_FAILED: '记录互动失败',
+      FETCH_SWIPES_FAILED: '获取互动记录失败',
+    },
+
+    // 滑动成功消息
+    swipeMessages: {
+      MATCH_SUCCESS: '恭喜！你们互相喜欢，匹配成功！🎉',
+      LIKE_SUCCESS: '已喜欢，等待对方回应',
+      SUPER_LIKE_SUCCESS: '已超级喜欢！对方会优先看到你',
+      PASS_SUCCESS: '已跳过',
+    },
   },
 
   // 日期时间

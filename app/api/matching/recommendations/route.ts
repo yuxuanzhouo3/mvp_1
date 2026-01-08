@@ -26,12 +26,12 @@ import {
 export async function GET(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient();
-    
+
     // 获取当前用户
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
-        { success: false, error: '请先登录' },
+        { success: false, error: 'AUTH_REQUIRED', errorCode: 'AUTH_REQUIRED' },
         { status: 401 }
       );
     }
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     const validAlgorithms: AlgorithmType[] = ['compatible', 'romantic', 'pragmatic', 'serendipity'];
     if (!validAlgorithms.includes(algorithm)) {
       return NextResponse.json(
-        { success: false, error: '无效的算法类型' },
+        { success: false, error: 'INVALID_ALGORITHM', errorCode: 'INVALID_ALGORITHM' },
         { status: 400 }
       );
     }
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     if (recError) {
       console.error('Error fetching recommendations:', recError);
       return NextResponse.json(
-        { success: false, error: '获取推荐列表失败' },
+        { success: false, error: 'FETCH_FAILED', errorCode: 'FETCH_FAILED' },
         { status: 500 }
       );
     }
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
           algorithm: algorithm,
           algorithmName: ALGORITHM_NAMES[algorithm],
           total: 0,
-          message: '暂无推荐，请稍后再试或生成新推荐'
+          messageCode: 'NO_RECOMMENDATIONS'
         }
       });
     }
@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Recommendations API error:', error);
     return NextResponse.json(
-      { success: false, error: '服务器内部错误' },
+      { success: false, error: 'SERVER_ERROR', errorCode: 'SERVER_ERROR' },
       { status: 500 }
     );
   }
@@ -155,12 +155,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = createRouteHandlerClient();
-    
+
     // 获取当前用户
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
-        { success: false, error: '请先登录' },
+        { success: false, error: 'AUTH_REQUIRED', errorCode: 'AUTH_REQUIRED' },
         { status: 401 }
       );
     }
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
     const validAlgorithms: AlgorithmType[] = ['compatible', 'romantic', 'pragmatic', 'serendipity'];
     if (!validAlgorithms.includes(algorithm)) {
       return NextResponse.json(
-        { success: false, error: '无效的算法类型' },
+        { success: false, error: 'INVALID_ALGORITHM', errorCode: 'INVALID_ALGORITHM' },
         { status: 400 }
       );
     }
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
 
     if (userError || !currentUser) {
       return NextResponse.json(
-        { success: false, error: '获取用户资料失败，请完善个人资料' },
+        { success: false, error: 'PROFILE_NOT_FOUND', errorCode: 'PROFILE_NOT_FOUND' },
         { status: 400 }
       );
     }
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
     const userProfile = transformDbUserToMatchProfile(currentUser);
     if (!userProfile) {
       return NextResponse.json(
-        { success: false, error: '请先完善个人资料和市场价值评分' },
+        { success: false, error: 'PROFILE_INCOMPLETE', errorCode: 'PROFILE_INCOMPLETE' },
         { status: 400 }
       );
     }
@@ -260,7 +260,7 @@ export async function POST(request: NextRequest) {
     if (candidatesError) {
       console.error('Error fetching candidates:', candidatesError);
       return NextResponse.json(
-        { success: false, error: '获取候选人失败' },
+        { success: false, error: 'FETCH_CANDIDATES_FAILED', errorCode: 'FETCH_CANDIDATES_FAILED' },
         { status: 500 }
       );
     }
@@ -271,6 +271,16 @@ export async function POST(request: NextRequest) {
       .map(c => transformDbUserToMatchProfile(c))
       .filter((c): c is NonNullable<typeof c> => c !== null);
 
+    // 添加调试日志
+    console.log('[Matching] Debug info:', {
+      userId: user.id,
+      candidatesFromDB: candidatesData?.length || 0,
+      afterFilter: candidates.length,
+      excludeUserIds: excludeUserIds.size,
+      likedMeUserIds: likedMeUserIds.size,
+      targetGender
+    });
+
     if (candidates.length === 0) {
       return NextResponse.json({
         success: true,
@@ -279,7 +289,7 @@ export async function POST(request: NextRequest) {
           algorithm: algorithm,
           algorithmName: ALGORITHM_NAMES[algorithm],
           total: 0,
-          message: '暂无符合条件的候选人'
+          messageCode: 'NO_CANDIDATES'
         }
       });
     }
@@ -376,7 +386,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Generate recommendations error:', error);
     return NextResponse.json(
-      { success: false, error: '服务器内部错误' },
+      { success: false, error: 'SERVER_ERROR', errorCode: 'SERVER_ERROR' },
       { status: 500 }
     );
   }

@@ -511,6 +511,35 @@ export const en = {
       pragmatic: 'Steady happiness awaits',
       serendipity: 'Fate works in mysterious ways',
     },
+
+    // API error messages
+    errors: {
+      AUTH_REQUIRED: 'Please login first',
+      INVALID_ALGORITHM: 'Invalid algorithm type',
+      FETCH_FAILED: 'Failed to fetch recommendations',
+      SERVER_ERROR: 'Server error, please try again later',
+      PROFILE_NOT_FOUND: 'Failed to get user profile, please complete your profile',
+      PROFILE_INCOMPLETE: 'Please complete your profile and market value assessment first',
+      FETCH_CANDIDATES_FAILED: 'Failed to fetch candidates',
+      NO_RECOMMENDATIONS: 'No recommendations yet, please try again later',
+      NO_CANDIDATES: 'No candidates matching your criteria',
+      // Swipe errors
+      TARGET_USER_REQUIRED: 'Target user ID is required',
+      INVALID_ACTION: 'Invalid action type',
+      CANNOT_SWIPE_SELF: 'Cannot perform this action on yourself',
+      TARGET_USER_NOT_FOUND: 'Target user not found',
+      ALREADY_INTERACTED: 'Already interacted with this user',
+      CREATE_SWIPE_FAILED: 'Failed to record interaction',
+      FETCH_SWIPES_FAILED: 'Failed to fetch interaction history',
+    },
+
+    // Swipe success messages
+    swipeMessages: {
+      MATCH_SUCCESS: "It's a match! You both like each other!",
+      LIKE_SUCCESS: 'Liked! Waiting for their response',
+      SUPER_LIKE_SUCCESS: 'Super liked! They will see you first',
+      PASS_SUCCESS: 'Passed',
+    },
   },
 
   // Datetime

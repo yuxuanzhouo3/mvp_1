@@ -419,6 +419,54 @@ class ChatRealtimeClient {
   }
 
   /**
+   * 清空聊天记录
+   * 软删除指定聊天室的所有消息
+   */
+  async clearMessages(roomId: string, userId: string): Promise<boolean> {
+    // 软删除所有消息（设置 deleted_at）
+    const { error } = await this.supabase
+      .from('messages')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('room_id', roomId);
+
+    if (error) {
+      console.error('清空聊天记录失败:', error);
+      throw error;
+    }
+
+    // 更新聊天室的最后消息信息
+    await this.supabase
+      .from('chat_rooms')
+      .update({
+        last_message_content: null,
+        last_message_type: 'text',
+        last_message_at: null,
+      })
+      .eq('id', roomId);
+
+    return true;
+  }
+
+  /**
+   * 删除对话
+   * 将聊天室标记为非活跃状态
+   */
+  async deleteConversation(roomId: string, userId: string): Promise<boolean> {
+    // 将聊天室标记为非活跃
+    const { error } = await this.supabase
+      .from('chat_rooms')
+      .update({ is_active: false })
+      .eq('id', roomId);
+
+    if (error) {
+      console.error('删除对话失败:', error);
+      throw error;
+    }
+
+    return true;
+  }
+
+  /**
    * 获取或创建聊天室
    */
   async getOrCreateChatRoom(matchId: string): Promise<string> {

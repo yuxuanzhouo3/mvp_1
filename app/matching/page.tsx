@@ -138,6 +138,15 @@ export default function MatchingPage() {
     }
   }, [user]);
 
+  // 根据错误代码获取翻译后的错误消息
+  const getErrorMessage = useCallback((errorCode: string): string => {
+    const errors = (t.matching as { errors?: Record<string, string> }).errors;
+    if (errors && errorCode in errors) {
+      return errors[errorCode];
+    }
+    return t.matching.loadFailed;
+  }, [t]);
+
   // 获取推荐列表
   const fetchRecommendations = useCallback(async (algorithm: AlgorithmType, forceRefresh = false) => {
     if (!user?.id) return;
@@ -166,9 +175,12 @@ export default function MatchingPage() {
         }
       } else {
         const errorData = await response.json();
+        const errorMessage = errorData.errorCode
+          ? getErrorMessage(errorData.errorCode)
+          : t.matching.loadFailed;
         toast({
           title: t.common.error,
-          description: errorData.error || t.matching.loadFailed,
+          description: errorMessage,
           variant: 'destructive',
         });
       }
@@ -183,7 +195,7 @@ export default function MatchingPage() {
       setLoading(false);
       setGenerating(false);
     }
-  }, [user?.id, toast, t]);
+  }, [user?.id, toast, t, getErrorMessage]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -558,7 +570,7 @@ export default function MatchingPage() {
                       <div className="absolute bottom-4 left-4 bg-pink-500 text-white rounded-full px-4 py-2 shadow-lg animate-pulse">
                         <div className="flex items-center space-x-1">
                           <Heart className="h-4 w-4 fill-current" />
-                          <span className="text-sm font-bold">{t.matching.likedYou || 'TA喜欢你！'}</span>
+                          <span className="text-sm font-bold">{t.matching.likedYou}</span>
                         </div>
                       </div>
                     )}

@@ -108,7 +108,10 @@ export function useRealtimeMessages({
     metadata: Record<string, unknown> = {},
     replyTo?: string
   ) => {
-    if (!roomId || !user?.id || !content.trim()) return;
+    // 对于媒体消息（图片、音频、视频），content 可以为空
+    const isMediaMessage = type === 'image' || type === 'audio' || type === 'video';
+    if (!roomId || !user?.id) return;
+    if (!isMediaMessage && !content.trim()) return;
 
     try {
       setIsSending(true);

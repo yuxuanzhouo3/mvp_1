@@ -55,7 +55,7 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
 
   const navigation: NavigationItem[] = [
     { name: t.dashboard.sidebar.home, href: '/dashboard', icon: Home },
-    { name: t.dashboard.sidebar.chat, href: '/chat', icon: MessageSquare },
+    { name: t.dashboard.sidebar.chat, href: '/dashboard/messages', icon: MessageSquare },
     { name: t.dashboard.sidebar.matching, href: '/matching', icon: Heart },
     { name: t.dashboard.sidebar.marketValue, href: '/profile/score-details', icon: TrendingUp },
     { name: t.dashboard.sidebar.recharge, href: '/payment/recharge', icon: CreditCard },
