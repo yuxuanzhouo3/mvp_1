@@ -551,7 +551,7 @@ export default function ProfileEditPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-2xl font-bold">{heightValue} cm</span>
                   <span className="text-gray-500">
-                    {Math.floor(heightValue / 30.48)}'{Math.round((heightValue % 30.48) / 2.54)}"
+                    {Math.floor(heightValue / 30.48)}&apos;{Math.round((heightValue % 30.48) / 2.54)}&quot;
                   </span>
                 </div>
                 <Slider

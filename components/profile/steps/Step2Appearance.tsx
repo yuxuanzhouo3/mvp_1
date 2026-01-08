@@ -81,7 +81,7 @@ export default function Step2Appearance({ data, onUpdate, onValidChange }: Step2
             {height} <span className="text-lg font-normal text-gray-500">cm</span>
           </span>
           <span className="text-lg text-gray-500">
-            {heightFeet}'{heightInches}"
+            {heightFeet}&apos;{heightInches}&quot;
           </span>
         </div>
         

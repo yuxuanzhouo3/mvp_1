@@ -110,7 +110,7 @@ export default function TwoFactorSetup() {
         </CardHeader>
         <CardContent className="text-center">
           <p className="text-sm text-gray-600 mb-4">
-            You'll need to enter a verification code from your authenticator app when signing in.
+            You&apos;ll need to enter a verification code from your authenticator app when signing in.
           </p>
           <Button
             variant="outline"
