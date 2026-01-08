@@ -39,15 +39,10 @@ export function GlobalHeader() {
 
   // Handle logout with proper error handling
   const handleSignOut = async () => {
-    try {
-      console.log('🚪 Attempting to sign out...');
-      await signOut();
-      setShowUserMenu(false);
-      console.log('✅ Sign out successful, redirecting to login...');
-      router.push('/auth/login');
-    } catch (error) {
-      console.error('💥 Unexpected error during sign out:', error);
-    }
+    console.log('🚪 Attempting to sign out...');
+    setShowUserMenu(false);
+    await signOut();
+    // signOut already handles cache cleanup and redirect to root
   };
 
   // Set mounted state

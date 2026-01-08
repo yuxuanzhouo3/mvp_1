@@ -92,12 +92,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }, [user, authLoading, router, toast, supabase.auth, t.admin.layout.accessDenied, t.admin.layout.noPermission]);
 
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      window.location.href = '/auth/login';
-    } catch (error) {
-      // Silent fail
-    }
+    await signOut();
+    // signOut already handles redirect to root
   };
 
   if (isLoading || authLoading) {

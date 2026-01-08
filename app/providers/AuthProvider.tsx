@@ -178,7 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('SignOut error:', error);
-        throw error;
+        // Continue with redirect even if there's an error
       }
 
       // Clear local state immediately
@@ -186,10 +186,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       userRef.current = null;
 
-      console.log('✅ SignOut completed successfully');
+      console.log('✅ SignOut completed successfully, redirecting to home...');
+
+      // Force redirect to root domain (hard refresh to clear all state)
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
     } catch (error) {
       console.error('SignOut error:', error);
-      throw error;
+      // Still redirect even on error
+      if (typeof window !== 'undefined') {
+        window.location.href = '/';
+      }
     }
   }, []);
 

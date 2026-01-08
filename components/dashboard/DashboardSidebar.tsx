@@ -72,22 +72,8 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
   }
 
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      // Force redirect to login page and clear all state
-      window.location.href = '/auth/login';
-      toast({
-        title: t.dashboardSettings.signOutSuccess,
-        description: t.dashboardSettings.signOutSuccessDesc,
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-      toast({
-        title: t.dashboardSettings.signOutFailed,
-        description: t.dashboardSettings.signOutFailedDesc,
-        variant: 'destructive',
-      });
-    }
+    await signOut();
+    // signOut already handles cache cleanup and redirect to root
   }
 
   return (

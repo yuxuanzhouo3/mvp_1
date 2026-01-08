@@ -164,6 +164,72 @@ async function clearBrowserCaches(): Promise<void> {
 }
 
 /**
+ * 清理所有 cookies（仅当前域名）
+ */
+function clearCookies(): void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+  try {
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const eqPos = cookie.indexOf('=');
+      const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
+      // 清除根路径的 cookie
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+      // 清除当前路径的 cookie
+      document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=${window.location.pathname}`;
+    }
+  } catch (e) {
+    console.warn('Failed to clear cookies', e);
+  }
+}
+
+/**
+ * 注销 Service Worker
+ */
+async function unregisterServiceWorkers(): Promise<void> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(
+      registrations.map(registration => registration.unregister())
+    );
+  } catch (e) {
+    console.warn('Failed to unregister service workers', e);
+  }
+}
+
+/**
+ * 清理 IndexedDB 数据库
+ */
+async function clearIndexedDB(): Promise<void> {
+  if (typeof window === 'undefined' || !('indexedDB' in window)) return;
+
+  try {
+    const databases = await indexedDB.databases();
+    await Promise.all(
+      databases.map(db => {
+        if (db.name) {
+          return new Promise<void>((resolve, reject) => {
+            const request = indexedDB.deleteDatabase(db.name!);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+            request.onblocked = () => {
+              console.warn(`IndexedDB ${db.name} is blocked`);
+              resolve();
+            };
+          });
+        }
+        return Promise.resolve();
+      })
+    );
+  } catch (e) {
+    console.warn('Failed to clear IndexedDB', e);
+  }
+}
+
+/**
  * 清理所有缓存
  * 在用户退出登录时调用
  */
@@ -182,12 +248,21 @@ export async function clearAllCaches(options: ClearCacheOptions = {}): Promise<v
   clearChatSubscriptions();
   console.log('✅ Chat subscriptions cleared');
 
-  // 4. 清理地理缓存（可选，因为与用户无关）
-  // clearGeoCache();
+  // 4. 清理 cookies
+  clearCookies();
+  console.log('✅ Cookies cleared');
 
   // 5. 清理浏览器缓存
   await clearBrowserCaches();
   console.log('✅ Browser caches cleared');
+
+  // 6. 注销 Service Workers
+  await unregisterServiceWorkers();
+  console.log('✅ Service workers unregistered');
+
+  // 7. 清理 IndexedDB
+  await clearIndexedDB();
+  console.log('✅ IndexedDB cleared');
 
   console.log('🎉 All caches cleared successfully');
 }
@@ -201,4 +276,7 @@ export {
   clearChatSubscriptions,
   clearGeoCache,
   clearBrowserCaches,
+  clearCookies,
+  unregisterServiceWorkers,
+  clearIndexedDB,
 };

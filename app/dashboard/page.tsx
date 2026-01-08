@@ -246,21 +246,8 @@ export default function DashboardPage() {
   }
 
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      window.location.href = '/auth/login';
-      toast({
-        title: t.header.logout,
-        description: t.auth.login.welcomeBack,
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-      toast({
-        title: t.auth.login.loginFailed,
-        description: t.dashboard.tryLater,
-        variant: 'destructive',
-      });
-    }
+    await signOut();
+    // signOut already handles cache cleanup and redirect to root
   };
 
   const handleRechargeCredits = () => {

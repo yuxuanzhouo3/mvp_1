@@ -125,20 +125,8 @@ export default function SettingsPage() {
   };
 
   const handleSignOut = async () => {
-    try {
-      await signOut();
-      router.push('/');
-      toast({
-        title: t.dashboardSettings.signOutSuccess,
-        description: t.dashboardSettings.signOutSuccessDesc,
-      });
-    } catch (error) {
-      toast({
-        title: t.dashboardSettings.signOutFailed,
-        description: t.dashboardSettings.signOutFailedDesc,
-        variant: 'destructive',
-      });
-    }
+    await signOut();
+    // signOut already handles cache cleanup and redirect to root
   };
 
   if (!authSettled) {
