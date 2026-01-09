@@ -289,6 +289,33 @@ export async function POST(request: NextRequest) {
             matchedAt: match.matched_at
           };
 
+          // 自动创建聊天室
+          console.log('[Swipes] Auto-creating chat room for match:', match.id);
+          const { data: existingRoom } = await supabase
+            .from('chat_rooms')
+            .select('id')
+            .eq('match_id', match.id)
+            .single();
+
+          if (!existingRoom) {
+            const { data: newRoom, error: roomError } = await supabase
+              .from('chat_rooms')
+              .insert({
+                match_id: match.id,
+                is_active: true
+              })
+              .select('id')
+              .single();
+
+            if (roomError) {
+              console.error('[Swipes] Failed to create chat room:', roomError);
+            } else {
+              console.log('[Swipes] Chat room created:', newRoom.id);
+            }
+          } else {
+            console.log('[Swipes] Chat room already exists:', existingRoom.id);
+          }
+
           // 获取双方用户信息用于通知
           const { data: currentUserInfo } = await supabase
             .from('users')
