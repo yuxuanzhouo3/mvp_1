@@ -2,13 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Heart, Settings, Globe, Sun, Moon, ChevronDown, LogOut } from 'lucide-react';
+import { Heart, Settings, Globe, Sun, Moon, ChevronDown, LogOut, HelpCircle } from 'lucide-react';
 import { useTheme } from '@/context/ThemeProvider';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 import Link from 'next/link';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
+import { NotificationDropdown } from '@/components/dashboard/NotificationDropdown';
 
 export function GlobalHeader() {
   const [showSettings, setShowSettings] = useState(false);
@@ -195,6 +196,21 @@ export function GlobalHeader() {
               </>
             ) : (
               <div className="flex items-center space-x-3">
+                {/* Help Button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                  asChild
+                >
+                  <Link href="/help">
+                    <HelpCircle className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                  </Link>
+                </Button>
+
+                {/* Notification Dropdown */}
+                <NotificationDropdown />
+
                 {/* User Info Dropdown */}
                 <div className="relative" ref={userMenuRef}>
                   <Button

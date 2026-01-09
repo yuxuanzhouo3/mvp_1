@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { notifyPhotoRejected } from '@/lib/services/notifications';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -79,6 +80,19 @@ export async function POST(request: NextRequest) {
       reviewed_by: adminId,
       reviewed_at: now,
     });
+
+    // Get photo owner and send notification
+    const { data: photo } = await supabaseAdmin
+      .from('user_photos')
+      .select('user_id')
+      .eq('id', photoId)
+      .single();
+
+    if (photo?.user_id) {
+      notifyPhotoRejected(photo.user_id, photoId, reason.trim()).catch((err) => {
+        console.warn('[Photo Reject] Failed to send notification:', err);
+      });
+    }
 
     return NextResponse.json({ success: true, message: 'Photo rejected successfully' });
   } catch (error) {

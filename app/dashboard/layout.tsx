@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardLayout({
   children
@@ -16,6 +17,12 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [isAdmin, setIsAdmin] = useState(false);
   const supabase = getSupabaseClient();
+  const { toast } = useToast();
+
+  // FCM initialization ref to prevent duplicate initialization
+  const fcmInitializedRef = useRef(false);
+  // Store unsubscribe function for cleanup
+  const fcmUnsubscribeRef = useRef<(() => void) | null>(null);
 
   // Check if we're on the settings page
   const isSettingsPage = pathname === '/dashboard/settings';
@@ -61,6 +68,57 @@ export default function DashboardLayout({
       router.replace('/auth/login');
     }
   }, [user, loading, router]);
+
+  // Initialize Firebase Cloud Messaging for push notifications
+  useEffect(() => {
+    const initializeFCM = async () => {
+      // Skip if already initialized or no user
+      if (fcmInitializedRef.current || !user?.id) return;
+
+      try {
+        // Dynamically import Firebase notifications to avoid SSR issues
+        const { initializePushNotifications, setupForegroundNotifications, showLocalNotification } =
+          await import('@/lib/firebase/notifications');
+
+        // Initialize push notifications (request permission and get token)
+        const success = await initializePushNotifications(user.id);
+
+        if (success) {
+          fcmInitializedRef.current = true;
+          console.log('[FCM] Push notifications initialized for user:', user.id);
+
+          // Setup foreground message listener
+          const unsubscribe = setupForegroundNotifications((payload) => {
+            console.log('[FCM] Foreground message received:', payload);
+
+            // Show toast notification
+            toast({
+              title: payload.title,
+              description: payload.body,
+            });
+
+            // Also show browser notification if app is in focus
+            showLocalNotification(payload);
+          });
+
+          // Store unsubscribe function for cleanup
+          fcmUnsubscribeRef.current = unsubscribe;
+        }
+      } catch (error) {
+        console.warn('[FCM] Failed to initialize push notifications:', error);
+      }
+    };
+
+    initializeFCM();
+
+    // Cleanup on unmount
+    return () => {
+      if (fcmUnsubscribeRef.current) {
+        fcmUnsubscribeRef.current();
+        fcmUnsubscribeRef.current = null;
+      }
+    };
+  }, [user?.id, toast]);
 
   // Show loading state while checking authentication
   if (loading) {

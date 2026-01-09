@@ -1,9 +1,11 @@
 /**
  * Notification Service
  * Handles creating and managing user notifications
+ * Includes Firebase Push Notification integration
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { sendPushNotificationToUser, type PushNotificationPayload } from '@/lib/firebase/admin';
 
 // Notification types
 export type NotificationType =
@@ -21,6 +23,10 @@ export interface NotificationData {
   message: string;
   actionUrl?: string;
   metadata?: Record<string, unknown>;
+  /** Whether to send push notification (default: true) */
+  sendPush?: boolean;
+  /** Custom push notification payload (optional, auto-generated if not provided) */
+  pushPayload?: Partial<PushNotificationPayload>;
 }
 
 // Create Supabase admin client (for server-side use only)
@@ -39,8 +45,9 @@ function getSupabaseAdmin() {
 
 /**
  * Create a notification for a user
+ * Automatically sends push notification if enabled
  */
-export async function createNotification(data: NotificationData): Promise<{ success: boolean; error?: string }> {
+export async function createNotification(data: NotificationData): Promise<{ success: boolean; error?: string; pushSent?: boolean }> {
   try {
     const supabase = getSupabaseAdmin();
 
@@ -59,7 +66,35 @@ export async function createNotification(data: NotificationData): Promise<{ succ
       return { success: false, error: error.message };
     }
 
-    return { success: true };
+    // Send push notification (default: enabled)
+    let pushSent = false;
+    if (data.sendPush !== false) {
+      try {
+        const pushPayload: PushNotificationPayload = {
+          title: data.pushPayload?.title || data.title,
+          body: data.pushPayload?.body || data.message,
+          icon: data.pushPayload?.icon || '/logo.png',
+          clickAction: data.pushPayload?.clickAction || data.actionUrl || '/',
+          data: {
+            type: data.type,
+            notificationId: String(Date.now()),
+            ...(data.metadata ? Object.fromEntries(
+              Object.entries(data.metadata).map(([k, v]) => [k, String(v)])
+            ) : {}),
+          },
+        };
+
+        pushSent = await sendPushNotificationToUser(data.userId, pushPayload);
+        if (pushSent) {
+          console.log('[Notification] Push notification sent to user:', data.userId);
+        }
+      } catch (pushError) {
+        console.warn('[Notification] Failed to send push notification:', pushError);
+        // Don't fail the whole operation if push fails
+      }
+    }
+
+    return { success: true, pushSent };
   } catch (error) {
     console.error('Notification creation error:', error);
     return { success: false, error: 'Failed to create notification' };
@@ -311,6 +346,36 @@ export const NOTIFICATION_TEMPLATES = {
       message: '有人超级喜欢你！快去匹配页面看看吧 💖',
     },
   },
+  new_message: {
+    en: {
+      title: (senderName: string) => `💬 New message from ${senderName}`,
+      message: (content: string) => content.length > 50 ? content.substring(0, 50) + '...' : content,
+    },
+    zh: {
+      title: (senderName: string) => `💬 ${senderName} 发来新消息`,
+      message: (content: string) => content.length > 50 ? content.substring(0, 50) + '...' : content,
+    },
+  },
+  payment_success: {
+    en: {
+      title: '✅ Payment Successful',
+      message: (credits: number) => `You have successfully purchased ${credits} credits.`,
+    },
+    zh: {
+      title: '✅ 支付成功',
+      message: (credits: number) => `您已成功购买 ${credits} 积分。`,
+    },
+  },
+  payment_failed: {
+    en: {
+      title: '❌ Payment Failed',
+      message: 'Your payment could not be processed. Please try again.',
+    },
+    zh: {
+      title: '❌ 支付失败',
+      message: '您的支付无法处理，请重试。',
+    },
+  },
 } as const;
 
 /**
@@ -320,11 +385,11 @@ export const NOTIFICATION_TEMPLATES = {
 export function getNotificationContent(
   templateKey: keyof typeof NOTIFICATION_TEMPLATES,
   language?: 'en' | 'zh'
-): { title: string; message: string | ((arg: string) => string) } {
+): { title: string | ((...args: any[]) => string); message: string | ((...args: any[]) => string) } {
   // Import deployment config dynamically to avoid circular dependencies
   const lang = language ?? (process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN' ? 'zh' : 'en');
   const template = NOTIFICATION_TEMPLATES[templateKey];
-  return template[lang];
+  return template[lang] as { title: string | ((...args: any[]) => string); message: string | ((...args: any[]) => string) };
 }
 
 /**
@@ -380,6 +445,114 @@ export async function notifySomeoneLikedYou(
       type: 'someone_liked_you',
       action: isSuperLike ? 'super_like' : 'like',
       fromUserId,
+    },
+  });
+}
+
+/**
+ * Create new message notification with i18n support
+ */
+export async function notifyNewMessage(
+  recipientUserId: string,
+  senderName: string,
+  messageContent: string,
+  roomId: string,
+  senderId: string,
+  messageType: string = 'text'
+): Promise<{ success: boolean; error?: string; pushSent?: boolean }> {
+  const lang = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN' ? 'zh' : 'en';
+  const template = NOTIFICATION_TEMPLATES.new_message[lang];
+
+  // Format message based on type
+  let displayContent = messageContent;
+  if (messageType === 'image') {
+    displayContent = lang === 'zh' ? '[图片]' : '[Image]';
+  } else if (messageType === 'audio') {
+    displayContent = lang === 'zh' ? '[语音消息]' : '[Voice message]';
+  } else if (messageType === 'video') {
+    displayContent = lang === 'zh' ? '[视频]' : '[Video]';
+  } else if (messageType === 'location') {
+    displayContent = lang === 'zh' ? '[位置]' : '[Location]';
+  } else if (messageType === 'sticker') {
+    displayContent = lang === 'zh' ? '[贴纸]' : '[Sticker]';
+  }
+
+  const title = typeof template.title === 'function' ? template.title(senderName) : template.title;
+  const message = typeof template.message === 'function' ? template.message(displayContent) : displayContent;
+
+  return createNotification({
+    userId: recipientUserId,
+    type: 'message',
+    title,
+    message,
+    actionUrl: `/dashboard/messages/${roomId}`,
+    metadata: {
+      roomId,
+      senderId,
+      senderName,
+      messageType,
+    },
+    pushPayload: {
+      clickAction: `/dashboard/messages/${roomId}`,
+      data: {
+        room_id: roomId,
+        sender_id: senderId,
+        type: 'message',
+      },
+    },
+  });
+}
+
+/**
+ * Create payment success notification with i18n support
+ */
+export async function notifyPaymentSuccess(
+  userId: string,
+  credits: number,
+  paymentId: string,
+  amount: number
+): Promise<{ success: boolean; error?: string; pushSent?: boolean }> {
+  const lang = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN' ? 'zh' : 'en';
+  const template = NOTIFICATION_TEMPLATES.payment_success[lang];
+
+  const message = typeof template.message === 'function' ? template.message(credits) : template.message;
+
+  return createNotification({
+    userId,
+    type: 'payment',
+    title: template.title,
+    message,
+    actionUrl: '/dashboard/credits',
+    metadata: {
+      paymentId,
+      credits,
+      amount,
+      status: 'success',
+    },
+  });
+}
+
+/**
+ * Create payment failed notification with i18n support
+ */
+export async function notifyPaymentFailed(
+  userId: string,
+  paymentId: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string; pushSent?: boolean }> {
+  const lang = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN' ? 'zh' : 'en';
+  const template = NOTIFICATION_TEMPLATES.payment_failed[lang];
+
+  return createNotification({
+    userId,
+    type: 'payment',
+    title: template.title,
+    message: reason || (template.message as string),
+    actionUrl: '/dashboard/credits',
+    metadata: {
+      paymentId,
+      status: 'failed',
+      reason,
     },
   });
 }

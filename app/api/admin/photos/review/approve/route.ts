@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { notifyPhotoApproved } from '@/lib/services/notifications';
 
 // Force dynamic rendering - no caching
 export const dynamic = 'force-dynamic';
@@ -76,6 +77,19 @@ export async function POST(request: NextRequest) {
       reviewed_by: adminId,
       reviewed_at: now,
     });
+
+    // Get photo owner and send notification
+    const { data: photo } = await supabaseAdmin
+      .from('user_photos')
+      .select('user_id')
+      .eq('id', photoId)
+      .single();
+
+    if (photo?.user_id) {
+      notifyPhotoApproved(photo.user_id, photoId).catch((err) => {
+        console.warn('[Photo Approve] Failed to send notification:', err);
+      });
+    }
 
     return NextResponse.json({ success: true, message: 'Photo approved successfully' });
   } catch (error) {

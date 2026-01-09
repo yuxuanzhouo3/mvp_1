@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useChat } from '@/app/hooks/useChat';
+import { usePresence } from '@/hooks/usePresence';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -72,6 +73,9 @@ export default function ChatDetailPage() {
 
   // Initialize chat hook
   const { sendMessage, isConnected } = useChat({ chatId });
+
+  // Track user presence in this chat room for push notification optimization
+  usePresence({ roomId: chatId, enabled: mounted && !!user });
 
   useEffect(() => {
     setMounted(true);

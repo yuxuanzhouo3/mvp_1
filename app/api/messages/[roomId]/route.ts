@@ -6,6 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/server';
+import { notifyNewMessage } from '@/lib/services/notifications';
+import { isUserInRoom } from '@/lib/services/user-presence';
 
 // GET: 获取消息
 export async function GET(
@@ -154,6 +156,41 @@ export async function POST(
       console.error('Error inserting message:', insertError);
       return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
     }
+
+    // Send push notification to the recipient only if they are NOT in this chat room
+    const recipientId = match.user_1 === user.id ? match.user_2 : match.user_1;
+
+    // Check if recipient is currently viewing this chat room
+    // If they are, skip push notification to avoid duplicate notifications
+    isUserInRoom(recipientId, roomId).then(async (isInRoom) => {
+      if (isInRoom) {
+        console.log(`[Messages API] Recipient ${recipientId} is in room ${roomId}, skipping push notification`);
+        return;
+      }
+
+      // Get sender's name for notification
+      const { data: senderProfile } = await supabase
+        .from('user_profiles')
+        .select('full_name')
+        .eq('user_id', user.id)
+        .single();
+
+      const senderName = senderProfile?.full_name || 'Someone';
+
+      // Send notification (fire and forget)
+      notifyNewMessage(
+        recipientId,
+        senderName,
+        content || '',
+        roomId,
+        user.id,
+        message_type
+      ).catch((err) => {
+        console.warn('[Messages API] Failed to send push notification:', err);
+      });
+    }).catch((err) => {
+      console.warn('[Messages API] Failed to check user presence:', err);
+    });
 
     return NextResponse.json({
       success: true,

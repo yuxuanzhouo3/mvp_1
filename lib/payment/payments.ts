@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
+import { notifyPaymentSuccess, notifyPaymentFailed } from '@/lib/services/notifications';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2023-10-16',
@@ -309,6 +310,12 @@ async function handleStripeCheckoutCompleted(session: Stripe.Checkout.Session, s
       payment_method: 'stripe',
     }
   );
+
+  // Send payment success notification
+  const amount = (session.amount_total || 0) / 100;
+  notifyPaymentSuccess(userId, credits, paymentId, amount).catch((err) => {
+    console.warn('[Payment] Failed to send success notification:', err);
+  });
 }
 
 async function handleStripePaymentSucceeded(paymentIntent: Stripe.PaymentIntent, supabase: any) {
@@ -334,5 +341,11 @@ async function handleStripePaymentFailed(paymentIntent: Stripe.PaymentIntent, su
 
   if (payment) {
     await updatePaymentStatus(payment.id, 'failed');
+
+    // Send payment failed notification
+    const failureReason = paymentIntent.last_payment_error?.message || 'Payment failed';
+    notifyPaymentFailed(payment.user_id, payment.id, failureReason).catch((err) => {
+      console.warn('[Payment] Failed to send failure notification:', err);
+    });
   }
 } 

@@ -7,6 +7,7 @@
 
 import { chatClient } from '@/lib/realtime/chat-client';
 import { geoRouter } from '@/lib/architecture-modules/core/geo-router';
+import { removeFcmToken } from '@/lib/firebase/notifications';
 
 /**
  * 需要清理的 localStorage 键名列表
@@ -235,6 +236,16 @@ async function clearIndexedDB(): Promise<void> {
  */
 export async function clearAllCaches(options: ClearCacheOptions = {}): Promise<void> {
   console.log('🧹 Clearing all caches...');
+
+  // 0. 清理 FCM Token（需要在清理其他缓存之前，因为需要网络请求）
+  if (options.userId) {
+    try {
+      await removeFcmToken(options.userId);
+      console.log('✅ FCM token removed');
+    } catch (e) {
+      console.warn('Failed to remove FCM token', e);
+    }
+  }
 
   // 1. 清理 localStorage
   clearLocalStorage(options);

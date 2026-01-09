@@ -9,6 +9,7 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { useLanguage } from '@/components/language-provider';
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
 import { useRealtimeTyping } from '@/hooks/useRealtimeTyping';
+import { usePresence } from '@/hooks/usePresence';
 import { useToast } from '@/hooks/use-toast';
 import { chatClient, Message, MessageType } from '@/lib/realtime/chat-client';
 import { getSupabaseClient } from '@/lib/supabase/client';
@@ -118,6 +119,9 @@ export default function ChatRoomPage() {
     sendTyping,
     stopTyping,
   } = useRealtimeTyping({ roomId });
+
+  // Track user presence in this chat room for push notification optimization
+  usePresence({ roomId, enabled: mounted && !!user });
 
   // 加载聊天用户信息
   const loadChatUser = useCallback(async () => {
@@ -780,11 +784,12 @@ export default function ChatRoomPage() {
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex-shrink-0 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
+            {/* 返回按钮 - 所有设备都显示 */}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push('/dashboard/messages')}
-              className="lg:hidden hover:bg-primary/10 rounded-xl"
+              className="hover:bg-primary/10 rounded-xl"
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>

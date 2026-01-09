@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import {
+  calculateMarketValue,
+  transformUserToScoringData,
+  type MarketValueScore
+} from '@/lib/scoring';
+import type { GenderEnum } from '@/types/database';
 
 // Create Supabase admin client
 const supabaseAdmin = createClient(
@@ -155,6 +161,113 @@ export async function POST(request: NextRequest) {
         console.error('Error updating interests:', interestError);
         // Don't fail the whole request for interest errors
       }
+    }
+
+    // Calculate Market Value Score immediately after profile setup
+    try {
+      console.log('📊 Calculating market value score for user:', user.id);
+
+      // Fetch user photos for scoring
+      const { data: photosData } = await supabaseAdmin
+        .from('user_photos')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('audit_status', 'approved')
+        .order('sort_order', { ascending: true });
+
+      // Prepare location for scoring
+      let locationForScoring: { latitude: number; longitude: number } | null = null;
+      if (latitude && longitude) {
+        locationForScoring = { latitude, longitude };
+      }
+
+      // Calculate BMI if height and weight are provided
+      let calculatedBmi: number | null = null;
+      if (height_cm && weight_kg) {
+        const heightInMeters = height_cm / 100;
+        calculatedBmi = weight_kg / (heightInMeters * heightInMeters);
+      }
+
+      // Transform user data to scoring format
+      const scoringData = transformUserToScoringData(
+        {
+          gender: (gender as GenderEnum) || null,
+          birth_date: birth_date || null
+        },
+        {
+          bmi: calculatedBmi,
+          education_level: education_level || null,
+          company_type: company_type || null,
+          annual_income_range: annual_income_range || null,
+          marital_status: marital_status || 'single',
+          relationship_history_count: relationship_history_count || 0,
+          children_preference: children_preference || null,
+          mbti: mbti || null,
+          location: locationForScoring
+        },
+        photosData || []
+      );
+
+      // Calculate market value - use opposite gender as evaluator for realistic score
+      const evaluatorGender: GenderEnum = gender === 'male' ? 'female' : 'male';
+      const result = calculateMarketValue(
+        scoringData,
+        evaluatorGender,
+        'compatible_match',
+        null
+      );
+
+      // Calculate percentile (simplified - compare with same gender users)
+      const { data: sameGenderUsers } = await supabaseAdmin
+        .from('users')
+        .select(`
+          id,
+          user_profiles!inner(market_value_score)
+        `)
+        .eq('gender', gender)
+        .not('user_profiles.market_value_score', 'is', null);
+
+      let percentile = 50; // Default
+      if (sameGenderUsers && sameGenderUsers.length > 0) {
+        let lowerCount = 0;
+        let totalCount = 0;
+        for (const u of sameGenderUsers) {
+          if (u.id === user.id) continue;
+          const profile = u.user_profiles as unknown as { market_value_score: MarketValueScore | null };
+          if (profile?.market_value_score?.totalScore !== undefined) {
+            totalCount++;
+            if (profile.market_value_score.totalScore < result.totalScore) {
+              lowerCount++;
+            }
+          }
+        }
+        if (totalCount > 0) {
+          percentile = Math.round((lowerCount / totalCount) * 100);
+        }
+      }
+
+      const fullScore: MarketValueScore = {
+        ...result,
+        percentile
+      };
+
+      // Save market value score to database
+      const { error: scoreError } = await supabaseAdmin
+        .from('user_profiles')
+        .update({
+          market_value_score: fullScore
+        })
+        .eq('user_id', user.id);
+
+      if (scoreError) {
+        console.error('Error saving market value score:', scoreError);
+        // Don't fail the whole request, just log the error
+      } else {
+        console.log('✅ Market value score calculated and saved:', fullScore.totalScore);
+      }
+    } catch (scoreCalcError) {
+      console.error('Error calculating market value score:', scoreCalcError);
+      // Don't fail the whole request for score calculation errors
     }
 
     return NextResponse.json({
