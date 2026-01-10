@@ -22,9 +22,11 @@ import {
   TrendingUp,
   Gem,
   Rocket,
-  Lock
+  Lock,
+  Wallet
 } from 'lucide-react';
 import PaymentMonitor from './PaymentMonitor';
+import { PayPalCheckout } from './PayPalButton';
 
 interface CreditPackage {
   id: string;
@@ -56,6 +58,9 @@ interface PaymentData {
   network?: string;
   amount: number;
   paymentMethod: string;
+  // PayPal specific fields
+  orderId?: string;
+  credits?: number;
 }
 
 // Base package prices in USD
@@ -175,6 +180,14 @@ const getPaymentMethods = (t: any): PaymentMethod[] => [
     gradient: 'from-indigo-500 to-purple-500',
   },
   {
+    id: 'paypal',
+    name: t.payment.recharge.paymentMethods.paypal?.name || 'PayPal',
+    icon: Wallet,
+    description: t.payment.recharge.paymentMethods.paypal?.description || 'PayPal, Credit/Debit Card',
+    processingTime: t.payment.recharge.paymentMethods.paypal?.processingTime || 'Instant',
+    gradient: 'from-blue-600 to-blue-800',
+  },
+  {
     id: 'usdt',
     name: t.payment.recharge.paymentMethods.usdt.name,
     icon: Bitcoin,
@@ -255,6 +268,15 @@ export default function CreditRecharge() {
           if (typeof window !== 'undefined') {
             window.location.href = data.checkoutUrl;
           }
+        } else if (selectedPaymentMethod.id === 'paypal') {
+          setPaymentData({
+            paymentId: data.paymentId,
+            orderId: data.orderId,
+            amount: data.amount,
+            credits: data.credits,
+            paymentMethod: 'paypal',
+          });
+          setShowPaymentMonitor(true);
         } else if (selectedPaymentMethod.id === 'usdt') {
           setPaymentData({
             paymentId: data.paymentId,
@@ -298,6 +320,60 @@ export default function CreditRecharge() {
 
   // If payment monitor is shown, display it
   if (showPaymentMonitor && paymentData) {
+    // PayPal has its own checkout flow
+    if (paymentData.paymentMethod === 'paypal' && paymentData.orderId) {
+      return (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="mb-6">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowPaymentMonitor(false);
+                setPaymentData(null);
+              }}
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>{t.payment.recharge.backToSelection}</span>
+            </Button>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div className="text-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {'Complete PayPal Payment'}
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
+                {'Click the PayPal button below to complete your purchase'}
+              </p>
+            </div>
+
+            <PayPalCheckout
+              paymentData={{
+                orderId: paymentData.orderId,
+                paymentId: paymentData.paymentId,
+                amount: paymentData.amount,
+                credits: paymentData.credits || 0,
+              }}
+              onSuccess={handlePaymentVerified}
+              onError={(error) => {
+                toast({
+                  title: t.payment.recharge.errors.paymentFailed,
+                  description: error.message || t.payment.recharge.errors.paymentFailedDesc,
+                  variant: 'destructive',
+                });
+              }}
+              onCancel={() => {
+                setShowPaymentMonitor(false);
+                setPaymentData(null);
+              }}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // USDT/Alipay payment monitor
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">

@@ -22,9 +22,9 @@ export async function GET(request: NextRequest) {
 
     // Get user's current balance
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .select('credits')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .single();
 
     if (profileError) {

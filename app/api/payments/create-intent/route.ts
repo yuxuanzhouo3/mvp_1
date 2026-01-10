@@ -8,14 +8,15 @@ import {
   getPackageById
 } from '@/lib/payment/payments';
 import { createUSDTPaymentRequest, createAlipayPaymentRequest } from '@/lib/payment/payment-receivers';
+import { createPayPalOrder, convertCNYtoUSD } from '@/lib/payment/paypal';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2023-10-16',
+  apiVersion: '2024-12-18.acacia' as any,
 });
 
 interface CreateIntentRequest {
   packageId: string;
-  paymentMethod: 'stripe' | 'usdt' | 'alipay';
+  paymentMethod: 'stripe' | 'usdt' | 'alipay' | 'paypal';
   amount: number;
   credits: number;
 }
@@ -87,7 +88,10 @@ export async function POST(request: NextRequest) {
       
       case 'alipay':
         return await handleAlipayPayment(payment, amount, user.id);
-      
+
+      case 'paypal':
+        return await handlePayPalPayment(payment, amount, credits, user.id);
+
       default:
         return NextResponse.json(
           { error: 'Unsupported payment method' },
@@ -182,7 +186,7 @@ async function handleAlipayPayment(payment: any, amount: number, userId: string)
   try {
     // Create Alipay payment request with real account
     const alipayPayment = await createAlipayPaymentRequest(payment.id, amount, userId);
-    
+
     return NextResponse.json({
       qrCodeUrl: alipayPayment.qrCode,
       amount: alipayPayment.amount,
@@ -194,6 +198,50 @@ async function handleAlipayPayment(payment: any, amount: number, userId: string)
     console.error('Alipay payment error:', error);
     return NextResponse.json(
       { error: 'Failed to create Alipay payment' },
+      { status: 500 }
+    );
+  }
+}
+
+async function handlePayPalPayment(payment: any, amount: number, credits: number, userId: string) {
+  try {
+    // Convert CNY to USD for PayPal
+    const usdAmount = convertCNYtoUSD(amount);
+
+    // Create PayPal order
+    const paypalOrder = await createPayPalOrder({
+      paymentId: payment.id,
+      amount: usdAmount,
+      credits,
+      userId,
+      currency: 'USD',
+      description: `Purchase ${credits} credits for PersonaLink`,
+    });
+
+    // Update payment record with PayPal order ID
+    const supabase = createClient();
+    await supabase
+      .from('payments')
+      .update({
+        metadata: {
+          ...payment.metadata,
+          paypal_order_id: paypalOrder.orderId,
+          usd_amount: usdAmount,
+        }
+      })
+      .eq('id', payment.id);
+
+    return NextResponse.json({
+      orderId: paypalOrder.orderId,
+      approvalUrl: paypalOrder.approvalUrl,
+      paymentId: payment.id,
+      amount: usdAmount,
+      credits,
+    });
+  } catch (error) {
+    console.error('PayPal payment error:', error);
+    return NextResponse.json(
+      { error: 'Failed to create PayPal order' },
       { status: 500 }
     );
   }

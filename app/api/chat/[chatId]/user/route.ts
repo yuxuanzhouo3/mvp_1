@@ -44,26 +44,36 @@ export async function GET(
     }
 
     // Get chat information to find the other user
-    const { data: chat, error: chatError } = await supabase
-      .from('chats')
-      .select('user1_id, user2_id')
+    // First, try chat_rooms table (new schema)
+    let otherUserId: string | null = null;
+
+    const { data: chatRoom, error: chatRoomError } = await supabase
+      .from('chat_rooms')
+      .select(`
+        id,
+        match_id,
+        matches!inner(user_1, user_2)
+      `)
       .eq('id', params.chatId)
       .single();
 
-    if (chatError || !chat) {
+    if (chatRoom && !chatRoomError) {
+      // Determine which user is the other participant
+      const match = chatRoom.matches as { user_1: string; user_2: string };
+      otherUserId = match.user_1 === user.id ? match.user_2 : match.user_1;
+    }
+
+    if (!otherUserId) {
       return NextResponse.json(
         { error: 'Chat not found' },
         { status: 404 }
       );
     }
 
-    // Determine which user is the other participant
-    const otherUserId = chat.user1_id === user.id ? chat.user2_id : chat.user1_id;
-
-    // Get the other user's profile
+    // Get the other user's basic info from users table
     const { data: otherUser, error: userError } = await supabase
-      .from('profiles')
-      .select('id, full_name, avatar_url, last_seen')
+      .from('users')
+      .select('id, username, avatar_url, last_active_at')
       .eq('id', otherUserId)
       .single();
 
@@ -74,17 +84,17 @@ export async function GET(
       );
     }
 
-    // Determine if user is online (simple check - if last_seen is within 5 minutes)
-    const lastSeen = new Date(otherUser.last_seen || 0);
+    // Determine if user is online (simple check - if last_active_at is within 5 minutes)
+    const lastActive = new Date(otherUser.last_active_at || 0);
     const now = new Date();
-    const isOnline = (now.getTime() - lastSeen.getTime()) < 5 * 60 * 1000; // 5 minutes
+    const isOnline = (now.getTime() - lastActive.getTime()) < 5 * 60 * 1000; // 5 minutes
 
     const chatUser = {
       id: otherUser.id,
-      full_name: otherUser.full_name,
+      full_name: otherUser.username || 'User',
       avatar_url: otherUser.avatar_url,
       is_online: isOnline,
-      last_seen: otherUser.last_seen,
+      last_seen: otherUser.last_active_at,
     };
 
     return NextResponse.json({

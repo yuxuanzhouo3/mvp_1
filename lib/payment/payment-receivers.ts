@@ -183,11 +183,7 @@ export async function verifyUSDTPayment(
         'credit_purchase',
         credits,
         `Purchased ${credits} credits via USDT`,
-        {
-          payment_id: paymentId,
-          transaction_hash: transactionHash,
-          payment_method: 'usdt',
-        }
+        paymentId
       );
     }
 
@@ -250,11 +246,7 @@ export async function verifyAlipayPayment(
         'credit_purchase',
         credits,
         `Purchased ${credits} credits via Alipay`,
-        {
-          payment_id: paymentId,
-          alipay_transaction_id: transactionId,
-          payment_method: 'alipay',
-        }
+        paymentId
       );
     }
 
@@ -268,12 +260,12 @@ export async function verifyAlipayPayment(
 // Helper functions (imported from payments.ts)
 async function addCreditsToUser(userId: string, credits: number) {
   const supabase = createClient();
-  
+
   // First get current credits
   const { data: profile, error: fetchError } = await supabase
-    .from('profiles')
+    .from('user_profiles')
     .select('credits')
-    .eq('id', userId)
+    .eq('user_id', userId)
     .single();
 
   if (fetchError) {
@@ -284,12 +276,12 @@ async function addCreditsToUser(userId: string, credits: number) {
   const newCredits = currentCredits + credits;
 
   const { error } = await supabase
-    .from('profiles')
+    .from('user_profiles')
     .update({
       credits: newCredits,
-      updated_at: new Date().toISOString(),
+      credits_updated_at: new Date().toISOString(),
     })
-    .eq('id', userId);
+    .eq('user_id', userId);
 
   if (error) {
     throw new Error(`Failed to add credits to user: ${error.message}`);
@@ -301,20 +293,30 @@ async function createTransactionRecord(
   type: string,
   amount: number,
   description: string,
-  metadata?: Record<string, any>
+  paymentId?: string
 ) {
   const supabase = createClient();
-  
+
+  // Get current balance
+  const { data: profile } = await supabase
+    .from('user_profiles')
+    .select('credits')
+    .eq('user_id', userId)
+    .single();
+
+  const currentBalance = profile?.credits || 0;
+
   const { error } = await supabase
     .from('transactions')
     .insert({
       user_id: userId,
       type,
       amount,
-      currency: 'CNY',
+      balance_before: type === 'credit_purchase' ? currentBalance - amount : currentBalance + Math.abs(amount),
+      balance_after: currentBalance,
+      reference_type: paymentId ? 'payment' : undefined,
+      reference_id: paymentId,
       description,
-      status: 'completed',
-      metadata,
     });
 
   if (error) {

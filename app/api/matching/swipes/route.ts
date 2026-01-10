@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/server';
 import { notifyMatchSuccess, notifySomeoneLikedYou } from '@/lib/services/notifications';
+import { checkAndConsumeCredits, CREDIT_COSTS } from '@/lib/credits/credits';
 import type { SwipeActionEnum } from '@/types/database';
 
 /**
@@ -174,6 +175,23 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'ALREADY_INTERACTED', errorCode: 'ALREADY_INTERACTED' },
         { status: 409 }
       );
+    }
+
+    // Check and consume credits for like/super_like actions
+    if (action === 'like' || action === 'super_like') {
+      const creditsResult = await checkAndConsumeCredits(user.id, 'match');
+
+      if (!creditsResult.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: creditsResult.error || 'INSUFFICIENT_CREDITS',
+            errorCode: creditsResult.errorCode || 'INSUFFICIENT_CREDITS',
+            requiredCredits: CREDIT_COSTS.MATCH,
+          },
+          { status: 402 } // Payment Required
+        );
+      }
     }
 
     // 创建互动记录

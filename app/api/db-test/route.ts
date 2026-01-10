@@ -33,12 +33,12 @@ class DatabaseErrorHandler {
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
-  
+
   try {
     console.log('🔍 Starting comprehensive database test...');
-    
+
     const supabase = createClient();
-    
+
     // 定义结果对象类型
     const results: {
       timestamp: string;
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     console.log('🔍 Testing basic connection...');
     const connectionStart = Date.now();
     try {
-      const { data, error } = await supabase.from('profiles').select('count').limit(1);
+      const { data, error } = await supabase.from('users').select('count').limit(1);
       results.tests.basicConnection = {
         status: error ? 'failed' : 'success',
         responseTime: Date.now() - connectionStart,
@@ -94,12 +94,13 @@ export async function GET(request: NextRequest) {
     // 2. 表访问测试
     console.log('🔍 Testing table access...');
     const tables = [
-      'profiles',
+      'users',
+      'user_profiles',
       'matches',
-      'chats',
+      'chat_rooms',
       'messages',
-      'user_settings',
-      'user_activity'
+      'payments',
+      'transactions'
     ];
 
     results.tests.tableAccess = {};
@@ -124,10 +125,10 @@ export async function GET(request: NextRequest) {
     // 3. 查询性能测试
     console.log('🔍 Testing query performance...');
     const performanceTests = [
-      { name: 'simple_select', query: () => supabase.from('profiles').select('id, full_name').limit(10) },
-      { name: 'complex_select', query: () => supabase.from('profiles').select('*').limit(5) },
-      { name: 'count_query', query: () => supabase.from('profiles').select('count') },
-      { name: 'filtered_query', query: () => supabase.from('profiles').select('*').limit(5) }
+      { name: 'simple_select', query: () => supabase.from('users').select('id, username').limit(10) },
+      { name: 'complex_select', query: () => supabase.from('users').select('*, user_profiles(*)').limit(5) },
+      { name: 'count_query', query: () => supabase.from('users').select('count') },
+      { name: 'filtered_query', query: () => supabase.from('users').select('*').eq('account_status', 'active').limit(5) }
     ];
 
     results.tests.performance = {};
@@ -155,7 +156,7 @@ export async function GET(request: NextRequest) {
     const concurrentTests = Array(5).fill(null).map(async (_, i) => {
       const start = Date.now();
       try {
-        const { data, error } = await supabase.from('profiles').select('count').limit(1);
+        const { data, error } = await supabase.from('users').select('count').limit(1);
         return {
           index: i,
           success: !error,
@@ -185,7 +186,7 @@ export async function GET(request: NextRequest) {
     console.log('🔍 Testing RLS policies...');
     const rlsStart = Date.now();
     try {
-      const { data, error } = await supabase.from('profiles').select('*');
+      const { data, error } = await supabase.from('users').select('*');
       results.tests.rlsPolicies = {
         status: error && error.message.includes('policy') ? 'working' : 'needs_configuration',
         responseTime: Date.now() - rlsStart,
@@ -205,8 +206,8 @@ export async function GET(request: NextRequest) {
       'NEXT_PUBLIC_SUPABASE_URL',
       'NEXT_PUBLIC_SUPABASE_ANON_KEY',
       'SUPABASE_SERVICE_ROLE_KEY',
-      'UPSTASH_REDIS_URL',
-      'UPSTASH_REDIS_TOKEN'
+      'STRIPE_SECRET_KEY',
+      'PAYPAL_CLIENT_ID'
     ];
 
     results.tests.environmentVariables = {};
@@ -254,39 +255,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { action, data } = body;
+    const { action } = body;
 
     switch (action) {
       case 'clear_error_log':
         DatabaseErrorHandler.clearErrorLog();
-        return NextResponse.json({ 
-          status: 'success', 
-          message: 'Error log cleared' 
-        });
-
-      case 'test_write_operation':
-        // 测试写操作
-        const supabase = createClient();
-        const { data: writeResult, error: writeError } = await supabase
-          .from('user_settings')
-          .insert({
-            user_id: 'test-user-' + Date.now(),
-            notifications_enabled: true
-          })
-          .select()
-          .single();
-
-        if (writeError) {
-          return NextResponse.json({
-            status: 'failed',
-            error: writeError.message
-          }, { status: 400 });
-        }
-
         return NextResponse.json({
           status: 'success',
-          message: 'Write operation successful',
-          data: writeResult
+          message: 'Error log cleared'
         });
 
       default:
@@ -300,4 +276,4 @@ export async function POST(request: NextRequest) {
     console.error('POST test error:', error);
     return DatabaseErrorHandler.createErrorResponse(error, 'database test POST');
   }
-} 
+}

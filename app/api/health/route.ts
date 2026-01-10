@@ -22,7 +22,7 @@ export async function GET() {
 
     // Real database connection test
     const { supabase } = await import('@/lib/supabase/client');
-    const { error } = await supabase.from('profiles').select('count').limit(1);
+    const { error } = await supabase.from('users').select('count').limit(1);
     
     const status = error ? 'degraded' : 'ok';
     const database = error ? 'disconnected' : 'connected';

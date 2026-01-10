@@ -5,11 +5,18 @@ export async function GET(request: NextRequest) {
   try {
     console.log('🔍 Starting candidates API...');
 
-    // Create Supabase client for this request
     const supabase = createRouteHandlerClient();
 
-    // Use a default user ID for testing (Jimmy's ID)
-    const userId = 'da7bb6ab-1e26-4c3d-b28e-73ece0264b82';
+    // Get current user
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized', errorCode: 'AUTH_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
+    const userId = user.id;
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
@@ -18,120 +25,172 @@ export async function GET(request: NextRequest) {
 
     console.log('🔍 Finding matches for user:', userId, 'refresh:', refresh, 'limit:', limit);
 
-    // Get all profiles except the current user
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('*')
-      .neq('id', userId);
+    // Get all users with their profiles except the current user
+    const { data: candidates, error: candidatesError } = await supabase
+      .from('users')
+      .select(`
+        id,
+        username,
+        avatar_url,
+        gender,
+        birth_date,
+        verification_level,
+        last_active_at,
+        user_profiles!inner (
+          real_name,
+          bio,
+          city_name,
+          occupation,
+          education_level,
+          mbti
+        )
+      `)
+      .neq('id', userId)
+      .eq('account_status', 'active');
 
-    if (profilesError) {
-      console.error('❌ Error fetching profiles:', profilesError);
-      return NextResponse.json({ error: 'Failed to fetch profiles' }, { status: 500 });
+    if (candidatesError) {
+      console.error('❌ Error fetching candidates:', candidatesError);
+      return NextResponse.json({ error: 'Failed to fetch candidates' }, { status: 500 });
     }
 
-    console.log('✅ Found', profiles?.length || 0, 'profiles');
+    console.log('✅ Found', candidates?.length || 0, 'candidates');
 
-    if (!profiles || profiles.length === 0) {
-      return NextResponse.json({ 
+    if (!candidates || candidates.length === 0) {
+      return NextResponse.json({
         candidates: [],
         refresh_token: refresh || Date.now().toString(),
         total_found: 0,
         user_id: userId,
-        message: 'No profiles found for matching'
+        message: 'No candidates found for matching'
       });
     }
 
-    // Get user interests for better matching
-    const { data: userInterests } = await supabase
-      .from('user_interests')
-      .select('user_id, interest')
-      .in('user_id', [userId, ...profiles.map(p => p.id)]);
+    // Get user interests for all candidates
+    const candidateIds = candidates.map(c => c.id);
+    const { data: interestsData } = await supabase
+      .from('users_interests_map')
+      .select(`
+        user_id,
+        interests!inner (
+          name,
+          category
+        )
+      `)
+      .in('user_id', [userId, ...candidateIds]);
 
     // Create interest map
     const interestMap = new Map<string, string[]>();
-    userInterests?.forEach(ui => {
+    interestsData?.forEach(ui => {
       if (!interestMap.has(ui.user_id)) {
         interestMap.set(ui.user_id, []);
       }
-      interestMap.get(ui.user_id)!.push(ui.interest);
+      const interest = ui.interests as { name: string; category: string };
+      interestMap.get(ui.user_id)!.push(interest.name);
     });
 
-    // Enhanced matching logic with AI-like scoring
-    const candidates = profiles.map((profile) => {
-      const profileInterests = interestMap.get(profile.id) || [];
-      const userInterests = interestMap.get(userId) || [];
-      
-      // Calculate compatibility score based on multiple factors
+    const currentUserInterests = interestMap.get(userId) || [];
+
+    // Calculate age from birth_date
+    const calculateAge = (birthDate: string | null): number | null => {
+      if (!birthDate) return null;
+      const today = new Date();
+      const birth = new Date(birthDate);
+      let age = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      return age;
+    };
+
+    // Check if user is online (active in last 5 minutes)
+    const isOnline = (lastActive: string | null): boolean => {
+      if (!lastActive) return false;
+      const lastActiveDate = new Date(lastActive);
+      const now = new Date();
+      return (now.getTime() - lastActiveDate.getTime()) < 5 * 60 * 1000;
+    };
+
+    // Enhanced matching logic with scoring
+    const enrichedCandidates = candidates.map((candidate) => {
+      const profile = candidate.user_profiles as {
+        real_name: string | null;
+        bio: string | null;
+        city_name: string | null;
+        occupation: string | null;
+        education_level: string | null;
+        mbti: string | null;
+      };
+
+      const candidateInterests = interestMap.get(candidate.id) || [];
+      const age = calculateAge(candidate.birth_date);
+      const online = isOnline(candidate.last_active_at);
+      const isVerified = candidate.verification_level && candidate.verification_level !== 'none';
+
+      // Calculate compatibility score
       let score = 0.3; // Base score
-      
-      // Age compatibility (if both have ages)
-      if (profile.age && profile.age >= 18 && profile.age <= 100) {
+
+      // Age bonus
+      if (age && age >= 18 && age <= 100) {
         score += 0.1;
       }
-      
+
       // Online status bonus
-      if (profile.is_online) {
+      if (online) {
         score += 0.1;
       }
-      
+
       // Verification bonus
-      if (profile.is_verified) {
+      if (isVerified) {
         score += 0.1;
       }
-      
-      // Premium status bonus
-      if (profile.membership_level === 'premium') {
-        score += 0.1;
-      }
-      
+
       // Interest overlap
-      const commonInterests = profileInterests.filter(interest => 
-        userInterests.includes(interest)
+      const commonInterests = candidateInterests.filter(interest =>
+        currentUserInterests.includes(interest)
       );
       score += Math.min(commonInterests.length * 0.1, 0.3);
-      
-      // Location bonus (if both have locations)
-      if (profile.location) {
+
+      // Location bonus
+      if (profile.city_name) {
         score += 0.1;
       }
-      
+
       // Bio quality bonus
       if (profile.bio && profile.bio.length > 20) {
         score += 0.1;
       }
-      
+
       // Ensure score is between 0.2 and 1.0
       score = Math.max(0.2, Math.min(1.0, score));
-      
+
       // Add some randomness for variety
       score += (Math.random() - 0.5) * 0.1;
       score = Math.max(0.2, Math.min(1.0, score));
 
       return {
         user: {
-          id: profile.id,
-          full_name: profile.full_name,
-          avatar_url: profile.avatar_url,
-          age: profile.age,
-          location: profile.location,
+          id: candidate.id,
+          full_name: profile.real_name || candidate.username || 'User',
+          avatar_url: candidate.avatar_url,
+          age,
+          location: profile.city_name,
           bio: profile.bio,
-          interests: profileInterests,
-          industry: profile.industry,
-          communication_style: profile.communication_style,
-          is_online: profile.is_online,
-          membership_level: profile.membership_level || 'free',
-          is_verified: profile.is_verified,
-          last_seen: profile.last_seen
+          interests: candidateInterests,
+          occupation: profile.occupation,
+          education: profile.education_level,
+          mbti: profile.mbti,
+          is_online: online,
+          is_verified: isVerified,
+          last_seen: candidate.last_active_at
         },
-        score: score,
-        reasons: generateMatchReasons(profile, commonInterests),
+        score,
+        reasons: generateMatchReasons(profile, commonInterests, online, isVerified),
         compatibility_factors: {
-          interests: commonInterests.length / Math.max(profileInterests.length, 1),
+          interests: commonInterests.length / Math.max(candidateInterests.length, 1),
           personality: Math.random() * 0.8 + 0.2,
-          location: profile.location ? 0.8 : 0.3,
-          industry: Math.random() * 0.8 + 0.2,
-          communication: Math.random() * 0.8 + 0.2,
-          activity: profile.is_online ? 0.9 : 0.4,
+          location: profile.city_name ? 0.8 : 0.3,
+          activity: online ? 0.9 : 0.4,
           values: Math.random() * 0.8 + 0.2
         },
         common_interests: commonInterests,
@@ -141,10 +200,9 @@ export async function GET(request: NextRequest) {
     });
 
     // Sort by score and apply refresh variety
-    let sortedCandidates = candidates.sort((a, b) => b.score - a.score);
-    
+    let sortedCandidates = enrichedCandidates.sort((a, b) => b.score - a.score);
+
     if (refresh) {
-      // Apply refresh variety by shuffling slightly
       sortedCandidates = applyRefreshVariety(sortedCandidates, refresh);
     }
 
@@ -153,12 +211,12 @@ export async function GET(request: NextRequest) {
 
     console.log('✅ Returning', limitedCandidates.length, 'candidates');
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       candidates: limitedCandidates,
       refresh_token: refresh || Date.now().toString(),
       total_found: limitedCandidates.length,
       user_id: userId,
-      total_available: profiles.length
+      total_available: candidates.length
     });
   } catch (error) {
     console.error('❌ Candidates API error:', error);
@@ -166,69 +224,72 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function generateMatchReasons(profile: any, commonInterests: string[]): string[] {
+function generateMatchReasons(
+  profile: { bio: string | null; city_name: string | null },
+  commonInterests: string[],
+  isOnline: boolean,
+  isVerified: boolean
+): string[] {
   const reasons = [];
-  
+
   if (commonInterests.length > 0) {
     reasons.push(`Shared interests: ${commonInterests.slice(0, 2).join(', ')}`);
   }
-  
-  if (profile.is_online) {
+
+  if (isOnline) {
     reasons.push('Currently online and active');
   }
-  
-  if (profile.is_verified) {
+
+  if (isVerified) {
     reasons.push('Verified profile');
   }
-  
-  if (profile.membership_level === 'premium') {
-    reasons.push('Premium member');
-  }
-  
+
   if (profile.bio && profile.bio.length > 20) {
     reasons.push('Detailed profile');
   }
-  
+
   if (reasons.length === 0) {
     reasons.push('AI-powered compatibility match');
   }
-  
+
   return reasons.slice(0, 3);
 }
 
-function generateConversationStarters(profile: any, commonInterests: string[]): string[] {
+function generateConversationStarters(
+  profile: { bio: string | null; city_name: string | null },
+  commonInterests: string[]
+): string[] {
   const starters = [];
-  
+
   if (commonInterests.length > 0) {
     starters.push(`I see you're interested in ${commonInterests[0]}! What got you into that?`);
   }
-  
+
   if (profile.bio) {
     starters.push(`Your bio caught my attention. I'd love to hear more about your journey!`);
   }
-  
-  if (profile.location) {
-    starters.push(`I'm curious about ${profile.location}. What's the best thing about living there?`);
+
+  if (profile.city_name) {
+    starters.push(`I'm curious about ${profile.city_name}. What's the best thing about living there?`);
   }
-  
+
   starters.push('What brings you to PersonaLink?');
-  starters.push('I\'d love to connect and learn more about you!');
-  
+  starters.push("I'd love to connect and learn more about you!");
+
   return starters.slice(0, 3);
 }
 
 function applyRefreshVariety(candidates: any[], refreshToken: string): any[] {
-  // Simple hash-based shuffling for variety
   const hash = refreshToken.split('').reduce((a, b) => {
     a = ((a << 5) - a) + b.charCodeAt(0);
     return a & a;
   }, 0);
-  
+
   const shuffled = [...candidates];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.abs(hash + i) % (i + 1);
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  
+
   return shuffled;
-} 
+}

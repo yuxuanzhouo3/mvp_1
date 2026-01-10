@@ -1,77 +1,51 @@
 // Payment Configuration
-// Update these with your actual wallet addresses and payment receiver information
+// Region-based payment methods:
+// - INTL region: Stripe + PayPal only
+// - CN region: Alipay only
 
 export const PAYMENT_CONFIG = {
-  // USDT Wallet Addresses
-  usdtWallets: [
-    {
-      id: 'trc20-main',
-      address: 'TQn9Y2khDD95J42FQtQTdwVVRKqyqjqjqj', // REPLACE WITH YOUR ACTUAL TRC20 ADDRESS
-      network: 'TRC20' as const,
-      label: 'Main USDT Wallet (TRC20)',
-      isActive: true,
-    },
-    {
-      id: 'erc20-main',
-      address: '0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b8', // REPLACE WITH YOUR ACTUAL ERC20 ADDRESS
-      network: 'ERC20' as const,
-      label: 'Main USDT Wallet (ERC20)',
-      isActive: true,
-    },
-    // Add more wallets as needed
-    // {
-    //   id: 'bep20-main',
-    //   address: '0x...', // Your BEP20 address
-    //   network: 'BEP20' as const,
-    //   label: 'Main USDT Wallet (BEP20)',
-    //   isActive: true,
-    // },
-  ],
-
-  // Payment Receivers
+  // Payment Receivers (for CN region manual payments)
   paymentReceivers: [
     {
       id: 'alipay-main',
       type: 'alipay' as const,
       name: '支付宝收款',
-      account: 'your-alipay-account@example.com', // REPLACE WITH YOUR ACTUAL ALIPAY ACCOUNT
+      account: process.env.ALIPAY_RECEIVER_ACCOUNT || 'your-alipay-account@example.com',
       isActive: true,
     },
-    {
-      id: 'wechat-main',
-      type: 'wechat' as const,
-      name: '微信收款',
-      account: 'your-wechat-id', // REPLACE WITH YOUR ACTUAL WECHAT ID
-      isActive: true,
-    },
-    // Add more payment receivers as needed
   ],
 
   // Payment Settings
   settings: {
-    // Minimum payment amount (in CNY)
+    // Minimum payment amount (in CNY for CN, USD for INTL)
     minAmount: 1,
-    
-    // Maximum payment amount (in CNY)
+
+    // Maximum payment amount
     maxAmount: 10000,
-    
+
     // Payment timeout (in minutes)
     paymentTimeout: 30,
-    
+
     // Auto-refund failed payments after (in hours)
     autoRefundAfter: 24,
-    
-    // Supported currencies
-    supportedCurrencies: ['CNY', 'USD', 'EUR'],
-    
-    // Default currency
-    defaultCurrency: 'CNY',
+
+    // Supported currencies by region
+    currenciesByRegion: {
+      INTL: ['USD', 'EUR'],
+      CN: ['CNY'],
+    },
+
+    // Default currency by region
+    defaultCurrencyByRegion: {
+      INTL: 'USD',
+      CN: 'CNY',
+    },
   },
 
   // Webhook URLs (for production)
   webhooks: {
-    stripe: 'https://your-domain.com/api/payments/webhook',
-    alipay: 'https://your-domain.com/api/payments/alipay-webhook',
+    stripe: '/api/payments/webhook',
+    paypal: '/api/payments/paypal-webhook',
   },
 
   // API Keys (store these in environment variables)
@@ -81,6 +55,11 @@ export const PAYMENT_CONFIG = {
       secretKey: process.env.STRIPE_SECRET_KEY || '',
       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
     },
+    paypal: {
+      clientId: process.env.PAYPAL_CLIENT_ID || '',
+      clientSecret: process.env.PAYPAL_CLIENT_SECRET || '',
+      mode: process.env.PAYPAL_MODE || 'sandbox', // 'sandbox' or 'live'
+    },
     alipay: {
       appId: process.env.ALIPAY_APP_ID || '',
       privateKey: process.env.ALIPAY_PRIVATE_KEY || '',
@@ -89,9 +68,36 @@ export const PAYMENT_CONFIG = {
   },
 };
 
-// Helper function to get active wallets
-export function getActiveUSDTWallets() {
-  return PAYMENT_CONFIG.usdtWallets.filter(wallet => wallet.isActive);
+// Get current deployment region
+export function getDeploymentRegion(): 'INTL' | 'CN' {
+  return (process.env.NEXT_PUBLIC_DEPLOYMENT_REGION as 'INTL' | 'CN') || 'INTL';
+}
+
+// Get available payment methods for current region
+export function getAvailablePaymentMethodsForRegion(): string[] {
+  const region = getDeploymentRegion();
+
+  if (region === 'CN') {
+    return ['alipay'];
+  }
+
+  // INTL region
+  const methods: string[] = [];
+
+  if (PAYMENT_CONFIG.apiKeys.stripe.secretKey) {
+    methods.push('stripe');
+  }
+
+  if (PAYMENT_CONFIG.apiKeys.paypal.clientId) {
+    methods.push('paypal');
+  }
+
+  return methods;
+}
+
+// Check if a payment method is available
+export function isPaymentMethodAvailable(method: string): boolean {
+  return getAvailablePaymentMethodsForRegion().includes(method);
 }
 
 // Helper function to get active payment receivers
@@ -99,14 +105,21 @@ export function getActivePaymentReceivers() {
   return PAYMENT_CONFIG.paymentReceivers.filter(receiver => receiver.isActive);
 }
 
-// Helper function to get wallet by network
-export function getWalletByNetwork(network: 'TRC20' | 'ERC20' | 'BEP20') {
-  return PAYMENT_CONFIG.usdtWallets.find(wallet => wallet.network === network && wallet.isActive);
+// Helper function to get payment receiver by type
+export function getPaymentReceiverByType(type: 'alipay') {
+  return PAYMENT_CONFIG.paymentReceivers.find(receiver => receiver.type === type && receiver.isActive);
 }
 
-// Helper function to get payment receiver by type
-export function getPaymentReceiverByType(type: 'alipay' | 'wechat') {
-  return PAYMENT_CONFIG.paymentReceivers.find(receiver => receiver.type === type && receiver.isActive);
+// Get default currency for current region
+export function getDefaultCurrency(): string {
+  const region = getDeploymentRegion();
+  return PAYMENT_CONFIG.settings.defaultCurrencyByRegion[region];
+}
+
+// Get supported currencies for current region
+export function getSupportedCurrencies(): string[] {
+  const region = getDeploymentRegion();
+  return PAYMENT_CONFIG.settings.currenciesByRegion[region];
 }
 
 // Validation functions
@@ -114,12 +127,19 @@ export function validatePaymentAmount(amount: number): boolean {
   return amount >= PAYMENT_CONFIG.settings.minAmount && amount <= PAYMENT_CONFIG.settings.maxAmount;
 }
 
-export function validateWalletAddress(address: string): boolean {
-  // Basic validation - you can add more sophisticated validation
-  return address.length > 0 && address.trim() !== '';
+export function validatePaymentAccount(account: string): boolean {
+  return account.length > 0 && account.trim() !== '';
 }
 
-export function validatePaymentAccount(account: string): boolean {
-  // Basic validation - you can add more sophisticated validation
-  return account.length > 0 && account.trim() !== '';
-} 
+// DEPRECATED: USDT functions (no longer supported)
+// @deprecated - USDT payment has been removed
+export function getActiveUSDTWallets() {
+  console.warn('USDT payment is no longer supported');
+  return [];
+}
+
+// @deprecated - USDT payment has been removed
+export function getWalletByNetwork(_network: string) {
+  console.warn('USDT payment is no longer supported');
+  return null;
+}

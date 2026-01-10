@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
 
     // Test database connection
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('credits, full_name')
-      .eq('id', user.id)
+      .from('user_profiles')
+      .select('credits')
+      .eq('user_id', user.id)
       .single();
 
     if (profileError) {
@@ -31,16 +31,23 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Get user info from users table
+    const { data: userInfo } = await supabase
+      .from('users')
+      .select('username')
+      .eq('id', user.id)
+      .single();
+
     return NextResponse.json({
       status: 'success',
       message: 'Payment system is working',
       user: {
         id: user.id,
         email: user.email,
-        name: profile?.full_name,
-        currentCredits: profile?.credits
+        name: userInfo?.username,
+        currentCredits: profile?.credits || 0
       },
-      paymentMethods: ['stripe', 'usdt', 'alipay'],
+      paymentMethods: ['stripe', 'paypal', 'alipay'],
       packages: [
         { id: 'starter', credits: 50, price: 9.99 },
         { id: 'popular', credits: 150, price: 24.99 },
