@@ -297,6 +297,8 @@ export const zh = {
       creditsUnit: '积分',
       estimatedMatches: '预计可匹配次数',
       lowBalance: '余额不足！请充值以继续匹配。',
+      rechargeGuide: '解锁更多匹配和聊天机会！立即充值，找到你的完美配对。',
+      rechargeNow: '立即充值',
     },
     recentMatches: {
       title: '最近匹配',

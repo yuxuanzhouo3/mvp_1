@@ -296,6 +296,8 @@ export const en = {
       creditsUnit: 'credits',
       estimatedMatches: 'Estimated Matches',
       lowBalance: 'Low balance! Recharge to continue matching.',
+      rechargeGuide: 'Unlock more matches and conversations! Recharge now to connect with your perfect match.',
+      rechargeNow: 'Recharge Now',
     },
     recentMatches: {
       title: 'Recent Matches',

@@ -529,6 +529,13 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
+                {/* Recharge Guide */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-700 text-center">
+                    💎 {t.dashboard.credits.rechargeGuide || 'Unlock more matches and conversations! Recharge now to connect with your perfect match.'}
+                  </p>
+                </div>
+
                 {/* Low Balance Warning */}
                 {profile.credits < 20 && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
+import { getSupabaseClient } from '@/lib/supabase/client';
 import {
   CreditCard,
   DollarSign,
@@ -223,6 +224,19 @@ export default function CreditRecharge() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [showPaymentMonitor, setShowPaymentMonitor] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+
+  // Get session token on mount
+  useEffect(() => {
+    const getToken = async () => {
+      const supabase = getSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        setSessionToken(session.access_token);
+      }
+    };
+    getToken();
+  }, []);
 
   const handlePackageSelect = (pkg: CreditPackage) => {
     setSelectedPackage(pkg);
@@ -246,12 +260,25 @@ export default function CreditRecharge() {
       return;
     }
 
+    if (!sessionToken) {
+      toast({
+        title: language === 'zh' ? '未登录' : 'Not logged in',
+        description: language === 'zh' ? '请先登录后再进行支付' : 'Please login before making a payment',
+        variant: 'destructive',
+      });
+      router.push('/auth/login');
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
       const response = await fetch('/api/payments/create-intent', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${sessionToken}`,
+        },
         body: JSON.stringify({
           packageId: selectedPackage.id,
           paymentMethod: selectedPaymentMethod.id,

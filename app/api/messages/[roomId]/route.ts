@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/server';
 import { notifyNewMessage } from '@/lib/services/notifications';
 import { isUserInRoom } from '@/lib/services/user-presence';
+import { checkAndConsumeCredits, CREDIT_COSTS } from '@/lib/credits/credits';
 
 // GET: 获取消息
 export async function GET(
@@ -111,6 +112,16 @@ export async function POST(
 
     if (!content && message_type === 'text') {
       return NextResponse.json({ error: 'Content is required for text messages' }, { status: 400 });
+    }
+
+    // Check and consume credits for sending message (1 credit per message)
+    const creditResult = await checkAndConsumeCredits(user.id, 'message');
+    if (!creditResult.success) {
+      return NextResponse.json({
+        error: creditResult.error || 'Insufficient credits',
+        errorCode: creditResult.errorCode,
+        required: CREDIT_COSTS.MESSAGE,
+      }, { status: 402 }); // 402 Payment Required
     }
 
     // 验证用户是否有权限发送消息到此聊天室

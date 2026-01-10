@@ -260,6 +260,7 @@ class ChatRealtimeClient {
 
   /**
    * 发送消息
+   * Uses API endpoint to handle credit deduction atomically
    */
   async sendMessage(
     roomId: string,
@@ -269,26 +270,40 @@ class ChatRealtimeClient {
     metadata: Record<string, unknown> = {},
     replyToMessageId?: string
   ): Promise<Message | null> {
-    const { data, error } = await this.supabase
-      .from('messages')
-      .insert({
-        room_id: roomId,
-        sender_id: senderId,
+    // Get auth token
+    const { data: { session } } = await this.supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Not authenticated');
+    }
+
+    // Use API endpoint for message sending (handles credit deduction)
+    const response = await fetch(`/api/messages/${roomId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
         content,
         message_type: messageType,
         metadata,
         reply_to_message_id: replyToMessageId || null,
-        sent_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+      }),
+    });
 
-    if (error) {
-      console.error('发送消息失败:', error);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const error = new Error(errorData.error || 'Failed to send message');
+      // Attach error code for credit-related errors
+      if (errorData.errorCode) {
+        (error as any).errorCode = errorData.errorCode;
+        (error as any).required = errorData.required;
+      }
       throw error;
     }
 
-    return data as Message;
+    const result = await response.json();
+    return result.message as Message;
   }
 
   /**

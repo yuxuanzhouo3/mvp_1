@@ -921,7 +921,7 @@ export default function ChatRoomPage() {
                   key={message.id}
                   className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300`}
                 >
-                  <div className={`flex items-end space-x-3 max-w-[75%] lg:max-w-[60%] ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                  <div className={`flex items-end space-x-3 max-w-[85%] lg:max-w-[70%] ${isOwn ? 'flex-row-reverse space-x-reverse' : ''}`}>
                     {/* 头像 */}
                     <Avatar className={`h-9 w-9 flex-shrink-0 ring-2 ring-offset-2 ring-offset-gray-50 dark:ring-offset-gray-900 ${isOwn ? 'ring-primary/50' : 'ring-gray-200 dark:ring-gray-700'}`}>
                       {isOwn ? (
@@ -941,13 +941,16 @@ export default function ChatRoomPage() {
                       )}
                     </Avatar>
 
-                    <div className="relative group flex flex-col">
-                      {/* 用户名 */}
-                      <div className={`text-xs mb-1.5 font-medium ${isOwn ? 'text-right' : 'text-left'} text-gray-500 dark:text-gray-400`}>
-                        {isOwn
-                          ? (currentUserProfile?.full_name || (language === 'zh' ? '我' : 'Me'))
-                          : (chatUser?.username || (language === 'zh' ? '对方' : 'User'))
-                        }
+                    <div className="relative group flex flex-col min-w-[120px]">
+                      {/* 时间和用户名 - 显示在消息上方 */}
+                      <div className={`text-xs mb-1.5 flex items-center gap-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                        <span className="font-medium text-gray-500 dark:text-gray-400">
+                          {isOwn
+                            ? (currentUserProfile?.full_name || (language === 'zh' ? '我' : 'Me'))
+                            : (chatUser?.username || (language === 'zh' ? '对方' : 'User'))
+                          }
+                        </span>
+                        <span className="text-gray-400 dark:text-gray-500">{formatTime(message.sent_at)}</span>
                       </div>
 
                       {/* 回复引用 */}
@@ -966,38 +969,35 @@ export default function ChatRoomPage() {
                         </div>
                       )}
 
-                      {/* 消息气泡 */}
-                      <div
-                        className={`rounded-2xl px-4 py-3 shadow-sm transition-all duration-200 hover:shadow-md ${
-                          isOwn
-                            ? 'bg-gradient-to-br from-primary to-primary/85 text-white rounded-br-md'
-                            : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-bl-md'
-                        }`}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          setShowMenu(showMenu === message.id ? null : message.id);
-                        }}
-                      >
-                        {renderMessageContent(message)}
-
-                        <div className={`text-xs mt-2 flex items-center ${isOwn ? 'justify-end' : 'justify-start'} ${
-                          isOwn ? 'text-white/70' : 'text-gray-400 dark:text-gray-500'
-                        }`}>
-                          <span>{formatTime(message.sent_at)}</span>
-                          {isOwn && !message.deleted_at && (
-                            <span className="ml-1.5 flex items-center">
-                              {message.is_read ? (
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M2 12l5 5L20 4M9 17l3 3 9-13" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              ) : (
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              )}
-                            </span>
-                          )}
+                      {/* 消息气泡和已读状态容器 */}
+                      <div className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
+                        {/* 消息气泡 - 更宽的样式 */}
+                        <div
+                          className={`rounded-2xl px-5 py-3 shadow-sm transition-all duration-200 hover:shadow-md min-w-[100px] ${
+                            isOwn
+                              ? 'bg-gradient-to-br from-primary to-primary/85 text-white rounded-br-md'
+                              : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-bl-md'
+                          }`}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            setShowMenu(showMenu === message.id ? null : message.id);
+                          }}
+                        >
+                          {renderMessageContent(message)}
                         </div>
+
+                        {/* 已读状态 - 显示在气泡外侧的圆圈 */}
+                        {isOwn && !message.deleted_at && (
+                          <div className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
+                            message.is_read
+                              ? 'bg-green-500'
+                              : 'bg-gray-300 dark:bg-gray-600'
+                          }`}>
+                            <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                              <path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </div>
+                        )}
                       </div>
 
                       {/* 消息菜单 */}
