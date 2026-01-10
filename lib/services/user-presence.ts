@@ -6,11 +6,28 @@
 
 import { Redis } from '@upstash/redis';
 
-// 初始化 Redis 客户端
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_URL!,
-  token: process.env.UPSTASH_REDIS_TOKEN!,
-});
+// 延迟初始化 Redis 客户端（避免构建时错误）
+let redis: Redis | null = null;
+
+function getRedis(): Redis | null {
+  if (redis) return redis;
+
+  const url = (process.env.UPSTASH_REDIS_URL || '').trim();
+  const token = (process.env.UPSTASH_REDIS_TOKEN || '').trim();
+
+  if (!url || !token) {
+    console.warn('[Presence] Redis not configured, presence features disabled');
+    return null;
+  }
+
+  try {
+    redis = new Redis({ url, token });
+    return redis;
+  } catch (error) {
+    console.warn('[Presence] Failed to initialize Redis:', error);
+    return null;
+  }
+}
 
 // Redis 键前缀
 const ACTIVE_ROOM_PREFIX = 'user:active_room:';
@@ -25,8 +42,11 @@ const PRESENCE_TTL = 300;
  */
 export async function setUserActiveRoom(userId: string, roomId: string): Promise<void> {
   try {
+    const client = getRedis();
+    if (!client) return;
+
     const key = `${ACTIVE_ROOM_PREFIX}${userId}`;
-    await redis.set(key, roomId, { ex: PRESENCE_TTL });
+    await client.set(key, roomId, { ex: PRESENCE_TTL });
     console.log(`[Presence] User ${userId} entered room ${roomId}`);
   } catch (error) {
     console.warn('[Presence] Failed to set active room:', error);
@@ -39,8 +59,11 @@ export async function setUserActiveRoom(userId: string, roomId: string): Promise
  */
 export async function clearUserActiveRoom(userId: string): Promise<void> {
   try {
+    const client = getRedis();
+    if (!client) return;
+
     const key = `${ACTIVE_ROOM_PREFIX}${userId}`;
-    await redis.del(key);
+    await client.del(key);
     console.log(`[Presence] User ${userId} left chat room`);
   } catch (error) {
     console.warn('[Presence] Failed to clear active room:', error);
@@ -52,8 +75,11 @@ export async function clearUserActiveRoom(userId: string): Promise<void> {
  */
 export async function getUserActiveRoom(userId: string): Promise<string | null> {
   try {
+    const client = getRedis();
+    if (!client) return null;
+
     const key = `${ACTIVE_ROOM_PREFIX}${userId}`;
-    const roomId = await redis.get<string>(key);
+    const roomId = await client.get<string>(key);
     return roomId;
   } catch (error) {
     console.warn('[Presence] Failed to get active room:', error);
@@ -80,11 +106,14 @@ export async function isUserInRoom(userId: string, roomId: string): Promise<bool
  */
 export async function refreshUserPresence(userId: string, roomId: string): Promise<void> {
   try {
+    const client = getRedis();
+    if (!client) return;
+
     const key = `${ACTIVE_ROOM_PREFIX}${userId}`;
     // 只有当用户仍在同一个房间时才刷新
-    const currentRoom = await redis.get<string>(key);
+    const currentRoom = await client.get<string>(key);
     if (currentRoom === roomId) {
-      await redis.expire(key, PRESENCE_TTL);
+      await client.expire(key, PRESENCE_TTL);
     }
   } catch (error) {
     console.warn('[Presence] Failed to refresh presence:', error);
@@ -96,8 +125,11 @@ export async function refreshUserPresence(userId: string, roomId: string): Promi
  */
 export async function setUserOnline(userId: string): Promise<void> {
   try {
+    const client = getRedis();
+    if (!client) return;
+
     const key = `${USER_ONLINE_PREFIX}${userId}`;
-    await redis.set(key, Date.now().toString(), { ex: PRESENCE_TTL });
+    await client.set(key, Date.now().toString(), { ex: PRESENCE_TTL });
   } catch (error) {
     console.warn('[Presence] Failed to set user online:', error);
   }
@@ -108,8 +140,11 @@ export async function setUserOnline(userId: string): Promise<void> {
  */
 export async function isUserOnline(userId: string): Promise<boolean> {
   try {
+    const client = getRedis();
+    if (!client) return false;
+
     const key = `${USER_ONLINE_PREFIX}${userId}`;
-    const exists = await redis.exists(key);
+    const exists = await client.exists(key);
     return exists === 1;
   } catch (error) {
     console.warn('[Presence] Failed to check user online:', error);
@@ -122,11 +157,14 @@ export async function isUserOnline(userId: string): Promise<boolean> {
  */
 export async function clearUserOnline(userId: string): Promise<void> {
   try {
+    const client = getRedis();
+    if (!client) return;
+
     const onlineKey = `${USER_ONLINE_PREFIX}${userId}`;
     const roomKey = `${ACTIVE_ROOM_PREFIX}${userId}`;
     await Promise.all([
-      redis.del(onlineKey),
-      redis.del(roomKey),
+      client.del(onlineKey),
+      client.del(roomKey),
     ]);
     console.log(`[Presence] User ${userId} offline`);
   } catch (error) {
