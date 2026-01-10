@@ -95,12 +95,7 @@ export async function POST(request: NextRequest) {
       'credit_purchase',
       credits,
       `Purchased ${credits} credits via PayPal`,
-      {
-        payment_id: paymentId,
-        paypal_order_id: orderId,
-        paypal_capture_id: captureResult.captureId,
-        payment_method: 'paypal',
-      }
+      paymentId
     );
 
     // 发送成功通知

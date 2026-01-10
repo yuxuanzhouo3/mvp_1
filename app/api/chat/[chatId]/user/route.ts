@@ -59,8 +59,8 @@ export async function GET(
 
     if (chatRoom && !chatRoomError) {
       // Determine which user is the other participant
-      const match = chatRoom.matches as { user_1: string; user_2: string };
-      otherUserId = match.user_1 === user.id ? match.user_2 : match.user_1;
+      const matches = chatRoom.matches as unknown as { user_1: string; user_2: string };
+      otherUserId = matches.user_1 === user.id ? matches.user_2 : matches.user_1;
     }
 
     if (!otherUserId) {

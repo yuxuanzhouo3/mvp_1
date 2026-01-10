@@ -141,12 +141,7 @@ async function handleCaptureCompleted(event: PayPalWebhookEvent) {
       'credit_purchase',
       credits,
       `Purchased ${credits} credits via PayPal (Webhook)`,
-      {
-        payment_id: paymentId,
-        paypal_capture_id: resource.id,
-        payment_method: 'paypal',
-        source: 'webhook',
-      }
+      paymentId
     );
 
     // 发送通知
@@ -252,12 +247,7 @@ async function handleOrderCompleted(event: PayPalWebhookEvent) {
       'credit_purchase',
       credits,
       `Purchased ${credits} credits via PayPal (Order Webhook)`,
-      {
-        payment_id: paymentId,
-        paypal_order_id: resource.id,
-        payment_method: 'paypal',
-        source: 'webhook',
-      }
+      paymentId
     );
 
     notifyPaymentSuccess(payment.user_id, credits, paymentId, payment.amount).catch(console.warn);

@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
       if (!interestMap.has(ui.user_id)) {
         interestMap.set(ui.user_id, []);
       }
-      const interest = ui.interests as { name: string; category: string };
+      const interest = ui.interests as unknown as { name: string; category: string };
       interestMap.get(ui.user_id)!.push(interest.name);
     });
 
@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
 
     // Enhanced matching logic with scoring
     const enrichedCandidates = candidates.map((candidate) => {
-      const profile = candidate.user_profiles as {
+      const profile = candidate.user_profiles as unknown as {
         real_name: string | null;
         bio: string | null;
         city_name: string | null;

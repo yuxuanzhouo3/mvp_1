@@ -43,7 +43,7 @@ export async function GET(
     }
 
     // Get sender info for all messages
-    const senderIds = [...new Set(messages?.map(m => m.sender_id) || [])];
+    const senderIds = Array.from(new Set(messages?.map(m => m.sender_id) || []));
     const { data: senders } = await supabase
       .from('users')
       .select('id, username, avatar_url')
