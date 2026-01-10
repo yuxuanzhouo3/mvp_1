@@ -142,8 +142,7 @@ export async function POST(
       return NextResponse.json({ error: 'Chat room not found' }, { status: 404 });
     }
 
-    const matches = room.matches as { user_1: string; user_2: string }[];
-    const match = matches[0];
+    const match = room.matches as { user_1: string; user_2: string };
     if (match.user_1 !== user.id && match.user_2 !== user.id) {
       return NextResponse.json({ error: 'Unauthorized to send message to this room' }, { status: 403 });
     }
