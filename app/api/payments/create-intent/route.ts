@@ -146,12 +146,12 @@ async function handleStripePayment(payment: any, amount: number, credits: number
       },
     });
 
-    // Update payment record with Stripe session ID
+    // Update payment record with Stripe checkout session ID
     const supabase = createClient();
     await supabase
       .from('payments')
       .update({
-        stripe_payment_intent_id: session.id,
+        stripe_checkout_session_id: session.id,
         metadata: {
           ...payment.metadata,
           stripe_session_id: session.id,
@@ -229,11 +229,12 @@ async function handlePayPalPayment(payment: any, amount: number, credits: number
       description: `Purchase ${credits} credits for PersonaLink`,
     });
 
-    // Update payment record with PayPal order ID
+    // Update payment record with PayPal order ID (同时更新专用字段和 metadata)
     const supabase = createClient();
     await supabase
       .from('payments')
       .update({
+        paypal_order_id: paypalOrder.orderId,
         metadata: {
           ...payment.metadata,
           paypal_order_id: paypalOrder.orderId,

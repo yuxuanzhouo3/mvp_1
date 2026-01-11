@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPayPalWebhook, type PayPalWebhookEvent } from '@/lib/payment/paypal';
-import {
-  updatePaymentStatus,
-  addCreditsToUser,
-  createTransactionRecord
-} from '@/lib/payment/payments';
+import { updatePaymentStatus } from '@/lib/payment/payments';
 import { notifyPaymentSuccess, notifyPaymentFailed } from '@/lib/services/notifications';
 import { createClient } from '@/lib/supabase/server';
 
@@ -123,28 +119,17 @@ async function handleCaptureCompleted(event: PayPalWebhookEvent) {
     return;
   }
 
-  // 更新支付状态
+  // 更新支付状态 - 积分添加由数据库触发器 trigger_on_payment_completed 自动完成
+  // 触发器会调用 add_user_credits() 函数，该函数会自动创建交易记录
   await updatePaymentStatus(paymentId, 'completed', {
     ...payment.metadata,
     paypal_capture_id: resource.id,
     webhook_processed: true,
   });
 
-  // 添加积分
-  const credits = payment.metadata?.credits || 0;
+  // 发送通知
+  const credits = payment.credits || 0;
   if (credits > 0 && payment.user_id) {
-    await addCreditsToUser(payment.user_id, credits);
-
-    // 创建交易记录
-    await createTransactionRecord(
-      payment.user_id,
-      'credit_purchase',
-      credits,
-      `Purchased ${credits} credits via PayPal (Webhook)`,
-      paymentId
-    );
-
-    // 发送通知
     notifyPaymentSuccess(payment.user_id, credits, paymentId, payment.amount).catch(console.warn);
   }
 
@@ -230,26 +215,17 @@ async function handleOrderCompleted(event: PayPalWebhookEvent) {
     return;
   }
 
-  // 更新支付状态
+  // 更新支付状态 - 积分添加由数据库触发器 trigger_on_payment_completed 自动完成
+  // 触发器会调用 add_user_credits() 函数，该函数会自动创建交易记录
   await updatePaymentStatus(paymentId, 'completed', {
     ...payment.metadata,
     paypal_order_id: resource.id,
     webhook_processed: true,
   });
 
-  // 添加积分
-  const credits = payment.metadata?.credits || 0;
+  // 发送通知
+  const credits = payment.credits || 0;
   if (credits > 0 && payment.user_id) {
-    await addCreditsToUser(payment.user_id, credits);
-
-    await createTransactionRecord(
-      payment.user_id,
-      'credit_purchase',
-      credits,
-      `Purchased ${credits} credits via PayPal (Order Webhook)`,
-      paymentId
-    );
-
     notifyPaymentSuccess(payment.user_id, credits, paymentId, payment.amount).catch(console.warn);
   }
 

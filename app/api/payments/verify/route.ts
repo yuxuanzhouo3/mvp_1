@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
       .select('*')
-      .eq('stripe_payment_intent_id', sessionId)
+      .eq('stripe_checkout_session_id', sessionId)
       .eq('user_id', user.id)
       .single();
 
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      credits: payment.metadata?.credits || 0,
+      credits: payment.credits || 0,
       amount: payment.amount,
       paymentMethod: payment.payment_method,
       transactionId: payment.id,

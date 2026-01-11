@@ -94,20 +94,19 @@ export async function createPaymentRecord(
   credits: number
 ) {
   const supabase = createClient();
-  
+
   const { data: payment, error } = await supabase
     .from('payments')
     .insert({
       user_id: userId,
       amount: amount,
       currency: 'CNY',
+      credits: credits,
       payment_method: paymentMethod,
       status: 'pending',
-      description: `Purchase ${credits} credits - ${packageId} package`,
       metadata: {
         packageId,
-        credits,
-        paymentMethod
+        description: `Purchase ${credits} credits - ${packageId} package`,
       }
     })
     .select()
@@ -126,7 +125,7 @@ export async function updatePaymentStatus(
   additionalData?: Record<string, any>
 ) {
   const supabase = createClient();
-  
+
   const updateData: any = {
     status,
     updated_at: new Date().toISOString(),
@@ -214,7 +213,7 @@ export async function createTransactionRecord(
 
 export async function getPaymentById(paymentId: string, userId: string) {
   const supabase = createClient();
-  
+
   const { data: payment, error } = await supabase
     .from('payments')
     .select('*')
@@ -236,7 +235,7 @@ export async function getUserPaymentHistory(
   status?: string
 ) {
   const supabase = createClient();
-  
+
   let query = supabase
     .from('payments')
     .select('*')
@@ -281,12 +280,12 @@ export async function processStripeWebhook(event: Stripe.Event) {
       const session = event.data.object as Stripe.Checkout.Session;
       await handleStripeCheckoutCompleted(session, supabase);
       break;
-    
+
     case 'payment_intent.succeeded':
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       await handleStripePaymentSucceeded(paymentIntent, supabase);
       break;
-    
+
     case 'payment_intent.payment_failed':
       const failedIntent = event.data.object as Stripe.PaymentIntent;
       await handleStripePaymentFailed(failedIntent, supabase);
@@ -303,20 +302,32 @@ async function handleStripeCheckoutCompleted(session: Stripe.Checkout.Session, s
     throw new Error('Missing metadata in checkout session');
   }
 
-  await updatePaymentStatus(paymentId, 'completed', {
-    stripe_session_id: session.id,
-    stripe_charge_id: session.payment_intent,
-  });
+  // 更新支付状态和 payment_intent_id
+  // 积分添加由数据库触发器 trigger_on_payment_completed 自动完成
+  const updateData: any = {
+    status: 'completed',
+    updated_at: new Date().toISOString(),
+    metadata: {
+      stripe_session_id: session.id,
+      stripe_charge_id: session.payment_intent,
+    },
+  };
 
-  await addCreditsToUser(userId, credits);
+  // 存储真正的 payment_intent_id 以便后续 webhook 事件查询
+  if (session.payment_intent) {
+    updateData.stripe_payment_intent_id = typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : session.payment_intent.id;
+  }
 
-  await createTransactionRecord(
-    userId,
-    'credit_purchase',
-    credits,
-    `Purchased ${credits} credits via Stripe`,
-    paymentId
-  );
+  const { error } = await supabase
+    .from('payments')
+    .update(updateData)
+    .eq('id', paymentId);
+
+  if (error) {
+    throw new Error(`Failed to update payment status: ${error.message}`);
+  }
 
   // Send payment success notification
   const amount = (session.amount_total || 0) / 100;
@@ -355,4 +366,4 @@ async function handleStripePaymentFailed(paymentIntent: Stripe.PaymentIntent, su
       console.warn('[Payment] Failed to send failure notification:', err);
     });
   }
-} 
+}

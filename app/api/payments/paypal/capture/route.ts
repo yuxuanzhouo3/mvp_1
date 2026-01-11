@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { capturePayPalOrder } from '@/lib/payment/paypal';
-import {
-  updatePaymentStatus,
-  addCreditsToUser,
-  createTransactionRecord,
-} from '@/lib/payment/payments';
+import { updatePaymentStatus } from '@/lib/payment/payments';
 import { notifyPaymentSuccess } from '@/lib/services/notifications';
 
 export async function POST(request: NextRequest) {
@@ -54,7 +50,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Payment already completed',
-        credits: payment.metadata?.credits || 0,
+        credits: payment.credits || 0,
       });
     }
 
@@ -74,7 +70,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 更新支付状态为完成
+    // 更新支付状态为完成 - 积分添加由数据库触发器 trigger_on_payment_completed 自动完成
+    // 触发器会调用 add_user_credits() 函数，该函数会自动创建交易记录
+    const credits = payment.credits || 0;
     await updatePaymentStatus(paymentId, 'completed', {
       ...payment.metadata,
       paypal_order_id: orderId,
@@ -82,21 +80,6 @@ export async function POST(request: NextRequest) {
       paypal_payer_id: captureResult.payerId,
       paypal_status: captureResult.status,
     });
-
-    // 添加积分
-    const credits = payment.metadata?.credits || 0;
-    if (credits > 0) {
-      await addCreditsToUser(user.id, credits);
-    }
-
-    // 创建交易记录
-    await createTransactionRecord(
-      user.id,
-      'credit_purchase',
-      credits,
-      `Purchased ${credits} credits via PayPal`,
-      paymentId
-    );
 
     // 发送成功通知
     notifyPaymentSuccess(user.id, credits, paymentId, payment.amount).catch((err) => {
