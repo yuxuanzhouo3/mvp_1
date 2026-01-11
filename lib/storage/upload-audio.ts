@@ -293,11 +293,13 @@ export function formatAudioDuration(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-export default {
+const uploadAudioUtils = {
   uploadChatAudio,
   deleteChatAudio,
   formatAudioDuration,
   ensureBucketExists,
   CONFIG,
 };
+
+export default uploadAudioUtils;
 

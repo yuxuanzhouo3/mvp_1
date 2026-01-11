@@ -130,6 +130,7 @@ export default function Step5PersonalityInterests({ data, onUpdate, onValidChang
         bio,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mbti, selectedInterests, bio]);
 
   const selectedMbtiInfo = mbti ? mbtiTypes.find(m => m.type === mbti) : null;

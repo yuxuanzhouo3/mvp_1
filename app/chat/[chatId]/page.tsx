@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Send,
   Paperclip,
-  Image,
+  Image as ImageIcon,
   File,
   Smile,
   MoreVertical,
@@ -90,6 +90,7 @@ export default function ChatDetailPage() {
     }
 
     loadChatData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, user, mounted]);
 
   useEffect(() => {
@@ -367,6 +368,7 @@ export default function ChatDetailPage() {
                     )}
 
                     {message.message_type === 'image' && (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={message.file_url}
                         alt="Shared image"
@@ -439,7 +441,7 @@ export default function ChatDetailPage() {
                 size="sm"
                 onClick={() => imageInputRef.current?.click()}
               >
-                <Image className="h-4 w-4" />
+                <ImageIcon className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"

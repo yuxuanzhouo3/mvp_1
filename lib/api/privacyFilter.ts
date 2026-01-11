@@ -182,7 +182,7 @@ export function formatLocationDisplay(
   };
 }
 
-export default {
+const privacyFilterUtils = {
   filterSensitiveFields,
   filterProfilesArray,
   canSendMessage,
@@ -190,3 +190,5 @@ export default {
   formatIncomeDisplay,
   formatLocationDisplay,
 };
+
+export default privacyFilterUtils;

@@ -1,12 +1,47 @@
 import { createClient } from '@/lib/supabase/server';
 
-// Credit consumption costs
+// Credit consumption costs based on PRD v2.0
 export const CREDIT_COSTS = {
-  MATCH: 10, // Credits per match initiation
-  MESSAGE: 1, // Credits per message sent
+  LIKE: 5,          // 普通喜欢
+  SUPER_LIKE: 10,   // 超级喜欢
+  REWIND: 2,        // 撤销操作
+  BOOST: 2,         // 曝光加速 (30分钟)
+  VIEW_LIKER: 5,    // 查看谁喜欢我
+  MESSAGE: 1,       // 发送消息 (非匹配用户)
+  // Legacy
+  MATCH: 10,        // 兼容旧版匹配消费
 } as const;
 
-export type CreditConsumeType = 'match' | 'message';
+export type CreditConsumeType =
+  | 'like'
+  | 'super_like'
+  | 'rewind'
+  | 'boost'
+  | 'view_liker'
+  | 'message'
+  | 'match'; // legacy
+
+// Transaction type mapping
+export const CREDIT_TRANSACTION_TYPES: Record<CreditConsumeType, string> = {
+  like: 'credit_consume_like',
+  super_like: 'credit_consume_super_like',
+  rewind: 'credit_consume_rewind',
+  boost: 'credit_consume_boost',
+  view_liker: 'credit_consume_view_liker',
+  message: 'credit_consume_message',
+  match: 'credit_consume_match', // legacy
+};
+
+// Action descriptions for transaction records
+export const CREDIT_ACTION_DESCRIPTIONS: Record<CreditConsumeType, { en: string; zh: string }> = {
+  like: { en: 'Like action', zh: '喜欢操作' },
+  super_like: { en: 'Super Like action', zh: '超级喜欢操作' },
+  rewind: { en: 'Rewind action', zh: '撤销操作' },
+  boost: { en: 'Profile Boost (30min)', zh: '曝光加速 (30分钟)' },
+  view_liker: { en: 'View who liked me', zh: '查看谁喜欢我' },
+  message: { en: 'Send message', zh: '发送消息' },
+  match: { en: 'Match action', zh: '匹配操作' }, // legacy
+};
 
 interface CreditsResult {
   success: boolean;
@@ -43,13 +78,37 @@ export async function checkCredits(userId: string, required: number): Promise<bo
 }
 
 /**
+ * Get credit cost for a specific action
+ */
+export function getCreditCost(action: CreditConsumeType): number {
+  switch (action) {
+    case 'like':
+      return CREDIT_COSTS.LIKE;
+    case 'super_like':
+      return CREDIT_COSTS.SUPER_LIKE;
+    case 'rewind':
+      return CREDIT_COSTS.REWIND;
+    case 'boost':
+      return CREDIT_COSTS.BOOST;
+    case 'view_liker':
+      return CREDIT_COSTS.VIEW_LIKER;
+    case 'message':
+      return CREDIT_COSTS.MESSAGE;
+    case 'match':
+      return CREDIT_COSTS.MATCH;
+    default:
+      return 0;
+  }
+}
+
+/**
  * Check if user has enough credits for a specific action
  */
 export async function checkCreditsForAction(
   userId: string,
   action: CreditConsumeType
 ): Promise<{ hasCredits: boolean; required: number; balance: number }> {
-  const required = action === 'match' ? CREDIT_COSTS.MATCH : CREDIT_COSTS.MESSAGE;
+  const required = getCreditCost(action);
   const balance = await getCreditsBalance(userId);
 
   return {
@@ -66,27 +125,53 @@ export async function consumeCredits(
   userId: string,
   amount: number,
   type: CreditConsumeType,
-  referenceId?: string
+  referenceId?: string,
+  description?: string
 ): Promise<CreditsResult> {
   const supabase = createClient();
 
   // Determine the transaction type
-  const transactionType = type === 'match' ? 'credit_consume_match' : 'credit_consume_message';
+  const transactionType = CREDIT_TRANSACTION_TYPES[type] || 'credit_consume_match';
+  const defaultDescription = CREDIT_ACTION_DESCRIPTIONS[type]?.zh || '积分消费';
 
   // Use the database function to consume credits atomically
-  const { data, error } = await supabase.rpc('consume_user_credits', {
+  const { data, error } = await supabase.rpc('consume_user_credits_v2', {
     p_user_id: userId,
     p_amount: amount,
     p_type: transactionType,
     p_reference_id: referenceId || null,
-    p_description: type === 'match' ? '发起匹配' : '发送消息',
+    p_description: description || defaultDescription,
   });
 
   if (error) {
-    console.error('Failed to consume credits:', error);
+    // Fallback to old function if v2 doesn't exist
+    const { data: oldData, error: oldError } = await supabase.rpc('consume_user_credits', {
+      p_user_id: userId,
+      p_amount: amount,
+      p_type: type === 'match' || type === 'like' || type === 'super_like' ? 'credit_consume_match' : 'credit_consume_message',
+      p_reference_id: referenceId || null,
+      p_description: description || defaultDescription,
+    });
+
+    if (oldError) {
+      console.error('Failed to consume credits:', oldError);
+      return {
+        success: false,
+        error: oldError.message,
+      };
+    }
+
+    const oldResult = oldData?.[0];
+    if (!oldResult?.success) {
+      return {
+        success: false,
+        error: oldResult?.error_message || '积分扣除失败',
+      };
+    }
+
     return {
-      success: false,
-      error: error.message,
+      success: true,
+      newBalance: oldResult.new_balance,
     };
   }
 
@@ -124,6 +209,55 @@ export async function consumeCreditsForMessage(
   messageId?: string
 ): Promise<CreditsResult> {
   return consumeCredits(userId, CREDIT_COSTS.MESSAGE, 'message', messageId);
+}
+
+/**
+ * Consume credits for like action (5 credits)
+ */
+export async function consumeCreditsForLike(
+  userId: string,
+  swipeId?: string
+): Promise<CreditsResult> {
+  return consumeCredits(userId, CREDIT_COSTS.LIKE, 'like', swipeId);
+}
+
+/**
+ * Consume credits for super like action (10 credits)
+ */
+export async function consumeCreditsForSuperLike(
+  userId: string,
+  swipeId?: string
+): Promise<CreditsResult> {
+  return consumeCredits(userId, CREDIT_COSTS.SUPER_LIKE, 'super_like', swipeId);
+}
+
+/**
+ * Consume credits for rewind action (2 credits)
+ */
+export async function consumeCreditsForRewind(
+  userId: string,
+  swipeId?: string
+): Promise<CreditsResult> {
+  return consumeCredits(userId, CREDIT_COSTS.REWIND, 'rewind', swipeId);
+}
+
+/**
+ * Consume credits for boost action (2 credits)
+ */
+export async function consumeCreditsForBoost(
+  userId: string,
+  boostId?: string
+): Promise<CreditsResult> {
+  return consumeCredits(userId, CREDIT_COSTS.BOOST, 'boost', boostId);
+}
+
+/**
+ * Consume credits for viewing who liked me (5 credits)
+ */
+export async function consumeCreditsForViewLiker(
+  userId: string
+): Promise<CreditsResult> {
+  return consumeCredits(userId, CREDIT_COSTS.VIEW_LIKER, 'view_liker');
 }
 
 /**
@@ -220,7 +354,7 @@ export async function checkAndConsumeCredits(
   error?: string;
   errorCode?: 'INSUFFICIENT_CREDITS' | 'SYSTEM_ERROR';
 }> {
-  const cost = action === 'match' ? CREDIT_COSTS.MATCH : CREDIT_COSTS.MESSAGE;
+  const cost = getCreditCost(action);
 
   // First check if user has enough credits
   const { hasCredits, balance, required } = await checkCreditsForAction(userId, action);

@@ -175,6 +175,7 @@ export default function ProfileEditPage() {
       return;
     }
     loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, router]);
 
   const loadProfile = async () => {

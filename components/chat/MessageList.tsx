@@ -99,9 +99,10 @@ export default function MessageList({
       case 'image':
         return (
           <div className="space-y-2">
-            <img 
-              src={message.file_url} 
-              alt="Image" 
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={message.file_url}
+              alt="Image"
               className="max-w-xs rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
               onClick={() => {
                 if (typeof window !== 'undefined' && message.file_url) {

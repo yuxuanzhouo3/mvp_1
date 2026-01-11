@@ -178,8 +178,43 @@ export async function POST(request: NextRequest) {
     }
 
     // Check and consume credits for like/super_like actions
-    if (action === 'like' || action === 'super_like') {
-      const creditsResult = await checkAndConsumeCredits(user.id, 'match');
+    // like costs 5 credits, super_like costs 10 credits
+    let creditsConsumed = 0;
+    let newCreditBalance: number | undefined;
+
+    if (action === 'like') {
+      // Check user's membership for unlimited likes
+      const { data: membership } = await supabase
+        .from('user_memberships')
+        .select('tier, expires_at')
+        .eq('user_id', user.id)
+        .single();
+
+      const hasUnlimitedLikes = membership &&
+        ['basic', 'premium', 'vip'].includes(membership.tier) &&
+        (!membership.expires_at || new Date(membership.expires_at) > new Date());
+
+      // If not a paying member, consume 5 credits for like
+      if (!hasUnlimitedLikes) {
+        const creditsResult = await checkAndConsumeCredits(user.id, 'like');
+
+        if (!creditsResult.success) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: creditsResult.error || 'INSUFFICIENT_CREDITS',
+              errorCode: creditsResult.errorCode || 'INSUFFICIENT_CREDITS',
+              requiredCredits: CREDIT_COSTS.LIKE,
+            },
+            { status: 402 } // Payment Required
+          );
+        }
+        creditsConsumed = CREDIT_COSTS.LIKE;
+        newCreditBalance = creditsResult.newBalance;
+      }
+    } else if (action === 'super_like') {
+      // Super like always costs 10 credits
+      const creditsResult = await checkAndConsumeCredits(user.id, 'super_like');
 
       if (!creditsResult.success) {
         return NextResponse.json(
@@ -187,11 +222,13 @@ export async function POST(request: NextRequest) {
             success: false,
             error: creditsResult.error || 'INSUFFICIENT_CREDITS',
             errorCode: creditsResult.errorCode || 'INSUFFICIENT_CREDITS',
-            requiredCredits: CREDIT_COSTS.MATCH,
+            requiredCredits: CREDIT_COSTS.SUPER_LIKE,
           },
           { status: 402 } // Payment Required
         );
       }
+      creditsConsumed = CREDIT_COSTS.SUPER_LIKE;
+      newCreditBalance = creditsResult.newBalance;
     }
 
     // 创建互动记录
@@ -401,6 +438,8 @@ export async function POST(request: NextRequest) {
         },
         isMatched,
         matchInfo,
+        creditsConsumed,
+        newCreditBalance,
         messageCode: isMatched
           ? 'MATCH_SUCCESS'
           : action === 'like'

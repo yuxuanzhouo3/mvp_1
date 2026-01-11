@@ -114,6 +114,7 @@ export default function MatchCard({
             isFlipped ? 'rotate-y-180 opacity-0' : 'rotate-y-0 opacity-100'
           )}>
             <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={user.avatar_url || '/default-avatar.jpg'}
                 alt={user.full_name}

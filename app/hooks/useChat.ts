@@ -91,6 +91,7 @@ export function useChat(options: UseChatOptions = {}) {
       console.error('WebSocket error:', error);
       setIsConnected(false);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, options.chatId, options.onMessageReceived, options.onTyping]);
 
   const disconnect = useCallback(() => {
@@ -147,7 +148,9 @@ export function useChat(options: UseChatOptions = {}) {
     if (!options.chatId) return;
 
     try {
-      const response = await fetch(`/api/chat/messages?chatId=${options.chatId}`);
+      const response = await fetch(`/api/chat/messages?chatId=${options.chatId}`, {
+        cache: 'no-store',
+      });
       if (response.ok) {
         const data = await response.json();
         setMessages(data.messages || []);

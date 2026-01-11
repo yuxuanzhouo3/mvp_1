@@ -392,7 +392,7 @@ export async function exportChat(
   downloadFile(content, filename, mimeType);
 }
 
-export default {
+const chatExportUtils = {
   exportChat,
   exportToTxt,
   exportToJson,
@@ -400,4 +400,6 @@ export default {
   convertMessagesToExport,
   downloadFile,
 };
+
+export default chatExportUtils;
 

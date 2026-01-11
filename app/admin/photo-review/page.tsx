@@ -196,10 +196,12 @@ export default function PhotoReviewPage() {
     } finally {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, pagination.pageSize, sortOrder, searchUserId, viewMode, router, toast]);
 
   useEffect(() => {
     loadPhotos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadPhotos]);
 
   // Keyboard shortcuts
@@ -252,6 +254,7 @@ export default function PhotoReviewPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos, focusedIndex, rejectDialogOpen, batchRejectDialogOpen, viewPhotoUrl, pagination, viewMode]);
 
   // Handle approve

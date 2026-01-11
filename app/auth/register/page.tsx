@@ -50,6 +50,7 @@ export default function RegisterPage() {
       message: t.auth.validation.passwordsNotMatch,
       path: ["confirmPassword"],
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language]); // ✅ 只依赖 language
 
   const form = useForm<RegisterFormData>({

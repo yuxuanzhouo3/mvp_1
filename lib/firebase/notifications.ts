@@ -155,11 +155,13 @@ export function getNotificationPermissionStatus(): NotificationPermission | 'uns
   return Notification.permission;
 }
 
-export default {
+const notificationUtils = {
   initializePushNotifications,
   setupForegroundNotifications,
   showLocalNotification,
   removeFcmToken,
   getNotificationPermissionStatus,
 };
+
+export default notificationUtils;
 

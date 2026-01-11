@@ -372,7 +372,7 @@ export class SessionEncryptor {
   }
 }
 
-export default {
+const e2eEncryptionUtils = {
   generateKeyPair,
   exportPublicKey,
   importPublicKey,
@@ -383,4 +383,6 @@ export default {
   KeyManager,
   SessionEncryptor,
 };
+
+export default e2eEncryptionUtils;
 

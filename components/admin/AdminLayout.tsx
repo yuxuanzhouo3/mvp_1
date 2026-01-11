@@ -14,6 +14,8 @@ import {
   BarChart3,
   Shield,
   Home,
+  DollarSign,
+  Coins,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -126,6 +128,16 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       label: t.admin.layout.analytics,
       icon: BarChart3,
       path: '/admin/analytics/photos',
+    },
+    {
+      label: language === 'zh' ? '支付统计' : 'Payment Stats',
+      icon: DollarSign,
+      path: '/admin/analytics/payments',
+    },
+    {
+      label: language === 'zh' ? '积分统计' : 'Credits Stats',
+      icon: Coins,
+      path: '/admin/analytics/credits',
     },
     {
       label: t.admin.layout.backToApp,

@@ -123,6 +123,7 @@ export function AudioPlayer({
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('error', handleError);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration]);
 
   // 计算进度百分比

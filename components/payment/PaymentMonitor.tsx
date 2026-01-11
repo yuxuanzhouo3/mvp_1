@@ -145,6 +145,7 @@ export default function PaymentMonitor({
     // Poll for payment status every 30 seconds
     const interval = setInterval(checkPaymentStatus, 30000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentId]);
 
   const checkPaymentStatus = async () => {
@@ -354,6 +355,7 @@ export default function PaymentMonitor({
               <div>
                 <Label className="text-sm font-medium">{t.alipayQrCode}</Label>
                 <div className="mt-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={qrCodeUrl}
                     alt="Alipay QR Code"

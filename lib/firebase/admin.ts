@@ -181,9 +181,11 @@ export async function removeInvalidFcmToken(userId: string): Promise<void> {
   }
 }
 
-export default {
+const firebaseAdminUtils = {
   sendPushNotification,
   sendPushNotificationToUser,
   sendPushNotificationToUsers,
   removeInvalidFcmToken,
 };
+
+export default firebaseAdminUtils;

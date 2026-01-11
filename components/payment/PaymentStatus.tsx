@@ -77,6 +77,7 @@ export default function PaymentStatus({ paymentId, onStatusChange }: PaymentStat
 
   useEffect(() => {
     checkPaymentStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentId]);
 
   const checkPaymentStatus = async () => {

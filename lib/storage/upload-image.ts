@@ -365,7 +365,7 @@ export async function ensureBucketExists(): Promise<boolean> {
   }
 }
 
-export default {
+const uploadImageUtils = {
   uploadChatImage,
   deleteChatImage,
   uploadMultipleImages,
@@ -373,4 +373,6 @@ export default {
   ensureBucketExists,
   CONFIG,
 };
+
+export default uploadImageUtils;
 

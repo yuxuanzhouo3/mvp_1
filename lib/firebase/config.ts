@@ -149,7 +149,7 @@ export function onForegroundMessage(callback: (payload: unknown) => void): () =>
   });
 }
 
-export default {
+const firebaseConfigUtils = {
   initializeFirebase,
   getFirebaseMessaging,
   getFirebaseAnalytics,
@@ -157,4 +157,6 @@ export default {
   onForegroundMessage,
   firebaseConfig,
 };
+
+export default firebaseConfigUtils;
 

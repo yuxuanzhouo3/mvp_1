@@ -24,10 +24,16 @@ import {
   Gem,
   Rocket,
   Lock,
-  Wallet
+  Wallet,
+  Coins,
+  Star
 } from 'lucide-react';
 import PaymentMonitor from './PaymentMonitor';
 import { PayPalCheckout } from './PayPalButton';
+import MembershipSubscription from './MembershipSubscription';
+
+// Tab types
+type TabType = 'credits' | 'membership';
 
 interface CreditPackage {
   id: string;
@@ -64,111 +70,131 @@ interface PaymentData {
   credits?: number;
 }
 
-// Base package prices in USD
+// Base package prices - USD and CNY are independently priced, not converted
 const basePackages = [
   {
     id: 'starter',
     credits: 50,
-    usdPrice: 9.99,
+    usdPrice: 1.39,
+    cnyPrice: 9.99,
     usdOriginalPrice: undefined as number | undefined,
+    cnyOriginalPrice: undefined as number | undefined,
+    discount: undefined as string | undefined,
+    bonus: undefined as string | undefined,
   },
   {
     id: 'popular',
     credits: 150,
-    usdPrice: 24.99,
-    usdOriginalPrice: 29.99,
+    usdPrice: 3.49,
+    cnyPrice: 24.99,
+    usdOriginalPrice: 4.36,  // ~20% off
+    cnyOriginalPrice: 31.24,
+    discount: '20% OFF',
+    bonus: 'boost_1',  // 送 1 次 Boost
   },
   {
     id: 'premium',
     credits: 300,
-    usdPrice: 44.99,
-    usdOriginalPrice: 59.99,
+    usdPrice: 6.29,
+    cnyPrice: 44.99,
+    usdOriginalPrice: 8.39,  // ~25% off
+    cnyOriginalPrice: 59.99,
+    discount: '25% OFF',
+    bonus: 'premium_3days',  // 送 3 天 Premium 体验
   },
   {
     id: 'ultimate',
     credits: 500,
-    usdPrice: 69.99,
-    usdOriginalPrice: 99.99,
+    usdPrice: 9.79,
+    cnyPrice: 69.99,
+    usdOriginalPrice: 13.99,  // ~30% off
+    cnyOriginalPrice: 99.99,
+    discount: '30% OFF',
+    bonus: 'vip_7days',  // 送 7 天 VIP 体验
   },
 ];
-
-// Exchange rate: USD to CNY
-const USD_TO_CNY_RATE = 7.2;
-
-// Convert USD to CNY and round to integer
-const usdToCny = (usd: number | undefined): number | undefined => {
-  if (usd === undefined) return undefined;
-  return Math.round(usd * USD_TO_CNY_RATE);
-};
 
 // Get credit packages based on language
 const getPackages = (t: any, language: string): CreditPackage[] => {
   const isCn = language === 'zh';
 
-  return [
-    {
-      id: 'starter',
-      name: t.payment.recharge.packages.starter.name,
-      credits: 50,
-      price: isCn ? usdToCny(basePackages[0].usdPrice)! : basePackages[0].usdPrice,
-      gradient: 'from-gray-500 to-gray-700',
-      iconBg: 'bg-gray-100 dark:bg-gray-800',
-      features: [
+  return basePackages.map((pkg, index) => {
+    const price = isCn ? pkg.cnyPrice : pkg.usdPrice;
+    const originalPrice = isCn ? pkg.cnyOriginalPrice : pkg.usdOriginalPrice;
+
+    // Build features list dynamically based on package
+    const baseFeatures: string[] = [];
+
+    if (pkg.id === 'starter') {
+      baseFeatures.push(
         t.payment.recharge.packages.starter.feature1,
         t.payment.recharge.packages.starter.feature2,
         t.payment.recharge.packages.starter.feature3,
-      ],
-    },
-    {
-      id: 'popular',
-      name: t.payment.recharge.packages.popular.name,
-      credits: 150,
-      price: isCn ? usdToCny(basePackages[1].usdPrice)! : basePackages[1].usdPrice,
-      originalPrice: isCn ? usdToCny(basePackages[1].usdOriginalPrice)! : basePackages[1].usdOriginalPrice,
-      popular: true,
-      gradient: 'from-blue-500 to-cyan-500',
-      iconBg: 'bg-blue-100 dark:bg-blue-900/30',
-      features: [
+      );
+    } else if (pkg.id === 'popular') {
+      baseFeatures.push(
         t.payment.recharge.packages.popular.feature1,
         t.payment.recharge.packages.popular.feature2,
         t.payment.recharge.packages.popular.feature3,
         t.payment.recharge.packages.popular.feature4,
-      ],
-    },
-    {
-      id: 'premium',
-      name: t.payment.recharge.packages.premium.name,
-      credits: 300,
-      price: isCn ? usdToCny(basePackages[2].usdPrice)! : basePackages[2].usdPrice,
-      originalPrice: isCn ? usdToCny(basePackages[2].usdOriginalPrice)! : basePackages[2].usdOriginalPrice,
-      bestValue: true,
-      gradient: 'from-purple-500 to-pink-500',
-      iconBg: 'bg-purple-100 dark:bg-purple-900/30',
-      features: [
+      );
+    } else if (pkg.id === 'premium') {
+      baseFeatures.push(
         t.payment.recharge.packages.premium.feature1,
         t.payment.recharge.packages.premium.feature2,
         t.payment.recharge.packages.premium.feature3,
         t.payment.recharge.packages.premium.feature4,
         t.payment.recharge.packages.premium.feature5,
-      ],
-    },
-    {
-      id: 'ultimate',
-      name: t.payment.recharge.packages.ultimate.name,
-      credits: 500,
-      price: isCn ? usdToCny(basePackages[3].usdPrice)! : basePackages[3].usdPrice,
-      originalPrice: isCn ? usdToCny(basePackages[3].usdOriginalPrice)! : basePackages[3].usdOriginalPrice,
-      gradient: 'from-amber-500 to-orange-500',
-      iconBg: 'bg-amber-100 dark:bg-amber-900/30',
-      features: [
+      );
+    } else if (pkg.id === 'ultimate') {
+      baseFeatures.push(
         t.payment.recharge.packages.ultimate.feature1,
         t.payment.recharge.packages.ultimate.feature2,
         t.payment.recharge.packages.ultimate.feature3,
         t.payment.recharge.packages.ultimate.feature4,
         t.payment.recharge.packages.ultimate.feature5,
-      ],
-    },
-  ];
+      );
+    }
+
+    // Add bonus feature if available
+    if (pkg.bonus) {
+      const bonusText = pkg.bonus === 'boost_1'
+        ? (isCn ? '🎁 送 1 次 Boost' : '🎁 +1 Free Boost')
+        : pkg.bonus === 'premium_3days'
+        ? (isCn ? '🎁 送 3 天 Premium 体验' : '🎁 +3 Days Premium Trial')
+        : pkg.bonus === 'vip_7days'
+        ? (isCn ? '🎁 送 7 天 VIP 体验' : '🎁 +7 Days VIP Trial')
+        : '';
+      if (bonusText) baseFeatures.push(bonusText);
+    }
+
+    const gradients = [
+      'from-gray-500 to-gray-700',
+      'from-blue-500 to-cyan-500',
+      'from-purple-500 to-pink-500',
+      'from-amber-500 to-orange-500',
+    ];
+
+    const iconBgs = [
+      'bg-gray-100 dark:bg-gray-800',
+      'bg-blue-100 dark:bg-blue-900/30',
+      'bg-purple-100 dark:bg-purple-900/30',
+      'bg-amber-100 dark:bg-amber-900/30',
+    ];
+
+    return {
+      id: pkg.id,
+      name: t.payment.recharge.packages[pkg.id as keyof typeof t.payment.recharge.packages].name,
+      credits: pkg.credits,
+      price: price,
+      originalPrice: originalPrice,
+      popular: pkg.id === 'popular',
+      bestValue: pkg.id === 'premium',
+      gradient: gradients[index],
+      iconBg: iconBgs[index],
+      features: baseFeatures,
+    };
+  });
 };
 
 const getPaymentMethods = (t: any): PaymentMethod[] => [
@@ -211,6 +237,9 @@ export default function CreditRecharge() {
   const router = useRouter();
   const { language } = useLanguage();
   const t = useTranslations(language);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabType>('credits');
 
   // Get localized data
   const creditPackages = getPackages(t, language);
@@ -454,24 +483,83 @@ export default function CreditRecharge() {
             </div>
           </div>
 
-          {/* Stats badges */}
-          <div className="flex flex-wrap items-center gap-4 mt-4">
-            <div className="flex items-center px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30">
-              <Rocket className="h-4 w-4 mr-2 text-blue-500" />
-              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{t.payment.recharge.instantDelivery}</span>
-            </div>
-            <div className="flex items-center px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/30">
-              <Shield className="h-4 w-4 mr-2 text-green-500" />
-              <span className="text-sm font-medium text-green-700 dark:text-green-300">{t.payment.recharge.securePayment}</span>
-            </div>
-            <div className="flex items-center px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/30">
-              <Sparkles className="h-4 w-4 mr-2 text-purple-500" />
-              <span className="text-sm font-medium text-purple-700 dark:text-purple-300">{t.payment.recharge.bestValueBadge}</span>
-            </div>
+          {/* Tab Switcher */}
+          <div className="flex space-x-2 mt-6 p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
+            <button
+              onClick={() => setActiveTab('credits')}
+              className={`flex-1 flex items-center justify-center py-2.5 px-4 rounded-md text-sm font-medium transition-all ${
+                activeTab === 'credits'
+                  ? 'bg-white dark:bg-gray-800 text-blue-600 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <Coins className="h-4 w-4 mr-2" />
+              {language === 'zh' ? '积分充值' : 'Buy Credits'}
+            </button>
+            <button
+              onClick={() => setActiveTab('membership')}
+              className={`flex-1 flex items-center justify-center py-2.5 px-4 rounded-md text-sm font-medium transition-all ${
+                activeTab === 'membership'
+                  ? 'bg-white dark:bg-gray-800 text-purple-600 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <Crown className="h-4 w-4 mr-2" />
+              {language === 'zh' ? '会员订阅' : 'Membership'}
+            </button>
           </div>
+
+          {/* Stats badges - only show for credits tab */}
+          {activeTab === 'credits' && (
+            <div className="flex flex-wrap items-center gap-4 mt-4">
+              <div className="flex items-center px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30">
+                <Rocket className="h-4 w-4 mr-2 text-blue-500" />
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{t.payment.recharge.instantDelivery}</span>
+              </div>
+              <div className="flex items-center px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/30">
+                <Shield className="h-4 w-4 mr-2 text-green-500" />
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">{t.payment.recharge.securePayment}</span>
+              </div>
+              <div className="flex items-center px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/30">
+                <Sparkles className="h-4 w-4 mr-2 text-purple-500" />
+                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">{t.payment.recharge.bestValueBadge}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Stats badges for membership tab */}
+          {activeTab === 'membership' && (
+            <div className="flex flex-wrap items-center gap-4 mt-4">
+              <div className="flex items-center px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/30">
+                <Star className="h-4 w-4 mr-2 text-purple-500" />
+                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                  {language === 'zh' ? '解锁全部功能' : 'Unlock All Features'}
+                </span>
+              </div>
+              <div className="flex items-center px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30">
+                <Gift className="h-4 w-4 mr-2 text-amber-500" />
+                <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                  {language === 'zh' ? '每月赠送积分' : 'Monthly Credits Bonus'}
+                </span>
+              </div>
+              <div className="flex items-center px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/30">
+                <Shield className="h-4 w-4 mr-2 text-green-500" />
+                <span className="text-sm font-medium text-green-700 dark:text-green-300">
+                  {language === 'zh' ? '随时取消' : 'Cancel Anytime'}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Membership Tab Content */}
+      {activeTab === 'membership' && (
+        <MembershipSubscription />
+      )}
+
+      {/* Credits Tab Content */}
+      {activeTab === 'credits' && (
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Credit Packages */}
         <div className="xl:col-span-2">
@@ -702,58 +790,61 @@ export default function CreditRecharge() {
           )}
         </div>
       </div>
+      )}
 
-      {/* Why Choose Section */}
-      <div className="mt-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              {t.payment.recharge.whyChooseTitle}
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              {t.payment.recharge.selectPlan}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-4">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 mb-3">
-                <Zap className="h-6 w-6 text-blue-600" />
-              </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                {t.payment.recharge.features.instant.title}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {t.payment.recharge.features.instant.description}
+      {/* Why Choose Section - only show for credits tab */}
+      {activeTab === 'credits' && (
+        <div className="mt-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div className="text-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                {t.payment.recharge.whyChooseTitle}
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                {t.payment.recharge.selectPlan}
               </p>
             </div>
 
-            <div className="text-center p-4">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 mb-3">
-                <Shield className="h-6 w-6 text-green-600" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center p-4">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 mb-3">
+                  <Zap className="h-6 w-6 text-blue-600" />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                  {t.payment.recharge.features.instant.title}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t.payment.recharge.features.instant.description}
+                </p>
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                {t.payment.recharge.features.secure.title}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {t.payment.recharge.features.secure.description}
-              </p>
-            </div>
 
-            <div className="text-center p-4">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 mb-3">
-                <Gift className="h-6 w-6 text-purple-600" />
+              <div className="text-center p-4">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-green-100 dark:bg-green-900/30 mb-3">
+                  <Shield className="h-6 w-6 text-green-600" />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                  {t.payment.recharge.features.secure.title}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t.payment.recharge.features.secure.description}
+                </p>
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
-                {t.payment.recharge.features.flexible.title}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {t.payment.recharge.features.flexible.description}
-              </p>
+
+              <div className="text-center p-4">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 mb-3">
+                  <Gift className="h-6 w-6 text-purple-600" />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                  {t.payment.recharge.features.flexible.title}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  {t.payment.recharge.features.flexible.description}
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

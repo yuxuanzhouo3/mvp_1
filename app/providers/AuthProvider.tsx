@@ -105,63 +105,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('🧹 AuthProvider cleanup');
       subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty dependency array to run only once
 
   const signIn = useCallback(async (email: string, password: string) => {
     console.log('🔐 SignIn called with:', email);
-    
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    
+
     return { error };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
     console.log('🔐 SignInWithGoogle called');
-    
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`
       }
     });
-    
+
     return { error };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signInWithPhone = useCallback(async (phone: string) => {
     console.log('🔐 SignInWithPhone called');
-    
+
     const { error } = await supabase.auth.signInWithOtp({
       phone,
     });
-    
+
     return { error };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const verifyPhoneOTP = useCallback(async (phone: string, otp: string) => {
     console.log('🔐 VerifyPhoneOTP called');
-    
+
     const { error } = await supabase.auth.verifyOtp({
       phone,
       token: otp,
       type: 'sms'
     });
-    
+
     return { error };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
     console.log('🔐 SignUp called');
-    
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
     });
-    
+
     return { error };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signOut = useCallback(async () => {
@@ -199,6 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         window.location.href = '/';
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value = {

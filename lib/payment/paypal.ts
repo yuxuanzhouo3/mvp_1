@@ -322,6 +322,40 @@ export function isPayPalAvailable(): boolean {
 }
 
 /**
+ * 取消 PayPal 订阅
+ */
+export async function cancelPayPalSubscription(subscriptionId: string): Promise<{
+  success: boolean;
+  message?: string;
+}> {
+  const accessToken = await getPayPalAccessToken();
+
+  const response = await fetch(`${PAYPAL_API_BASE}/v1/billing/subscriptions/${subscriptionId}/cancel`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      reason: 'User requested cancellation',
+    }),
+  });
+
+  if (!response.ok && response.status !== 204) {
+    const error = await response.text();
+    console.error('[PayPal] Failed to cancel subscription:', error);
+    throw new Error('Failed to cancel PayPal subscription');
+  }
+
+  console.log('[PayPal] Subscription cancelled:', subscriptionId);
+
+  return {
+    success: true,
+    message: 'Subscription cancelled successfully',
+  };
+}
+
+/**
  * CNY 转 USD 汇率（实际应用中应从 API 获取实时汇率）
  */
 const CNY_TO_USD_RATE = 0.14;

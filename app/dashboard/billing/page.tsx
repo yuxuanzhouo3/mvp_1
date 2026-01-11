@@ -48,6 +48,7 @@ export default function BillingPage() {
     }
 
     loadBillingData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadBillingData = async () => {

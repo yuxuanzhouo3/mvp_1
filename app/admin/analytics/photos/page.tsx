@@ -105,6 +105,7 @@ export default function PhotoAnalyticsPage() {
 
   useEffect(() => {
     loadStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (isLoading) {

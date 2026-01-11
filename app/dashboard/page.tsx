@@ -24,6 +24,9 @@ import {
   Brain,
   Shield,
   Receipt,
+  Crown,
+  Star,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { useLanguage } from '@/components/language-provider';
@@ -72,6 +75,13 @@ interface DashboardStats {
   profileCompletion: number;
 }
 
+interface MembershipStatus {
+  tier: string;
+  isActive: boolean;
+  expiresAt?: string;
+  daysRemaining?: number;
+}
+
 export default function DashboardPage() {
   const { user, signOut, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -85,6 +95,7 @@ export default function DashboardPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [recentMatches, setRecentMatches] = useState<RecentMatch[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [membershipStatus, setMembershipStatus] = useState<MembershipStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -152,6 +163,18 @@ export default function DashboardPage() {
         console.error('Failed to load stats:', statsRes.status);
       }
 
+      // Load membership status
+      try {
+        const membershipRes = await fetch('/api/memberships/status', { headers, cache: 'no-store' });
+        if (membershipRes.ok) {
+          const membershipData = await membershipRes.json();
+          setMembershipStatus(membershipData.data?.membership || null);
+        }
+      } catch {
+        // Silently handle membership status failure
+        setMembershipStatus(null);
+      }
+
       // Check if user is admin (silently fail if not admin)
       try {
         const adminRes = await fetch('/api/admin/check', { headers, cache: 'no-store' });
@@ -203,6 +226,7 @@ export default function DashboardPage() {
 
     console.log('✅ User authenticated, loading dashboard data');
     loadDashboardData(user.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, authLoading, loadDashboardData, router]);
 
   // Separate effect for profile setup redirect - with debounce
@@ -360,11 +384,33 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Profile Card */}
             <div className="bg-white rounded-lg shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                   <User className="mr-2 h-5 w-5" />
                   {t.dashboard.profile.title}
                 </h3>
+                {/* Membership Badge */}
+                {membershipStatus && membershipStatus.tier && membershipStatus.tier !== 'free' && membershipStatus.isActive && (
+                  <div
+                    onClick={() => router.push('/payment/recharge')}
+                    className={`flex items-center px-3 py-1.5 rounded-full cursor-pointer hover:opacity-90 transition-opacity ${
+                      membershipStatus.tier === 'vip'
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
+                        : membershipStatus.tier === 'premium'
+                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+                        : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
+                    }`}
+                  >
+                    {membershipStatus.tier === 'vip' ? (
+                      <Crown className="h-4 w-4 mr-1" />
+                    ) : membershipStatus.tier === 'premium' ? (
+                      <Star className="h-4 w-4 mr-1" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-1" />
+                    )}
+                    <span className="text-xs font-semibold uppercase">{membershipStatus.tier}</span>
+                  </div>
+                )}
               </div>
               <div className="p-6">
                 <div className="flex items-center mb-4">
@@ -500,66 +546,77 @@ export default function DashboardPage() {
 
             {/* Credits Card */}
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200">
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                   <CreditCard className="mr-2 h-5 w-5" />
                   {t.dashboard.credits.title}
                 </h3>
+                <button
+                  onClick={() => router.push('/dashboard/orders')}
+                  className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+                >
+                  <Receipt className="mr-1 h-4 w-4" />
+                  {language === 'zh' ? '订单' : 'Orders'}
+                </button>
               </div>
               <div className="p-6">
-                <div className="text-center mb-6">
-                  <div className="text-5xl font-bold text-blue-600 mb-1">{profile.credits}</div>
-                  <p className="text-gray-500 text-sm">{t.dashboard.credits.availableCredits}</p>
+                {/* Balance Display */}
+                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-5 mb-5 text-white">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-100 text-sm mb-1">{t.dashboard.credits.availableCredits}</p>
+                      <div className="text-4xl font-bold">{profile.credits}</div>
+                    </div>
+                    <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center">
+                      <CreditCard className="h-7 w-7 text-white" />
+                    </div>
+                  </div>
+                  {profile.credits < 20 && (
+                    <div className="mt-3 pt-3 border-t border-white/20">
+                      <p className="text-yellow-200 text-sm flex items-center">
+                        <span className="mr-1">⚠️</span>
+                        {t.dashboard.credits.lowBalance || 'Low balance! Recharge to continue matching.'}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Credits Usage Info */}
-                <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-gray-600">{t.dashboard.credits.matchCost || 'Per Match'}</span>
-                    <span className="font-semibold text-gray-900">10 {t.dashboard.credits.creditsUnit || 'credits'}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-gray-600">{t.dashboard.credits.messageCost || 'Per Message'}</span>
-                    <span className="font-semibold text-gray-900">1 {t.dashboard.credits.creditsUnit || 'credit'}</span>
-                  </div>
-                  <div className="border-t border-gray-200 mt-3 pt-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">{t.dashboard.credits.estimatedMatches || 'Estimated Matches'}</span>
-                      <span className="font-semibold text-gray-900">{Math.floor(profile.credits / 10)}</span>
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="flex items-center justify-center mb-1">
+                      <Heart className="h-4 w-4 text-pink-500 mr-1" />
+                      <span className="text-xs text-gray-500">{t.dashboard.credits.matchCost || 'Per Match'}</span>
                     </div>
+                    <div className="font-bold text-gray-900">10</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="flex items-center justify-center mb-1">
+                      <MessageSquare className="h-4 w-4 text-blue-500 mr-1" />
+                      <span className="text-xs text-gray-500">{t.dashboard.credits.messageCost || 'Per Message'}</span>
+                    </div>
+                    <div className="font-bold text-gray-900">1</div>
                   </div>
                 </div>
 
-                {/* Recharge Guide */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-blue-700 text-center">
-                    💎 {t.dashboard.credits.rechargeGuide || 'Unlock more matches and conversations! Recharge now to connect with your perfect match.'}
-                  </p>
-                </div>
-
-                {/* Low Balance Warning */}
-                {profile.credits < 20 && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 flex items-center">
-                    <span className="text-yellow-700 text-sm">
-                      ⚠️ {t.dashboard.credits.lowBalance || 'Low balance! Recharge to continue matching.'}
+                {/* Estimated Matches */}
+                <div className="bg-green-50 border border-green-100 rounded-lg p-3 mb-5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-green-700 flex items-center">
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      {t.dashboard.credits.estimatedMatches || 'Estimated Matches'}
                     </span>
+                    <span className="font-bold text-green-700 text-lg">{Math.floor(profile.credits / 10)}</span>
                   </div>
-                )}
+                </div>
 
+                {/* Recharge Button */}
                 <button
                   onClick={handleRechargeCredits}
-                  className="w-full px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center justify-center font-semibold border border-blue-200 mb-2"
+                  className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center justify-center font-semibold shadow-md hover:shadow-lg"
                 >
                   <Plus className="mr-2 h-5 w-5" />
                   {t.dashboard.credits.rechargeCredits}
-                </button>
-
-                <button
-                  onClick={() => router.push('/dashboard/orders')}
-                  className="w-full px-4 py-2 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center text-sm"
-                >
-                  <Receipt className="mr-2 h-4 w-4" />
-                  {language === 'zh' ? '查看订单' : 'View Orders'}
                 </button>
               </div>
             </div>

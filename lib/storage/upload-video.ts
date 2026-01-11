@@ -285,7 +285,7 @@ export function formatVideoDuration(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-export default {
+const uploadVideoUtils = {
   uploadChatVideo,
   deleteChatVideo,
   generateVideoThumbnail,
@@ -293,4 +293,6 @@ export default {
   formatVideoDuration,
   CONFIG,
 };
+
+export default uploadVideoUtils;
 

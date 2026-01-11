@@ -54,6 +54,7 @@ export default function Step6PhotoUpload({ data, onUpdate, onValidChange }: Step
       }));
       setPhotos(initialPhotos);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Validate and update
@@ -61,7 +62,7 @@ export default function Step6PhotoUpload({ data, onUpdate, onValidChange }: Step
     const hasEnoughPhotos = photos.length >= MIN_PHOTOS;
     const hasPrimaryPhoto = photos.some(p => p.is_primary);
     const noErrors = photos.every(p => !p.error);
-    
+
     const isValid = hasEnoughPhotos && hasPrimaryPhoto && noErrors;
     onValidChange(isValid);
 
@@ -74,6 +75,7 @@ export default function Step6PhotoUpload({ data, onUpdate, onValidChange }: Step
         })),
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos]);
 
   const validateFile = (file: File): string | null => {
@@ -109,6 +111,7 @@ export default function Step6PhotoUpload({ data, onUpdate, onValidChange }: Step
       
       reader.readAsDataURL(file);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos.length]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -222,8 +225,9 @@ export default function Step6PhotoUpload({ data, onUpdate, onValidChange }: Step
                 {t.profileSetup?.primaryPhoto || 'Primary Photo'}
               </p>
               <div className="relative w-48 h-48 rounded-xl overflow-hidden border-4 border-yellow-400 shadow-lg">
-                <img 
-                  src={primaryPhoto.preview} 
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={primaryPhoto.preview}
                   alt="Primary"
                   className="w-full h-full object-cover"
                 />
@@ -252,12 +256,13 @@ export default function Step6PhotoUpload({ data, onUpdate, onValidChange }: Step
               </p>
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                 {otherPhotos.map((photo) => (
-                  <div 
+                  <div
                     key={photo.id}
                     className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-700 group"
                   >
-                    <img 
-                      src={photo.preview} 
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photo.preview}
                       alt="Photo"
                       className="w-full h-full object-cover"
                     />

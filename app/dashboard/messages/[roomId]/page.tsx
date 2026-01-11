@@ -623,6 +623,7 @@ export default function ChatRoomPage() {
         const thumbnailUrl = (message.metadata as Record<string, string>)?.thumbnail_url;
         return imageUrl ? (
           <div className="overflow-hidden rounded-xl cursor-pointer group/image">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={thumbnailUrl || imageUrl}
               alt="Image"
@@ -692,6 +693,7 @@ export default function ChatRoomPage() {
         return (
           <div className="relative max-w-xs cursor-pointer group/video overflow-hidden rounded-xl" onClick={() => videoUrl && window.open(videoUrl, '_blank')}>
             {videoThumb ? (
+              // eslint-disable-next-line @next/next/no-img-element
               <img src={videoThumb} alt="Video" className="max-h-48 object-cover transition-transform duration-300 group-hover/video:scale-105" />
             ) : (
               <div className="w-48 h-32 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700" />

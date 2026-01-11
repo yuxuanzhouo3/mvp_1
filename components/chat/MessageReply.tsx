@@ -1,6 +1,6 @@
 'use client';
 
-import { X, Reply, Image, Mic, Video, MapPin } from 'lucide-react';
+import { X, Reply, Image as ImageIcon, Mic, Video, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Message, MessageType } from '@/lib/realtime/chat-client';
@@ -51,7 +51,7 @@ export function MessageReply({
   const getMessageIcon = (type: MessageType) => {
     switch (type) {
       case 'image':
-        return <Image className="w-4 h-4" />;
+        return <ImageIcon className="w-4 h-4" />;
       case 'audio':
         return <Mic className="w-4 h-4" />;
       case 'video':
@@ -123,9 +123,10 @@ export function MessageReply({
       </div>
 
       {thumbnail && (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={thumbnail}
-          alt=""
+          alt="Message attachment"
           className="w-10 h-10 rounded object-cover flex-shrink-0"
         />
       )}

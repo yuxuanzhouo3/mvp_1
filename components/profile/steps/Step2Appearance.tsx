@@ -61,6 +61,7 @@ export default function Step2Appearance({ data, onUpdate, onValidChange }: Step2
         weight_kg: weight,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [height, weight]);
 
   // Height display

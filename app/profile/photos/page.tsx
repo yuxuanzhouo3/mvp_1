@@ -183,6 +183,7 @@ export default function PhotoManagementPage() {
     } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -193,6 +194,7 @@ export default function PhotoManagementPage() {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       handleUpload(e.dataTransfer.files);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photos.length]);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {

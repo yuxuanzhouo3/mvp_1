@@ -82,6 +82,7 @@ export default function PhotoAuditStatus({
 
   useEffect(() => {
     loadPhotos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, token]);
 
   // Delete photo

@@ -523,6 +523,7 @@ export default function MatchingPage() {
                   <div className="relative">
                     <div className="w-full h-64 bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
                       {currentRecommendation.targetUser.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={currentRecommendation.targetUser.avatar_url}
                           alt={currentRecommendation.targetUser.full_name || 'User'}

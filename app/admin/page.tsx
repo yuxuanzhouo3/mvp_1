@@ -17,6 +17,8 @@ import {
   XCircle,
   ArrowRight,
   Shield,
+  DollarSign,
+  Coins,
 } from 'lucide-react';
 
 interface Stats {
@@ -82,6 +84,22 @@ export default function AdminPage() {
       path: '/admin/analytics/photos',
       color: 'text-green-600',
       bgColor: 'bg-green-100',
+    },
+    {
+      title: language === 'zh' ? '支付统计' : 'Payment Stats',
+      description: language === 'zh' ? '查看收入和支付数据' : 'View revenue and payment data',
+      icon: DollarSign,
+      path: '/admin/analytics/payments',
+      color: 'text-emerald-600',
+      bgColor: 'bg-emerald-100',
+    },
+    {
+      title: language === 'zh' ? '积分统计' : 'Credits Stats',
+      description: language === 'zh' ? '查看积分发行和消费数据' : 'View credits issuance and consumption',
+      icon: Coins,
+      path: '/admin/analytics/credits',
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-100',
     },
   ];
 

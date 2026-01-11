@@ -172,7 +172,7 @@ export async function clearUserOnline(userId: string): Promise<void> {
   }
 }
 
-export default {
+const userPresenceUtils = {
   setUserActiveRoom,
   clearUserActiveRoom,
   getUserActiveRoom,
@@ -182,3 +182,5 @@ export default {
   isUserOnline,
   clearUserOnline,
 };
+
+export default userPresenceUtils;

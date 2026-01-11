@@ -88,6 +88,7 @@ export default function Step3SocialStatus({ data, onUpdate, onValidChange }: Ste
         annual_income_range: incomeRange as AnnualIncomeRangeEnum,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [education, occupation, companyType, incomeRange]);
 
   return (

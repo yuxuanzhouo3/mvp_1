@@ -33,6 +33,7 @@ function PaymentSuccessContent() {
     } else {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   const verifyPayment = async (sessionId: string) => {

@@ -220,6 +220,7 @@ export default function Step1BasicInfo({ data, onUpdate, onValidChange }: Step1P
         longitude: longitude || undefined,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [username, gender, birthDate, cityName, latitude, longitude, usernameAvailable]);
 
   const age = calculateAge(birthDate);

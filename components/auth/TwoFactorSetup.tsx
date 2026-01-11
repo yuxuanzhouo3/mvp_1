@@ -140,6 +140,7 @@ export default function TwoFactorSetup() {
           {qrCode && (
             <div className="text-center">
               <div className="mb-4 p-4 bg-white rounded-lg inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qrCode} alt="QR Code" className="w-48 h-48" />
               </div>
               <p className="text-sm text-gray-600 mb-2">

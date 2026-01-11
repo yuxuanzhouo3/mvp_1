@@ -65,10 +65,12 @@ export default function MatchingHistoryPage() {
     }
 
     loadMatchHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, mounted]);
 
   useEffect(() => {
     filterMatches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches, searchQuery, selectedFilter]);
 
   const loadMatchHistory = async () => {

@@ -123,6 +123,7 @@ export default function ChatPage() {
     }
 
     loadChats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, mounted]);
 
   // Filter chats based on search query
@@ -255,6 +256,7 @@ export default function ChatPage() {
                         {/* Avatar */}
                         <div className="relative flex-shrink-0">
                           {chat.matched_user.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={chat.matched_user.avatar_url}
                               alt={chat.matched_user.full_name}

@@ -99,6 +99,7 @@ export default function Step4RelationshipViews({ data, onUpdate, onValidChange }
         children_preference: childrenPreference as ChildrenPreferenceEnum,
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maritalStatus, relationshipCount, childrenPreference]);
 
   const getRelationshipCountLabel = (count: number): string => {

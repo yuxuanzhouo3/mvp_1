@@ -106,6 +106,7 @@ export function LocationPicker({
     } finally {
       setIsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
 
   // 反向地理编码（使用 OpenStreetMap Nominatim API）
@@ -174,6 +175,7 @@ export function LocationPicker({
     }, 500);
 
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
   // 初始获取当前位置
@@ -243,6 +245,7 @@ export function LocationPicker({
             <div className="flex items-start space-x-3">
               {/* 地图预览 */}
               <div className="w-16 h-12 rounded overflow-hidden bg-gray-200 flex-shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={getStaticMapUrl(currentLocation.latitude, currentLocation.longitude)}
                   alt="Map"

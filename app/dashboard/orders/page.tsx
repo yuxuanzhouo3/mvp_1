@@ -152,6 +152,7 @@ export default function OrdersPage() {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
+        cache: 'no-store',
       });
 
       if (response.ok) {
@@ -171,6 +172,7 @@ export default function OrdersPage() {
     } else if (!authLoading && !user) {
       router.push('/auth/login');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
 
   const handleCancelClick = (paymentId: string) => {
@@ -193,6 +195,7 @@ export default function OrdersPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ paymentId: selectedPaymentId }),
+        cache: 'no-store',
       });
 
       if (response.ok) {
@@ -200,7 +203,15 @@ export default function OrdersPage() {
           title: t.cancelSuccess,
           variant: 'default',
         });
-        // Refresh the list
+        // Optimistically update the local state immediately
+        setPayments(prevPayments =>
+          prevPayments.map(payment =>
+            payment.id === selectedPaymentId
+              ? { ...payment, status: 'cancelled' }
+              : payment
+          )
+        );
+        // Then refresh from server to ensure consistency
         fetchPayments();
       } else {
         const error = await response.json();
