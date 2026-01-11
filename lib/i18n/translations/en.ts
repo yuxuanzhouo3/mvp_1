@@ -311,6 +311,7 @@ export const en = {
       matching: 'Matching',
       marketValue: 'Market Value',
       recharge: 'Recharge',
+      orders: 'My Orders',
       settings: 'Settings',
       notifications: 'Notifications',
       adminPanel: 'Admin Panel',

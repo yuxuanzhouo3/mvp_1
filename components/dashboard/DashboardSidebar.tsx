@@ -19,7 +19,8 @@ import {
   LogOut,
   Bell,
   Shield,
-  TrendingUp
+  TrendingUp,
+  Receipt
 } from 'lucide-react'
 import { useState } from 'react';
 
@@ -59,6 +60,7 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
     { name: t.dashboard.sidebar.matching, href: '/matching', icon: Heart },
     { name: t.dashboard.sidebar.marketValue, href: '/profile/score-details', icon: TrendingUp },
     { name: t.dashboard.sidebar.recharge, href: '/payment/recharge', icon: CreditCard },
+    { name: t.dashboard.sidebar.orders || (language === 'zh' ? '我的订单' : 'My Orders'), href: '/dashboard/orders', icon: Receipt },
     { name: t.dashboard.sidebar.settings, href: '/dashboard/settings', icon: Settings },
   ]
 

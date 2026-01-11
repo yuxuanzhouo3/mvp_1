@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
 import { notifyPaymentSuccess, notifyPaymentFailed } from '@/lib/services/notifications';
 import { isPayPalAvailable } from './paypal';
@@ -94,7 +94,7 @@ export async function createPaymentRecord(
   packageId: string,
   credits: number
 ) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
   const currency = getDefaultCurrency(); // Get currency based on deployment region (USD for INTL, CNY for CN)
 
   const { data: payment, error } = await supabase
@@ -126,7 +126,7 @@ export async function updatePaymentStatus(
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'refunded',
   additionalData?: Record<string, any>
 ) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   const updateData: any = {
     status,
@@ -148,7 +148,7 @@ export async function updatePaymentStatus(
 }
 
 export async function addCreditsToUser(userId: string, credits: number) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   // First get current credits
   const { data: profile, error: fetchError } = await supabase
@@ -184,7 +184,7 @@ export async function createTransactionRecord(
   description: string,
   paymentId?: string
 ) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   // Get current balance
   const { data: profile } = await supabase
@@ -214,7 +214,7 @@ export async function createTransactionRecord(
 }
 
 export async function getPaymentById(paymentId: string, userId: string) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   const { data: payment, error } = await supabase
     .from('payments')
@@ -236,7 +236,7 @@ export async function getUserPaymentHistory(
   offset: number = 0,
   status?: string
 ) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   let query = supabase
     .from('payments')
@@ -275,7 +275,7 @@ export function getAvailablePaymentMethods(): PaymentMethod[] {
 }
 
 export async function processStripeWebhook(event: Stripe.Event) {
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   switch (event.type) {
     case 'checkout.session.completed':

@@ -23,6 +23,7 @@ import {
   Briefcase,
   Brain,
   Shield,
+  Receipt,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { useLanguage } from '@/components/language-provider';
@@ -547,10 +548,18 @@ export default function DashboardPage() {
 
                 <button
                   onClick={handleRechargeCredits}
-                  className="w-full px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center justify-center font-semibold border border-blue-200"
+                  className="w-full px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center justify-center font-semibold border border-blue-200 mb-2"
                 >
                   <Plus className="mr-2 h-5 w-5" />
                   {t.dashboard.credits.rechargeCredits}
+                </button>
+
+                <button
+                  onClick={() => router.push('/dashboard/orders')}
+                  className="w-full px-4 py-2 text-gray-600 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center text-sm"
+                >
+                  <Receipt className="mr-2 h-4 w-4" />
+                  {language === 'zh' ? '查看订单' : 'View Orders'}
                 </button>
               </div>
             </div>

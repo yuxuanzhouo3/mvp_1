@@ -312,6 +312,7 @@ export const zh = {
       matching: '匹配',
       marketValue: '市场价值',
       recharge: '充值',
+      orders: '我的订单',
       settings: '设置',
       notifications: '通知',
       adminPanel: '管理面板',
