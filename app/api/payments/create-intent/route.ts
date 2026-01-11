@@ -9,6 +9,7 @@ import {
 } from '@/lib/payment/payments';
 import { createUSDTPaymentRequest, createAlipayPaymentRequest } from '@/lib/payment/payment-receivers';
 import { createPayPalOrder, convertCNYtoUSD } from '@/lib/payment/paypal';
+import { getDefaultCurrency } from '@/config/payment-config';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-12-18.acacia' as any,
@@ -120,13 +121,16 @@ export async function POST(request: NextRequest) {
 
 async function handleStripePayment(payment: any, amount: number, credits: number) {
   try {
+    // Get currency based on deployment region
+    const currency = getDefaultCurrency().toLowerCase(); // Stripe expects lowercase currency codes
+
     // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {
           price_data: {
-            currency: 'cny',
+            currency: currency,
             product_data: {
               name: `${credits} Credits Package`,
               description: `Purchase ${credits} credits for PersonaLink`,

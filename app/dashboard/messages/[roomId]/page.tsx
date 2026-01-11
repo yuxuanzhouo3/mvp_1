@@ -526,20 +526,41 @@ export default function ChatRoomPage() {
     }
   };
 
+  // Get timezone based on deployment region
+  const getTimezone = () => {
+    const region = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
+    if (region === 'CN') {
+      return 'Asia/Shanghai'; // Beijing time
+    }
+    return 'America/Los_Angeles'; // US Pacific time for INTL
+  };
+
   // 格式化时间
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
+    const timezone = getTimezone();
+
     return date.toLocaleTimeString(language === 'zh' ? 'zh-CN' : 'en-US', {
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: timezone,
     });
   };
 
   // 格式化日期分组
   const formatDateGroup = (dateString: string) => {
     const date = new Date(dateString);
+    const timezone = getTimezone();
+
+    // Get current date in the target timezone
     const now = new Date();
-    const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    const nowInTz = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+    const dateInTz = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
+
+    // Compare dates (ignoring time)
+    const nowDate = new Date(nowInTz.getFullYear(), nowInTz.getMonth(), nowInTz.getDate());
+    const msgDate = new Date(dateInTz.getFullYear(), dateInTz.getMonth(), dateInTz.getDate());
+    const diffDays = Math.floor((nowDate.getTime() - msgDate.getTime()) / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
       return language === 'zh' ? '今天' : 'Today';
@@ -550,6 +571,7 @@ export default function ChatRoomPage() {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
+        timeZone: timezone,
       });
     }
   };

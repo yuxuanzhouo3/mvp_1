@@ -25,41 +25,83 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '5');
 
-    // For now, return mock matches since we don't have a matches table yet
-    const mockMatches = [
-      {
-        id: '1',
-        matched_user: {
-          id: 'user1',
-          full_name: 'Alice Johnson',
-          avatar_url: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face'
-        },
-        compatibility_score: 95,
-        matched_at: new Date(Date.now() - 86400000).toISOString() // 1 day ago
-      },
-      {
-        id: '2',
-        matched_user: {
-          id: 'user2',
-          full_name: 'Bob Smith',
-          avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face'
-        },
-        compatibility_score: 87,
-        matched_at: new Date(Date.now() - 172800000).toISOString() // 2 days ago
-      },
-      {
-        id: '3',
-        matched_user: {
-          id: 'user3',
-          full_name: 'Carol Davis',
-          avatar_url: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face'
-        },
-        compatibility_score: 92,
-        matched_at: new Date(Date.now() - 259200000).toISOString() // 3 days ago
-      }
-    ].slice(0, limit);
+    // Query matches from database where user is either user_1 or user_2
+    const { data: matchesData, error: matchesError } = await supabase
+      .from('matches')
+      .select(`
+        id,
+        user_1,
+        user_2,
+        match_score,
+        matched_at
+      `)
+      .or(`user_1.eq.${user.id},user_2.eq.${user.id}`)
+      .order('matched_at', { ascending: false })
+      .limit(limit);
 
-    return NextResponse.json({ matches: mockMatches });
+    if (matchesError) {
+      console.error('Failed to fetch matches:', matchesError);
+      return NextResponse.json({ error: 'Failed to fetch matches' }, { status: 500 });
+    }
+
+    // If no matches found, return empty array
+    if (!matchesData || matchesData.length === 0) {
+      return NextResponse.json({ matches: [] });
+    }
+
+    // Get the IDs of matched users (the other user in each match)
+    const matchedUserIds = matchesData.map(match =>
+      match.user_1 === user.id ? match.user_2 : match.user_1
+    );
+
+    // Fetch user profiles for matched users
+    const { data: usersData, error: usersError } = await supabase
+      .from('users')
+      .select('id, username, avatar_url')
+      .in('id', matchedUserIds);
+
+    // Also try to get real_name from user_profiles
+    const { data: profilesData } = await supabase
+      .from('user_profiles')
+      .select('user_id, real_name')
+      .in('user_id', matchedUserIds);
+
+    // Create a map of user data for quick lookup
+    const userMap = new Map();
+    usersData?.forEach(u => {
+      userMap.set(u.id, {
+        id: u.id,
+        full_name: u.username || 'User',
+        avatar_url: u.avatar_url
+      });
+    });
+
+    // Merge with profile data (real_name takes priority)
+    profilesData?.forEach(p => {
+      if (userMap.has(p.user_id) && p.real_name) {
+        const userData = userMap.get(p.user_id);
+        userData.full_name = p.real_name;
+      }
+    });
+
+    // Build the response
+    const matches = matchesData.map(match => {
+      const matchedUserId = match.user_1 === user.id ? match.user_2 : match.user_1;
+      const matchedUser = userMap.get(matchedUserId) || {
+        id: matchedUserId,
+        full_name: 'User',
+        avatar_url: null
+      };
+
+      return {
+        id: match.id,
+        matched_user: matchedUser,
+        compatibility_score: match.match_score || Math.floor(Math.random() * 30) + 70, // Fallback to random 70-100 if no score
+        matched_at: match.matched_at
+      };
+    });
+
+    return NextResponse.json({ matches });
   } catch (error) {
     console.error('Matches API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

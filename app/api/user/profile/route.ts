@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
       children_preference: profileData?.children_preference,
       mbti: profileData?.mbti,
       interests: interestsData?.map(i => (i.interests as any)?.name).filter(Boolean) || [],
-      credits: 100,
+      credits: profileData?.credits ?? 0, // Read real credits from database
       is_profile_complete: profileData?.is_profile_complete || false,
       created_at: userData?.created_at || new Date().toISOString(),
       updated_at: profileData?.updated_at || userData?.updated_at || new Date().toISOString()
@@ -301,7 +301,7 @@ export async function PUT(request: NextRequest) {
       relationship_history_count: updatedProfile?.relationship_history_count,
       children_preference: updatedProfile?.children_preference,
       mbti: updatedProfile?.mbti,
-      credits: 100,
+      credits: updatedProfile?.credits ?? 0, // Read real credits from database
       created_at: updatedUser?.created_at,
       updated_at: updatedProfile?.updated_at || updatedUser?.updated_at
     };

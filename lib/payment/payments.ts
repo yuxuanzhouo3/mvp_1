@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
 import { notifyPaymentSuccess, notifyPaymentFailed } from '@/lib/services/notifications';
 import { isPayPalAvailable } from './paypal';
+import { getDefaultCurrency } from '@/config/payment-config';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-12-18.acacia' as any,
@@ -94,13 +95,14 @@ export async function createPaymentRecord(
   credits: number
 ) {
   const supabase = createClient();
+  const currency = getDefaultCurrency(); // Get currency based on deployment region (USD for INTL, CNY for CN)
 
   const { data: payment, error } = await supabase
     .from('payments')
     .insert({
       user_id: userId,
       amount: amount,
-      currency: 'CNY',
+      currency: currency,
       credits: credits,
       payment_method: paymentMethod,
       status: 'pending',
@@ -302,8 +304,14 @@ async function handleStripeCheckoutCompleted(session: Stripe.Checkout.Session, s
     throw new Error('Missing metadata in checkout session');
   }
 
+  console.log('[Stripe Webhook] Processing checkout.session.completed:', {
+    paymentId,
+    userId,
+    credits,
+    sessionId: session.id,
+  });
+
   // 更新支付状态和 payment_intent_id
-  // 积分添加由数据库触发器 trigger_on_payment_completed 自动完成
   const updateData: any = {
     status: 'completed',
     updated_at: new Date().toISOString(),
@@ -320,13 +328,37 @@ async function handleStripeCheckoutCompleted(session: Stripe.Checkout.Session, s
       : session.payment_intent.id;
   }
 
-  const { error } = await supabase
+  const { error: updateError } = await supabase
     .from('payments')
     .update(updateData)
     .eq('id', paymentId);
 
-  if (error) {
-    throw new Error(`Failed to update payment status: ${error.message}`);
+  if (updateError) {
+    console.error('[Stripe Webhook] Failed to update payment status:', updateError);
+    throw new Error(`Failed to update payment status: ${updateError.message}`);
+  }
+
+  console.log('[Stripe Webhook] Payment status updated to completed');
+
+  // Manually add credits to user (backup for database trigger)
+  // The database trigger should also handle this, but we do it here as a safety measure
+  try {
+    await addCreditsToUser(userId, credits);
+    console.log('[Stripe Webhook] Credits added successfully:', { userId, credits });
+
+    // Create transaction record
+    await createTransactionRecord(
+      userId,
+      'credit_purchase',
+      credits,
+      `Purchased ${credits} credits via Stripe`,
+      paymentId
+    );
+    console.log('[Stripe Webhook] Transaction record created');
+  } catch (creditsError) {
+    // Log error but don't throw - the payment is still completed
+    console.error('[Stripe Webhook] Failed to add credits:', creditsError);
+    // Note: Database trigger might still add credits, so this is not critical
   }
 
   // Send payment success notification

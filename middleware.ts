@@ -72,6 +72,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // 跳过 webhook 路由，让它们直接通过（Stripe/PayPal webhook需要原始请求体来验证签名）
+  if (
+    pathname.startsWith("/api/payments/webhook") ||
+    pathname.startsWith("/api/payments/paypal-webhook")
+  ) {
+    return NextResponse.next();
+  }
+
   // 跳过 admin API 路由，让它们直接通过（保留原始 headers）
   if (pathname.startsWith("/api/admin/")) {
     return NextResponse.next();
