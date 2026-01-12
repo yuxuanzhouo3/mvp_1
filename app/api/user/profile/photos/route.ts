@@ -85,18 +85,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check photo count
-    const { count } = await supabaseAdmin
-      .from('user_photos')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id);
-
-    if (count && count >= 6) {
-      return NextResponse.json(
-        { success: false, error: 'Maximum 6 photos allowed' },
-        { status: 400 }
-      );
-    }
+    // 移除照片数量限制检查
 
     // Generate unique filename
     const fileExt = file.name.split('.').pop();

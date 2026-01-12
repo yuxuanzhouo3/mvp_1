@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@/lib/supabase/server';
+import { createRouteHandlerClient, createServiceClient } from '@/lib/supabase/server';
 import { notifyMatchSuccess, notifySomeoneLikedYou } from '@/lib/services/notifications';
 import { checkAndConsumeCredits, CREDIT_COSTS } from '@/lib/credits/credits';
 import type { SwipeActionEnum } from '@/types/database';
@@ -344,16 +344,17 @@ export async function POST(request: NextRequest) {
             matchedAt: match.matched_at
           };
 
-          // 自动创建聊天室
+          // 自动创建聊天室（使用 service client 绑过 RLS）
           console.log('[Swipes] Auto-creating chat room for match:', match.id);
-          const { data: existingRoom } = await supabase
+          const serviceClient = createServiceClient();
+          const { data: existingRoom } = await serviceClient
             .from('chat_rooms')
             .select('id')
             .eq('match_id', match.id)
             .single();
 
           if (!existingRoom) {
-            const { data: newRoom, error: roomError } = await supabase
+            const { data: newRoom, error: roomError } = await serviceClient
               .from('chat_rooms')
               .insert({
                 match_id: match.id,

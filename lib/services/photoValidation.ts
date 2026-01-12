@@ -22,10 +22,10 @@ export const REJECTED_MIME_TYPES = [
 // File extension mapping
 export const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'] as const;
 
-// Constants
-export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-export const MIN_IMAGE_DIMENSION = 300; // Minimum 300px width and height
-export const MAX_IMAGE_DIMENSION = 10000; // Maximum 10000px
+// Constants - 移除限制
+export const MAX_FILE_SIZE = Number.MAX_SAFE_INTEGER; // 无限制
+export const MIN_IMAGE_DIMENSION = 1; // 无限制
+export const MAX_IMAGE_DIMENSION = Number.MAX_SAFE_INTEGER; // 无限制
 
 // Validation result interface
 export interface PhotoValidationResult {
