@@ -1121,6 +1121,7 @@ export const en = {
     recharge: {
       title: 'Recharge Credits',
       description: 'Select a credit package that works for you and start your matching journey',
+      buyCredits: 'Buy Credits',
       selectAmount: 'Select Amount',
       selectPlan: 'Choose a plan that works for you',
       choosePlan: 'Choose a plan that works for you',

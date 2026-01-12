@@ -1148,6 +1148,7 @@ export const zh = {
     recharge: {
       title: '充值积分',
       description: '选择适合您的积分套餐，开始您的匹配之旅',
+      buyCredits: '积分充值',
       selectAmount: '选择金额',
       selectPlan: '选择适合您的套餐',
       choosePlan: '选择适合您的套餐',

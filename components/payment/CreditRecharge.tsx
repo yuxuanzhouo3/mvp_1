@@ -494,7 +494,7 @@ export default function CreditRecharge() {
               }`}
             >
               <Coins className="h-4 w-4 mr-2" />
-              {language === 'zh' ? '积分充值' : 'Buy Credits'}
+              {t.payment.recharge.buyCredits}
             </button>
             <button
               onClick={() => setActiveTab('membership')}
@@ -505,7 +505,7 @@ export default function CreditRecharge() {
               }`}
             >
               <Crown className="h-4 w-4 mr-2" />
-              {language === 'zh' ? '会员订阅' : 'Membership'}
+              {t.membership.title}
             </button>
           </div>
 
@@ -533,19 +533,19 @@ export default function CreditRecharge() {
               <div className="flex items-center px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/30">
                 <Star className="h-4 w-4 mr-2 text-purple-500" />
                 <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                  {language === 'zh' ? '解锁全部功能' : 'Unlock All Features'}
+                  {t.membership.features.unlimitedLikes}
                 </span>
               </div>
               <div className="flex items-center px-3 py-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30">
                 <Gift className="h-4 w-4 mr-2 text-amber-500" />
                 <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                  {language === 'zh' ? '每月赠送积分' : 'Monthly Credits Bonus'}
+                  {t.membership.features.monthlyCredits}
                 </span>
               </div>
               <div className="flex items-center px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/30">
                 <Shield className="h-4 w-4 mr-2 text-green-500" />
                 <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                  {language === 'zh' ? '随时取消' : 'Cancel Anytime'}
+                  {t.membership.cancelAnytime}
                 </span>
               </div>
             </div>

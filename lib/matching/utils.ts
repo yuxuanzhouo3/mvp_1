@@ -437,10 +437,10 @@ export function getCandidateScoreRange(
       };
       
     case 'pragmatic':
-      // 务实捡漏: -20 ~ -10分
+      // 务实捡漏: -20 ~ +5分
       return {
         min: Math.max(0, userScore + ranges.pragmatic.minDiff),
-        max: Math.max(0, userScore + ranges.pragmatic.maxDiff)
+        max: Math.min(100, userScore + ranges.pragmatic.maxDiff)
       };
       
     default:
