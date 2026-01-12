@@ -23,6 +23,10 @@ import {
   Heart,
   Infinity,
   Gift,
+  CreditCard,
+  Wallet,
+  Bitcoin,
+  DollarSign,
 } from 'lucide-react';
 
 interface MembershipTier {
@@ -55,6 +59,14 @@ interface CurrentMembership {
   daysRemaining?: number;
 }
 
+interface PaymentMethod {
+  id: string;
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+  gradient: string;
+}
+
 export default function MembershipSubscription() {
   const { toast } = useToast();
   const router = useRouter();
@@ -64,11 +76,30 @@ export default function MembershipSubscription() {
   const [tiers, setTiers] = useState<MembershipTier[]>([]);
   const [currentMembership, setCurrentMembership] = useState<CurrentMembership | null>(null);
   const [selectedTier, setSelectedTier] = useState<MembershipTier | null>(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
 
   const currencySymbol = language === 'zh' ? '¥' : '$';
+
+  // Payment methods
+  const paymentMethods: PaymentMethod[] = [
+    {
+      id: 'stripe',
+      name: language === 'zh' ? '信用卡/借记卡' : 'Credit/Debit Card',
+      icon: CreditCard,
+      description: language === 'zh' ? 'Visa, Mastercard, 银联' : 'Visa, Mastercard, UnionPay',
+      gradient: 'from-indigo-500 to-purple-500',
+    },
+    {
+      id: 'paypal',
+      name: 'PayPal',
+      icon: Wallet,
+      description: language === 'zh' ? 'PayPal 账户支付' : 'Pay with PayPal account',
+      gradient: 'from-blue-600 to-blue-800',
+    },
+  ];
 
   // Fetch session token
   useEffect(() => {
@@ -124,6 +155,14 @@ export default function MembershipSubscription() {
       return;
     }
 
+    if (!selectedPaymentMethod) {
+      toast({
+        title: language === 'zh' ? '请选择支付方式' : 'Please select a payment method',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!sessionToken) {
       toast({
         title: t.membership.loginRequired,
@@ -144,7 +183,7 @@ export default function MembershipSubscription() {
         },
         body: JSON.stringify({
           tierId: selectedTier.id,
-          paymentMethod: 'stripe',
+          paymentMethod: selectedPaymentMethod.id,
           currency: language === 'zh' ? 'CNY' : 'USD',
         }),
       });
@@ -153,6 +192,8 @@ export default function MembershipSubscription() {
         const data = await response.json();
         if (data.data?.checkoutUrl) {
           window.location.href = data.data.checkoutUrl;
+        } else if (data.data?.approvalUrl) {
+          window.location.href = data.data.approvalUrl;
         }
       } else {
         throw new Error('Subscription failed');
@@ -340,6 +381,53 @@ export default function MembershipSubscription() {
       {/* Subscribe Button */}
       {selectedTier && selectedTier.id !== currentMembership?.tier && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+          {/* Payment Method Selection */}
+          <div className="mb-6">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">
+              {language === 'zh' ? '选择支付方式' : 'Select Payment Method'}
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {paymentMethods.map((method) => {
+                const Icon = method.icon;
+                const isSelected = selectedPaymentMethod?.id === method.id;
+                return (
+                  <button
+                    key={method.id}
+                    onClick={() => setSelectedPaymentMethod(method)}
+                    className={`
+                      p-4 rounded-lg border-2 transition-all duration-200 text-left
+                      ${isSelected
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                      }
+                    `}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className={`p-2 rounded-lg bg-gradient-to-br ${method.gradient}`}>
+                          <Icon className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-900 dark:text-white">
+                            {method.name}
+                          </h4>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {method.description}
+                          </p>
+                        </div>
+                      </div>
+                      {isSelected && (
+                        <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+                          <Check className="h-3 w-3 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="text-lg font-semibold text-gray-900 dark:text-white">
