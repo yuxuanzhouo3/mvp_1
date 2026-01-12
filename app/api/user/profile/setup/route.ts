@@ -71,6 +71,15 @@ export async function POST(request: NextRequest) {
       // Step 6 - photos handled separately
     } = body;
 
+    // Check if this is a new user (first time profile setup)
+    const { data: existingProfile } = await supabaseAdmin
+      .from('user_profiles')
+      .select('is_profile_complete, credits')
+      .eq('user_id', user.id)
+      .single();
+
+    const isNewUser = !existingProfile || !existingProfile.is_profile_complete;
+
     // Update users table
     const { error: userError } = await supabaseAdmin
       .from('users')
@@ -137,6 +146,31 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Failed to update profile' },
         { status: 500 }
       );
+    }
+
+    // Give 100 free credits to new users
+    if (isNewUser) {
+      const { error: creditsError } = await supabaseAdmin
+        .from('user_profiles')
+        .update({ credits: 100 })
+        .eq('user_id', user.id);
+
+      if (creditsError) {
+        console.error('Error adding welcome credits:', creditsError);
+      } else {
+        console.log('🎁 Added 100 welcome credits for new user:', user.id);
+
+        // Record the transaction
+        await supabaseAdmin
+          .from('transactions')
+          .insert({
+            user_id: user.id,
+            type: 'credit_add_welcome',
+            amount: 100,
+            balance_after: 100,
+            description: '新用户注册赠送积分',
+          });
+      }
     }
 
     // Handle interests
