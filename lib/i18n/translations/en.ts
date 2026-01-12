@@ -292,9 +292,11 @@ export const en = {
       availableCredits: 'Available Credits',
       rechargeCredits: 'Recharge Credits',
       matchCost: 'Per Match',
+      likeCost: 'Per Like',
       messageCost: 'Per Message',
       creditsUnit: 'credits',
       estimatedMatches: 'Estimated Matches',
+      estimatedLikes: 'Estimated Likes',
       lowBalance: 'Low balance! Recharge to continue matching.',
       rechargeGuide: 'Unlock more matches and conversations! Recharge now to connect with your perfect match.',
       rechargeNow: 'Recharge Now',
@@ -304,6 +306,8 @@ export const en = {
       viewAll: 'View All',
       compatibility: 'Compatibility',
       chat: 'Chat',
+      openChatFailed: 'Failed to open chat',
+      tryAgainLater: 'Please try again later',
     },
     sidebar: {
       home: 'Home',
@@ -859,6 +863,63 @@ export const en = {
     termsChangesDesc: 'We reserve the right, at our sole discretion, to modify or replace these Terms at any time. If a revision is material, we will provide at least 30 days notice prior to any new terms taking effect.',
     contactInfo: '11. Contact Information',
     contactInfoDesc: 'If you have any questions about these Terms of Service, please contact us at legal@personalink.ai',
+  },
+
+  // Help Page
+  helpPage: {
+    title: 'Help Center',
+    description: 'Find the answers you need and learn how to get the most out of PersonaLink',
+    searchPlaceholder: 'Search FAQs...',
+    faqTitle: 'Frequently Asked Questions',
+    categories: {
+      gettingStarted: 'Getting Started',
+      credits: 'Credits & Payment',
+      matching: 'Matching',
+      privacy: 'Privacy & Security',
+      support: 'Customer Support',
+    },
+    faq: [
+      {
+        question: 'How do I get started with PersonaLink?',
+        answer: 'After registering, complete your profile setup, upload photos, and the system will recommend matches based on your preferences.',
+        category: 'getting-started',
+      },
+      {
+        question: 'What are credits and how do I get them?',
+        answer: 'Credits are virtual currency used to unlock premium features. You can get credits by purchasing credit packages, completing daily tasks, or inviting friends.',
+        category: 'credits',
+      },
+      {
+        question: 'How can I improve my matching success rate?',
+        answer: 'Complete your profile, upload clear photos, and honestly fill in your interests. The system will recommend better matches based on this information.',
+        category: 'matching',
+      },
+      {
+        question: 'Is my privacy information safe?',
+        answer: 'We take privacy seriously. All data is encrypted, and you can control which information is visible to other users in your settings.',
+        category: 'privacy',
+      },
+      {
+        question: 'How do I report inappropriate behavior?',
+        answer: 'If you encounter harassment or inappropriate behavior, click the report button in the chat interface or contact our support team. We take every report seriously.',
+        category: 'safety',
+      },
+      {
+        question: 'What payment methods are supported?',
+        answer: 'We support Credit/Debit cards (via Stripe), PayPal, Alipay, and USDT cryptocurrency.',
+        category: 'payment',
+      },
+      {
+        question: 'How do I cancel my subscription or request a refund?',
+        answer: 'You can manage your subscription in account settings. For refunds, please contact our support team and we will handle it case by case.',
+        category: 'payment',
+      },
+      {
+        question: 'How do I contact support?',
+        answer: 'You can submit a ticket through the support page or email us at support@personalink.com. We typically respond within 24 hours.',
+        category: 'support',
+      },
+    ],
   },
 
   // Support Page

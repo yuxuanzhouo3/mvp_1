@@ -38,96 +38,14 @@ export default function HelpPage() {
     setMounted(true);
   }, []);
 
-  const faqItems: FAQItem[] = language === 'zh' ? [
-    {
-      question: '如何开始使用 PersonaLink？',
-      answer: '注册账号后，完成个人资料设置，上传照片，然后系统会根据您的偏好为您推荐匹配对象。',
-      category: 'getting-started',
-    },
-    {
-      question: '积分是什么？如何获得积分？',
-      answer: '积分是平台内的虚拟货币，用于解锁高级功能。您可以通过购买积分包、完成每日任务或邀请好友来获得积分。',
-      category: 'credits',
-    },
-    {
-      question: '如何提高匹配成功率？',
-      answer: '完善您的个人资料、上传清晰的照片、诚实填写兴趣爱好，系统会根据这些信息为您推荐更合适的匹配对象。',
-      category: 'matching',
-    },
-    {
-      question: '我的隐私信息安全吗？',
-      answer: '我们非常重视用户隐私。所有数据都经过加密存储，您可以在设置中控制哪些信息对其他用户可见。',
-      category: 'privacy',
-    },
-    {
-      question: '如何举报不当行为？',
-      answer: '如果您遇到骚扰或不当行为，可以在聊天界面点击举报按钮，或联系客服团队。我们会认真处理每一条举报。',
-      category: 'safety',
-    },
-    {
-      question: '支持哪些支付方式？',
-      answer: '我们支持信用卡/借记卡（通过 Stripe）、PayPal、支付宝和 USDT 等多种支付方式。',
-      category: 'payment',
-    },
-    {
-      question: '如何取消订阅或申请退款？',
-      answer: '您可以在账户设置中管理订阅。关于退款，请联系客服团队，我们会根据具体情况处理。',
-      category: 'payment',
-    },
-    {
-      question: '如何联系客服？',
-      answer: '您可以通过支持页面提交工单，或发送邮件至 support@personalink.com。我们通常会在24小时内回复。',
-      category: 'support',
-    },
-  ] : [
-    {
-      question: 'How do I get started with PersonaLink?',
-      answer: 'After registering, complete your profile setup, upload photos, and the system will recommend matches based on your preferences.',
-      category: 'getting-started',
-    },
-    {
-      question: 'What are credits and how do I get them?',
-      answer: 'Credits are virtual currency used to unlock premium features. You can get credits by purchasing credit packages, completing daily tasks, or inviting friends.',
-      category: 'credits',
-    },
-    {
-      question: 'How can I improve my matching success rate?',
-      answer: 'Complete your profile, upload clear photos, and honestly fill in your interests. The system will recommend better matches based on this information.',
-      category: 'matching',
-    },
-    {
-      question: 'Is my privacy information safe?',
-      answer: 'We take privacy seriously. All data is encrypted, and you can control which information is visible to other users in your settings.',
-      category: 'privacy',
-    },
-    {
-      question: 'How do I report inappropriate behavior?',
-      answer: 'If you encounter harassment or inappropriate behavior, click the report button in the chat interface or contact our support team. We take every report seriously.',
-      category: 'safety',
-    },
-    {
-      question: 'What payment methods are supported?',
-      answer: 'We support Credit/Debit cards (via Stripe), PayPal, Alipay, and USDT cryptocurrency.',
-      category: 'payment',
-    },
-    {
-      question: 'How do I cancel my subscription or request a refund?',
-      answer: 'You can manage your subscription in account settings. For refunds, please contact our support team and we will handle it case by case.',
-      category: 'payment',
-    },
-    {
-      question: 'How do I contact support?',
-      answer: 'You can submit a ticket through the support page or email us at support@personalink.com. We typically respond within 24 hours.',
-      category: 'support',
-    },
-  ];
+  const faqItems = t.helpPage.faq as readonly FAQItem[];
 
   const categories = [
-    { id: 'getting-started', icon: Zap, label: language === 'zh' ? '入门指南' : 'Getting Started', color: 'text-blue-500' },
-    { id: 'credits', icon: CreditCard, label: language === 'zh' ? '积分与支付' : 'Credits & Payment', color: 'text-green-500' },
-    { id: 'matching', icon: Heart, label: language === 'zh' ? '匹配功能' : 'Matching', color: 'text-red-500' },
-    { id: 'privacy', icon: Shield, label: language === 'zh' ? '隐私安全' : 'Privacy & Security', color: 'text-purple-500' },
-    { id: 'support', icon: MessageCircle, label: language === 'zh' ? '客户支持' : 'Customer Support', color: 'text-orange-500' },
+    { id: 'getting-started', icon: Zap, label: t.helpPage.categories.gettingStarted, color: 'text-blue-500' },
+    { id: 'credits', icon: CreditCard, label: t.helpPage.categories.credits, color: 'text-green-500' },
+    { id: 'matching', icon: Heart, label: t.helpPage.categories.matching, color: 'text-red-500' },
+    { id: 'privacy', icon: Shield, label: t.helpPage.categories.privacy, color: 'text-purple-500' },
+    { id: 'support', icon: MessageCircle, label: t.helpPage.categories.support, color: 'text-orange-500' },
   ];
 
   const filteredFAQs = faqItems.filter(
@@ -148,12 +66,10 @@ export default function HelpPage() {
           <HelpCircle className="h-8 w-8 text-blue-600" />
         </div>
         <h1 className="text-4xl font-bold mb-4 text-gray-900 dark:text-white">
-          {language === 'zh' ? '帮助中心' : 'Help Center'}
+          {t.helpPage.title}
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-          {language === 'zh'
-            ? '找到您需要的答案，了解如何充分利用 PersonaLink'
-            : 'Find the answers you need and learn how to get the most out of PersonaLink'}
+          {t.helpPage.description}
         </p>
 
         {/* Search */}
@@ -161,7 +77,7 @@ export default function HelpPage() {
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
           <input
             type="text"
-            placeholder={language === 'zh' ? '搜索常见问题...' : 'Search FAQs...'}
+            placeholder={t.helpPage.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-12 pr-4 py-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -194,7 +110,7 @@ export default function HelpPage() {
       {/* FAQ Section */}
       <div className="mb-12">
         <h2 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
-          {language === 'zh' ? '常见问题' : 'Frequently Asked Questions'}
+          {t.helpPage.faqTitle}
         </h2>
         <div className="space-y-4">
           {filteredFAQs.map((faq, index) => (

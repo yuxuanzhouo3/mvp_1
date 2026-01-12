@@ -340,26 +340,10 @@ async function handleStripeCheckoutCompleted(session: Stripe.Checkout.Session, s
 
   console.log('[Stripe Webhook] Payment status updated to completed');
 
-  // Manually add credits to user (backup for database trigger)
-  // The database trigger should also handle this, but we do it here as a safety measure
-  try {
-    await addCreditsToUser(userId, credits);
-    console.log('[Stripe Webhook] Credits added successfully:', { userId, credits });
-
-    // Create transaction record
-    await createTransactionRecord(
-      userId,
-      'credit_purchase',
-      credits,
-      `Purchased ${credits} credits via Stripe`,
-      paymentId
-    );
-    console.log('[Stripe Webhook] Transaction record created');
-  } catch (creditsError) {
-    // Log error but don't throw - the payment is still completed
-    console.error('[Stripe Webhook] Failed to add credits:', creditsError);
-    // Note: Database trigger might still add credits, so this is not critical
-  }
+  // NOTE: Credits are automatically added by database trigger (on_payment_completed)
+  // when payment status changes to 'completed'. Do NOT manually add credits here
+  // to avoid double-crediting the user.
+  console.log('[Stripe Webhook] Credits will be added by database trigger:', { userId, credits });
 
   // Send payment success notification
   const amount = (session.amount_total || 0) / 100;

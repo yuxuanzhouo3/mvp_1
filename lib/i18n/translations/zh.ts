@@ -293,9 +293,11 @@ export const zh = {
       availableCredits: '可用积分',
       rechargeCredits: '充值积分',
       matchCost: '每次匹配',
+      likeCost: '每次喜欢',
       messageCost: '每条消息',
       creditsUnit: '积分',
       estimatedMatches: '预计可匹配次数',
+      estimatedLikes: '预计可喜欢次数',
       lowBalance: '余额不足！请充值以继续匹配。',
       rechargeGuide: '解锁更多匹配和聊天机会！立即充值，找到你的完美配对。',
       rechargeNow: '立即充值',
@@ -305,6 +307,8 @@ export const zh = {
       viewAll: '查看全部',
       compatibility: '匹配度',
       chat: '聊天',
+      openChatFailed: '打开聊天失败',
+      tryAgainLater: '请稍后重试',
     },
     sidebar: {
       home: '首页',
@@ -885,6 +889,63 @@ export const zh = {
     termsChangesDesc: '我们保留权利，在任何时候，根据我们的唯一决定，修改或替换这些条款。如果修订是重大的，我们将在任何新条款生效前至少提前30天通知。',
     contactInfo: '11. 联系信息',
     contactInfoDesc: '如果你对这些服务条款有任何疑问，请联系legal@personalink.ai。',
+  },
+
+  // 帮助页面
+  helpPage: {
+    title: '帮助中心',
+    description: '找到您需要的答案，了解如何充分利用 PersonaLink',
+    searchPlaceholder: '搜索常见问题...',
+    faqTitle: '常见问题',
+    categories: {
+      gettingStarted: '入门指南',
+      credits: '积分与支付',
+      matching: '匹配功能',
+      privacy: '隐私安全',
+      support: '客户支持',
+    },
+    faq: [
+      {
+        question: '如何开始使用 PersonaLink？',
+        answer: '注册账号后，完成个人资料设置，上传照片，然后系统会根据您的偏好为您推荐匹配对象。',
+        category: 'getting-started',
+      },
+      {
+        question: '积分是什么？如何获得积分？',
+        answer: '积分是平台内的虚拟货币，用于解锁高级功能。您可以通过购买积分包、完成每日任务或邀请好友来获得积分。',
+        category: 'credits',
+      },
+      {
+        question: '如何提高匹配成功率？',
+        answer: '完善您的个人资料、上传清晰的照片、诚实填写兴趣爱好，系统会根据这些信息为您推荐更合适的匹配对象。',
+        category: 'matching',
+      },
+      {
+        question: '我的隐私信息安全吗？',
+        answer: '我们非常重视用户隐私。所有数据都经过加密存储，您可以在设置中控制哪些信息对其他用户可见。',
+        category: 'privacy',
+      },
+      {
+        question: '如何举报不当行为？',
+        answer: '如果您遇到骚扰或不当行为，可以在聊天界面点击举报按钮，或联系客服团队。我们会认真处理每一条举报。',
+        category: 'safety',
+      },
+      {
+        question: '支持哪些支付方式？',
+        answer: '我们支持信用卡/借记卡（通过 Stripe）、PayPal、支付宝和 USDT 等多种支付方式。',
+        category: 'payment',
+      },
+      {
+        question: '如何取消订阅或申请退款？',
+        answer: '您可以在账户设置中管理订阅。关于退款，请联系客服团队，我们会根据具体情况处理。',
+        category: 'payment',
+      },
+      {
+        question: '如何联系客服？',
+        answer: '您可以通过支持页面提交工单，或发送邮件至 support@personalink.com。我们通常会在24小时内回复。',
+        category: 'support',
+      },
+    ],
   },
 
   // 支持页面

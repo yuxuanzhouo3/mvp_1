@@ -69,11 +69,12 @@ export async function GET(request: NextRequest) {
       .select('*', { count: 'exact', head: true })
       .eq('sender_id', user.id);
 
-    // Get active chats count (rooms where user is a participant)
+    // Get active chats count (rooms where user is a participant via matches table)
+    // chat_rooms links to matches via match_id, and matches has user_1 and user_2
     const { count: activeChats, error: chatError } = await supabase
       .from('chat_rooms')
-      .select('*', { count: 'exact', head: true })
-      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+      .select('*, matches!inner(*)', { count: 'exact', head: true })
+      .or(`user_1.eq.${user.id},user_2.eq.${user.id}`, { referencedTable: 'matches' })
       .eq('is_active', true);
 
     // Get user profile for completion calculation

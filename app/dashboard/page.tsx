@@ -294,8 +294,8 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Failed to open chat:', error);
       toast({
-        title: language === 'zh' ? '打开聊天失败' : 'Failed to open chat',
-        description: language === 'zh' ? '请稍后重试' : 'Please try again later',
+        title: t.dashboard.recentMatches.openChatFailed,
+        description: t.dashboard.recentMatches.tryAgainLater,
         variant: 'destructive',
       });
     }
@@ -586,9 +586,9 @@ export default function DashboardPage() {
                   <div className="bg-gray-50 rounded-lg p-3 text-center">
                     <div className="flex items-center justify-center mb-1">
                       <Heart className="h-4 w-4 text-pink-500 mr-1" />
-                      <span className="text-xs text-gray-500">{t.dashboard.credits.matchCost || 'Per Match'}</span>
+                      <span className="text-xs text-gray-500">{t.dashboard.credits.likeCost || 'Per Like'}</span>
                     </div>
-                    <div className="font-bold text-gray-900">10</div>
+                    <div className="font-bold text-gray-900">5</div>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-3 text-center">
                     <div className="flex items-center justify-center mb-1">
@@ -599,14 +599,14 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Estimated Matches */}
+                {/* Estimated Likes */}
                 <div className="bg-green-50 border border-green-100 rounded-lg p-3 mb-5">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-green-700 flex items-center">
                       <TrendingUp className="h-4 w-4 mr-2" />
-                      {t.dashboard.credits.estimatedMatches || 'Estimated Matches'}
+                      {t.dashboard.credits.estimatedLikes || 'Estimated Likes'}
                     </span>
-                    <span className="font-bold text-green-700 text-lg">{Math.floor(profile.credits / 10)}</span>
+                    <span className="font-bold text-green-700 text-lg">{Math.floor(profile.credits / 5)}</span>
                   </div>
                 </div>
 

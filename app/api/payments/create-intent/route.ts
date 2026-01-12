@@ -220,13 +220,17 @@ async function handleAlipayPayment(payment: any, amount: number, userId: string)
 
 async function handlePayPalPayment(payment: any, amount: number, credits: number, userId: string) {
   try {
-    // Convert CNY to USD for PayPal
-    const usdAmount = convertCNYtoUSD(amount);
+    // Get currency based on deployment region
+    const currency = getDefaultCurrency();
+
+    // Only convert CNY to USD if we're in CN region
+    // In INTL region, amount is already in USD
+    const paypalAmount = currency === 'CNY' ? convertCNYtoUSD(amount) : amount;
 
     // Create PayPal order
     const paypalOrder = await createPayPalOrder({
       paymentId: payment.id,
-      amount: usdAmount,
+      amount: paypalAmount,
       credits,
       userId,
       currency: 'USD',
@@ -242,7 +246,7 @@ async function handlePayPalPayment(payment: any, amount: number, credits: number
         metadata: {
           ...payment.metadata,
           paypal_order_id: paypalOrder.orderId,
-          usd_amount: usdAmount,
+          usd_amount: paypalAmount,
         }
       })
       .eq('id', payment.id);
@@ -251,7 +255,7 @@ async function handlePayPalPayment(payment: any, amount: number, credits: number
       orderId: paypalOrder.orderId,
       approvalUrl: paypalOrder.approvalUrl,
       paymentId: payment.id,
-      amount: usdAmount,
+      amount: paypalAmount,
       credits,
     });
   } catch (error) {
