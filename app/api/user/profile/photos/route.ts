@@ -85,7 +85,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 移除照片数量限制检查
+    // 检查是否是第一张照片（用于设置主照片）
+    const { count } = await supabaseAdmin
+      .from('user_photos')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id);
 
     // Generate unique filename
     const fileExt = file.name.split('.').pop();
