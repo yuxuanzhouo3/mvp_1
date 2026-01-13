@@ -2242,6 +2242,58 @@ export const en = {
     subscriptionSuccess: 'Subscription Successful',
     subscriptionSuccessDesc: 'You have successfully subscribed. Enjoy your premium benefits!',
   },
+
+  // Activity Timeline
+  activities: {
+    noActivities: 'No activities yet',
+    noActivitiesDesc: 'Start using the app and your activities will appear here',
+    viewAll: 'View All Activities',
+    justNow: 'Just now',
+    hoursAgo: '{n} hour(s) ago',
+    daysAgo: '{n} day(s) ago',
+  },
+
+  // Credit Balance Card
+  creditBalance: {
+    unableToLoad: 'Unable to load balance info',
+    creditBalance: 'Credit Balance',
+    currentCredits: 'Current Available Credits',
+    totalEarned: 'Total Earned',
+    totalSpent: 'Total Spent',
+    usageRate: 'Usage Rate',
+    vipMember: 'VIP Member',
+    premiumMember: 'Premium Member',
+    freeUser: 'Free User',
+    claimDaily: 'Claim Daily Bonus',
+    recharge: 'Recharge Credits',
+    history: 'Transaction History',
+    nextBonus: 'Next bonus time:',
+  },
+
+  // Chat Export
+  chatExport: {
+    title: 'Export Chat History',
+    description: 'Select format to download complete chat history',
+    formats: {
+      txt: 'Plain Text',
+      json: 'JSON Data',
+      html: 'HTML Page',
+    },
+    formatDescriptions: {
+      txt: 'Simple text format, easy to read',
+      json: 'Structured data, easy to process',
+      html: 'Web page format, with styling',
+    },
+    export: 'Export',
+    exporting: 'Exporting...',
+    cancel: 'Cancel',
+    error: 'Export failed, please retry',
+  },
+
+  // Audio Player
+  audioPlayer: {
+    audioLoadError: 'Failed to load audio',
+  },
 } as const;
 
 export type EnTranslations = typeof en;

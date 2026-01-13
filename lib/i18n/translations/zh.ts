@@ -2247,6 +2247,58 @@ export const zh = {
     subscriptionSuccess: '订阅成功',
     subscriptionSuccessDesc: '您已成功订阅会员，享受专属特权！',
   },
+
+  // 活动时间线
+  activities: {
+    noActivities: '暂无活动',
+    noActivitiesDesc: '开始使用应用，您的活动将在这里显示',
+    viewAll: '查看全部活动',
+    justNow: '刚刚',
+    hoursAgo: '{n}小时前',
+    daysAgo: '{n}天前',
+  },
+
+  // 积分余额卡片
+  creditBalance: {
+    unableToLoad: '无法加载余额信息',
+    creditBalance: '积分余额',
+    currentCredits: '当前可用积分',
+    totalEarned: '总获得',
+    totalSpent: '总消费',
+    usageRate: '使用率',
+    vipMember: 'VIP会员',
+    premiumMember: '高级会员',
+    freeUser: '免费用户',
+    claimDaily: '领取每日奖励',
+    recharge: '充值积分',
+    history: '消费记录',
+    nextBonus: '下次奖励时间:',
+  },
+
+  // 聊天导出
+  chatExport: {
+    title: '导出聊天记录',
+    description: '选择导出格式，下载完整的聊天记录',
+    formats: {
+      txt: '纯文本',
+      json: 'JSON 数据',
+      html: 'HTML 网页',
+    },
+    formatDescriptions: {
+      txt: '简单文本格式，便于阅读',
+      json: '结构化数据，便于处理',
+      html: '网页格式，保留样式',
+    },
+    export: '导出',
+    exporting: '导出中...',
+    cancel: '取消',
+    error: '导出失败，请重试',
+  },
+
+  // 音频播放器
+  audioPlayer: {
+    audioLoadError: '无法加载音频',
+  },
 } as const;
 
 export type ZhTranslations = typeof zh;

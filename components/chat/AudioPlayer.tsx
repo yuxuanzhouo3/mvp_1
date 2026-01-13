@@ -4,13 +4,14 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Play, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 interface AudioPlayerProps {
   src: string;
   duration?: number;
   isOwn?: boolean;
   className?: string;
-  language?: 'zh' | 'en';
 }
 
 /**
@@ -22,7 +23,6 @@ export function AudioPlayer({
   duration = 0,
   isOwn = false,
   className = '',
-  language = 'zh',
 }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -34,10 +34,8 @@ export function AudioPlayer({
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
 
-  const t = {
-    zh: { audioLoadError: '无法加载音频' },
-    en: { audioLoadError: 'Failed to load audio' },
-  }[language];
+  const { language } = useLanguage();
+  const t = useTranslations(language);
 
   // 格式化时间
   const formatTime = (seconds: number): string => {
@@ -104,7 +102,7 @@ export function AudioPlayer({
     };
 
     const handleError = () => {
-      setError(t.audioLoadError);
+      setError(t.audioPlayer.audioLoadError);
       setIsLoading(false);
     };
 

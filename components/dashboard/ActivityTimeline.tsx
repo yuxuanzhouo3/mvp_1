@@ -13,19 +13,7 @@ import {
   Clock
 } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
-
-const TRANSLATIONS = {
-  zh: {
-    justNow: '刚刚',
-    hoursAgo: (n: number) => `${n}小时前`,
-    daysAgo: (n: number) => `${n}天前`,
-  },
-  en: {
-    justNow: 'Just now',
-    hoursAgo: (n: number) => `${n} hour${n > 1 ? 's' : ''} ago`,
-    daysAgo: (n: number) => `${n} day${n > 1 ? 's' : ''} ago`,
-  },
-};
+import { useTranslations, interpolate } from '@/lib/i18n'
 
 interface Activity {
   id: string
@@ -44,7 +32,7 @@ export default function ActivityTimeline({ userId }: ActivityTimelineProps) {
   const [activities, setActivities] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const { language } = useLanguage()
-  const t = TRANSLATIONS[language] || TRANSLATIONS.zh
+  const t = useTranslations(language)
 
   useEffect(() => {
     fetchActivities()
@@ -104,11 +92,11 @@ export default function ActivityTimeline({ userId }: ActivityTimelineProps) {
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
 
     if (diffInHours < 1) {
-      return t.justNow
+      return t.activities.justNow
     } else if (diffInHours < 24) {
-      return t.hoursAgo(diffInHours)
+      return interpolate(t.activities.hoursAgo, { n: diffInHours })
     } else if (diffInHours < 168) { // 7 days
-      return t.daysAgo(Math.floor(diffInHours / 24))
+      return interpolate(t.activities.daysAgo, { n: Math.floor(diffInHours / 24) })
     } else {
       return date.toLocaleDateString()
     }
@@ -136,9 +124,9 @@ export default function ActivityTimeline({ userId }: ActivityTimelineProps) {
         <CardContent className="p-8 text-center">
           <div className="text-muted-foreground">
             <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium mb-2">暂无活动</h3>
+            <h3 className="text-lg font-medium mb-2">{t.activities.noActivities}</h3>
             <p className="text-sm">
-              开始使用应用，您的活动将在这里显示
+              {t.activities.noActivitiesDesc}
             </p>
           </div>
         </CardContent>
@@ -198,7 +186,7 @@ export default function ActivityTimeline({ userId }: ActivityTimelineProps) {
       {activities.length > 0 && (
         <div className="text-center pt-4">
           <Button variant="outline" size="sm" asChild>
-            <a href="/dashboard/history">查看全部活动</a>
+            <a href="/dashboard/history">{t.activities.viewAll}</a>
           </Button>
         </div>
       )}

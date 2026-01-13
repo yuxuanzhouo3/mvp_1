@@ -6,6 +6,8 @@ import { Download, FileText, FileJson, FileCode, X, Loader2 } from 'lucide-react
 import { cn } from '@/lib/utils';
 import { exportChat, ExportOptions, ChatExportData, convertMessagesToExport } from '@/lib/chat/export-chat';
 import { chatClient, Message } from '@/lib/realtime/chat-client';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 
 interface ExportDialogProps {
   roomId: string;
@@ -15,7 +17,6 @@ interface ExportDialogProps {
   otherUsername: string;
   onClose: () => void;
   className?: string;
-  language?: 'zh' | 'en';
 }
 
 /**
@@ -29,50 +30,12 @@ export function ExportDialog({
   otherUsername,
   onClose,
   className = '',
-  language = 'zh',
 }: ExportDialogProps) {
   const [selectedFormat, setSelectedFormat] = useState<'txt' | 'json' | 'html'>('txt');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const t = {
-    zh: {
-      title: '导出聊天记录',
-      description: '选择导出格式，下载完整的聊天记录',
-      formats: {
-        txt: '纯文本',
-        json: 'JSON 数据',
-        html: 'HTML 网页',
-      },
-      formatDescriptions: {
-        txt: '简单文本格式，便于阅读',
-        json: '结构化数据，便于处理',
-        html: '网页格式，保留样式',
-      },
-      export: '导出',
-      exporting: '导出中...',
-      cancel: '取消',
-      error: '导出失败，请重试',
-    },
-    en: {
-      title: 'Export Chat History',
-      description: 'Select format to download complete chat history',
-      formats: {
-        txt: 'Plain Text',
-        json: 'JSON Data',
-        html: 'HTML Page',
-      },
-      formatDescriptions: {
-        txt: 'Simple text format, easy to read',
-        json: 'Structured data, easy to process',
-        html: 'Web page format, with styling',
-      },
-      export: 'Export',
-      exporting: 'Exporting...',
-      cancel: 'Cancel',
-      error: 'Export failed, please retry',
-    },
-  }[language];
+  const { language } = useLanguage();
+  const t = useTranslations(language);
 
   const formats: Array<{ key: 'txt' | 'json' | 'html'; icon: typeof FileText }> = [
     { key: 'txt', icon: FileText },
@@ -139,7 +102,7 @@ export function ExportDialog({
       onClose();
     } catch (err) {
       console.error('导出失败:', err);
-      setError(t.error);
+      setError(t.chatExport.error);
     } finally {
       setIsExporting(false);
     }
@@ -156,7 +119,7 @@ export function ExportDialog({
           <div className="flex items-center space-x-2">
             <Download className="w-5 h-5 text-blue-500" />
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-              {t.title}
+              {t.chatExport.title}
             </h2>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
@@ -167,7 +130,7 @@ export function ExportDialog({
         {/* 内容 */}
         <div className="p-4">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            {t.description}
+            {t.chatExport.description}
           </p>
 
           {/* 格式选择 */}
@@ -193,10 +156,10 @@ export function ExportDialog({
                 </div>
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-white">
-                    {t.formats[key]}
+                    {t.chatExport.formats[key]}
                   </p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {t.formatDescriptions[key]}
+                    {t.chatExport.formatDescriptions[key]}
                   </p>
                 </div>
                 <div className={cn(
@@ -222,18 +185,18 @@ export function ExportDialog({
         {/* 底部按钮 */}
         <div className="flex items-center justify-end space-x-3 p-4 border-t border-gray-200 dark:border-gray-700">
           <Button variant="outline" onClick={onClose} disabled={isExporting}>
-            {t.cancel}
+            {t.chatExport.cancel}
           </Button>
           <Button onClick={handleExport} disabled={isExporting}>
             {isExporting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                {t.exporting}
+                {t.chatExport.exporting}
               </>
             ) : (
               <>
                 <Download className="w-4 h-4 mr-2" />
-                {t.export}
+                {t.chatExport.export}
               </>
             )}
           </Button>

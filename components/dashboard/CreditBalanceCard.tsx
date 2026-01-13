@@ -12,39 +12,7 @@ import {
   Gift
 } from 'lucide-react'
 import { useLanguage } from '@/components/language-provider'
-
-const TRANSLATIONS = {
-  zh: {
-    unableToLoad: '无法加载余额信息',
-    creditBalance: '积分余额',
-    currentCredits: '当前可用积分',
-    totalEarned: '总获得',
-    totalSpent: '总消费',
-    usageRate: '使用率',
-    vipMember: 'VIP会员',
-    premiumMember: '高级会员',
-    freeUser: '免费用户',
-    claimDaily: '领取每日奖励',
-    recharge: '充值积分',
-    history: '消费记录',
-    nextBonus: '下次奖励时间:',
-  },
-  en: {
-    unableToLoad: 'Unable to load balance info',
-    creditBalance: 'Credit Balance',
-    currentCredits: 'Current Available Credits',
-    totalEarned: 'Total Earned',
-    totalSpent: 'Total Spent',
-    usageRate: 'Usage Rate',
-    vipMember: 'VIP Member',
-    premiumMember: 'Premium Member',
-    freeUser: 'Free User',
-    claimDaily: 'Claim Daily Bonus',
-    recharge: 'Recharge Credits',
-    history: 'Transaction History',
-    nextBonus: 'Next bonus time:',
-  },
-};
+import { useTranslations } from '@/lib/i18n'
 
 interface CreditBalance {
   current: number
@@ -64,7 +32,7 @@ export default function CreditBalanceCard({ userId }: CreditBalanceCardProps) {
   const [balance, setBalance] = useState<CreditBalance | null>(null)
   const [loading, setLoading] = useState(true)
   const { language } = useLanguage()
-  const t = TRANSLATIONS[language] || TRANSLATIONS.zh
+  const t = useTranslations(language)
 
   useEffect(() => {
     fetchCreditBalance()
@@ -139,7 +107,7 @@ export default function CreditBalanceCard({ userId }: CreditBalanceCardProps) {
     return (
       <Card>
         <CardContent className="p-6 text-center">
-          <p className="text-muted-foreground">{t.unableToLoad}</p>
+          <p className="text-muted-foreground">{t.creditBalance.unableToLoad}</p>
         </CardContent>
       </Card>
     )
@@ -154,7 +122,7 @@ export default function CreditBalanceCard({ userId }: CreditBalanceCardProps) {
       <CardHeader>
         <CardTitle className="flex items-center space-x-2">
           <CreditCard className="h-5 w-5" />
-          <span>{t.creditBalance}</span>
+          <span>{t.creditBalance.creditBalance}</span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -163,20 +131,20 @@ export default function CreditBalanceCard({ userId }: CreditBalanceCardProps) {
           <div className="text-3xl font-bold text-primary">
             {balance.current.toLocaleString()}
           </div>
-          <p className="text-sm text-muted-foreground">{t.currentCredits}</p>
+          <p className="text-sm text-muted-foreground">{t.creditBalance.currentCredits}</p>
         </div>
 
         {/* 使用统计 */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
-            <span>{t.totalEarned}</span>
+            <span>{t.creditBalance.totalEarned}</span>
             <span className="flex items-center text-green-600">
               <TrendingUp className="h-3 w-3 mr-1" />
               {balance.total_earned.toLocaleString()}
             </span>
           </div>
           <div className="flex justify-between text-sm">
-            <span>{t.totalSpent}</span>
+            <span>{t.creditBalance.totalSpent}</span>
             <span className="flex items-center text-red-600">
               <TrendingDown className="h-3 w-3 mr-1" />
               {balance.total_spent.toLocaleString()}
@@ -186,7 +154,7 @@ export default function CreditBalanceCard({ userId }: CreditBalanceCardProps) {
           {/* 使用进度条 */}
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{t.usageRate}</span>
+              <span>{t.creditBalance.usageRate}</span>
               <span>{usagePercentage.toFixed(1)}%</span>
             </div>
             <Progress value={usagePercentage} className="h-2" />
@@ -198,8 +166,8 @@ export default function CreditBalanceCard({ userId }: CreditBalanceCardProps) {
           <div className="flex items-center space-x-2 mb-2">
             <span className="text-lg">{getMembershipIcon(balance.membership_level)}</span>
             <span className={`font-medium ${getMembershipColor(balance.membership_level)}`}>
-              {balance.membership_level === 'vip' ? t.vipMember :
-               balance.membership_level === 'premium' ? t.premiumMember : t.freeUser}
+              {balance.membership_level === 'vip' ? t.creditBalance.vipMember :
+               balance.membership_level === 'premium' ? t.creditBalance.premiumMember : t.creditBalance.freeUser}
             </span>
           </div>
           <div className="text-xs text-muted-foreground space-y-1">
@@ -220,7 +188,7 @@ export default function CreditBalanceCard({ userId }: CreditBalanceCardProps) {
             size="sm"
           >
             <Plus className="h-4 w-4 mr-2" />
-            {t.claimDaily}
+            {t.creditBalance.claimDaily}
           </Button>
         )}
 
@@ -234,7 +202,7 @@ export default function CreditBalanceCard({ userId }: CreditBalanceCardProps) {
           >
             <a href="/payment/recharge">
               <Plus className="h-4 w-4 mr-2" />
-              {t.recharge}
+              {t.creditBalance.recharge}
             </a>
           </Button>
 
@@ -246,7 +214,7 @@ export default function CreditBalanceCard({ userId }: CreditBalanceCardProps) {
           >
             <a href="/dashboard/billing">
               <History className="h-4 w-4 mr-2" />
-              {t.history}
+              {t.creditBalance.history}
             </a>
           </Button>
         </div>
@@ -254,7 +222,7 @@ export default function CreditBalanceCard({ userId }: CreditBalanceCardProps) {
         {/* 下次奖励时间 */}
         {balance.next_bonus_time && !balance.daily_bonus_available && (
           <div className="text-xs text-muted-foreground text-center">
-            {t.nextBonus} {new Date(balance.next_bonus_time).toLocaleString()}
+            {t.creditBalance.nextBonus} {new Date(balance.next_bonus_time).toLocaleString()}
           </div>
         )}
       </CardContent>
