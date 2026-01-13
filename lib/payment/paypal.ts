@@ -104,8 +104,8 @@ export async function createPayPalOrder(options: CreateOrderOptions): Promise<{
       brand_name: process.env.NEXT_PUBLIC_APP_NAME || 'PersonaLink',
       landing_page: 'NO_PREFERENCE',
       user_action: 'PAY_NOW',
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?provider=paypal`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/cancel?provider=paypal`,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success?provider=paypal&paymentId=${paymentId}`,
+      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/cancel?provider=paypal&paymentId=${paymentId}`,
     },
   };
 

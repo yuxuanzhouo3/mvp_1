@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { CheckCircle, ArrowRight, CreditCard, Home } from 'lucide-react';
+import { CheckCircle, ArrowRight, CreditCard, Home, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 
@@ -26,15 +26,64 @@ function PaymentSuccessContent() {
   const [isLoading, setIsLoading] = useState(true);
 
   const sessionId = searchParams.get('session_id');
+  const provider = searchParams.get('provider');
+  const paymentId = searchParams.get('paymentId');
+  const token = searchParams.get('token'); // PayPal returns this as order ID
 
   useEffect(() => {
-    if (sessionId) {
+    if (provider === 'paypal' && (paymentId || token)) {
+      // Handle PayPal callback - need to capture the payment
+      capturePayPalPayment();
+    } else if (sessionId) {
       verifyPayment(sessionId);
     } else {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+  }, [sessionId, provider, paymentId, token]);
+
+  const capturePayPalPayment = async () => {
+    try {
+      // Get the PayPal order ID from URL (PayPal returns it as 'token')
+      const orderId = token;
+
+      if (!orderId || !paymentId) {
+        throw new Error('Missing PayPal order information');
+      }
+
+      const response = await fetch('/api/payments/paypal/capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, paymentId }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setPaymentData({
+          credits: result.credits || 0,
+          amount: 0,
+          paymentMethod: 'PayPal',
+          transactionId: paymentId,
+        });
+        toast({
+          title: language === 'zh' ? '支付成功' : 'Payment Successful',
+          description: language === 'zh' ? '您的支付已完成' : 'Your payment has been completed',
+        });
+      } else {
+        throw new Error(result.error || 'Payment capture failed');
+      }
+    } catch (error: any) {
+      console.error('[PayPal] Capture error:', error);
+      toast({
+        title: language === 'zh' ? '支付处理失败' : 'Payment Processing Failed',
+        description: error.message || (language === 'zh' ? '请联系客服' : 'Please contact support'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const verifyPayment = async (sessionId: string) => {
     try {
