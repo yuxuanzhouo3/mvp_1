@@ -280,7 +280,12 @@ export async function processStripeWebhook(event: Stripe.Event) {
   switch (event.type) {
     case 'checkout.session.completed':
       const session = event.data.object as Stripe.Checkout.Session;
-      await handleStripeCheckoutCompleted(session, supabase);
+      // Check if this is a membership subscription or credit purchase
+      if (session.metadata?.type === 'membership') {
+        await handleMembershipCheckoutCompleted(session, supabase);
+      } else {
+        await handleStripeCheckoutCompleted(session, supabase);
+      }
       break;
 
     case 'payment_intent.succeeded':
@@ -382,4 +387,107 @@ async function handleStripePaymentFailed(paymentIntent: Stripe.PaymentIntent, su
       console.warn('[Payment] Failed to send failure notification:', err);
     });
   }
+}
+
+async function handleMembershipCheckoutCompleted(session: Stripe.Checkout.Session, supabase: any) {
+  const userId = session.metadata?.user_id;
+  const tierId = session.metadata?.tier_id;
+
+  if (!userId || !tierId) {
+    console.error('[Stripe Webhook] Missing metadata in membership checkout session');
+    throw new Error('Missing metadata in membership checkout session');
+  }
+
+  console.log('[Stripe Webhook] Processing membership checkout.session.completed:', {
+    userId,
+    tierId,
+    sessionId: session.id,
+  });
+
+  // Get tier details for monthly credits
+  const { data: tier, error: tierError } = await supabase
+    .from('membership_tiers')
+    .select('*')
+    .eq('id', tierId)
+    .single();
+
+  if (tierError || !tier) {
+    console.error('[Stripe Webhook] Failed to get tier details:', tierError);
+    throw new Error('Failed to get tier details');
+  }
+
+  // Calculate membership dates (1 month from now)
+  const startedAt = new Date();
+  const expiresAt = new Date();
+  expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+  // Check if user already has a membership record
+  const { data: existingMembership } = await supabase
+    .from('user_memberships')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+
+  if (existingMembership) {
+    // Update existing membership
+    const { error: updateError } = await supabase
+      .from('user_memberships')
+      .update({
+        tier: tierId,
+        started_at: startedAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        stripe_customer_id: session.customer,
+        stripe_subscription_id: session.subscription || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.error('[Stripe Webhook] Failed to update membership:', updateError);
+      throw new Error(`Failed to update membership: ${updateError.message}`);
+    }
+  } else {
+    // Create new membership record
+    const { error: insertError } = await supabase
+      .from('user_memberships')
+      .insert({
+        user_id: userId,
+        tier: tierId,
+        started_at: startedAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        auto_renew: !!session.subscription,
+        stripe_customer_id: session.customer,
+        stripe_subscription_id: session.subscription || null,
+      });
+
+    if (insertError) {
+      console.error('[Stripe Webhook] Failed to create membership:', insertError);
+      throw new Error(`Failed to create membership: ${insertError.message}`);
+    }
+  }
+
+  // Add monthly credits to user
+  if (tier.monthly_credits > 0) {
+    await addCreditsToUser(userId, tier.monthly_credits);
+
+    // Create transaction record
+    await createTransactionRecord(
+      userId,
+      'membership_grant',
+      tier.monthly_credits,
+      `${tier.name_en} membership monthly credits`
+    );
+  }
+
+  console.log('[Stripe Webhook] Membership activated successfully:', {
+    userId,
+    tierId,
+    expiresAt: expiresAt.toISOString(),
+    creditsGranted: tier.monthly_credits,
+  });
+
+  // Send notification
+  notifyPaymentSuccess(userId, tier.monthly_credits, session.id, (session.amount_total || 0) / 100).catch((err) => {
+    console.warn('[Payment] Failed to send membership success notification:', err);
+  });
 }

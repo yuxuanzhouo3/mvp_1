@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPayPalWebhook, type PayPalWebhookEvent } from '@/lib/payment/paypal';
-import { updatePaymentStatus } from '@/lib/payment/payments';
+import { updatePaymentStatus, addCreditsToUser, createTransactionRecord } from '@/lib/payment/payments';
 import { notifyPaymentSuccess, notifyPaymentFailed } from '@/lib/services/notifications';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   console.log('[PayPal Webhook] ===== Received webhook request =====');
@@ -127,6 +127,12 @@ async function handleCaptureCompleted(event: PayPalWebhookEvent) {
     webhook_processed: true,
   });
 
+  // Check if this is a membership payment and activate membership
+  const metadata = payment.metadata || {};
+  if (metadata.type === 'membership' && metadata.tier_id && payment.user_id) {
+    await activateMembership(payment.user_id, metadata.tier_id);
+  }
+
   // 发送通知
   const credits = payment.credits || 0;
   if (credits > 0 && payment.user_id) {
@@ -223,6 +229,12 @@ async function handleOrderCompleted(event: PayPalWebhookEvent) {
     webhook_processed: true,
   });
 
+  // Check if this is a membership payment and activate membership
+  const metadata = payment.metadata || {};
+  if (metadata.type === 'membership' && metadata.tier_id && payment.user_id) {
+    await activateMembership(payment.user_id, metadata.tier_id);
+  }
+
   // 发送通知
   const credits = payment.credits || 0;
   if (credits > 0 && payment.user_id) {
@@ -230,4 +242,89 @@ async function handleOrderCompleted(event: PayPalWebhookEvent) {
   }
 
   console.log('[PayPal Webhook] Order completed processed:', paymentId);
+}
+
+/**
+ * Activate membership after successful PayPal payment
+ */
+async function activateMembership(userId: string, tierId: string) {
+  console.log('[PayPal Webhook] Activating membership:', { userId, tierId });
+
+  const serviceClient = createServiceClient();
+
+  // Get tier details for monthly credits
+  const { data: tier, error: tierError } = await serviceClient
+    .from('membership_tiers')
+    .select('*')
+    .eq('id', tierId)
+    .single();
+
+  if (tierError || !tier) {
+    console.error('[PayPal Webhook] Failed to get tier details:', tierError);
+    return;
+  }
+
+  // Calculate membership dates (1 month from now)
+  const startedAt = new Date();
+  const expiresAt = new Date();
+  expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+  // Check if user already has a membership record
+  const { data: existingMembership } = await serviceClient
+    .from('user_memberships')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+
+  if (existingMembership) {
+    // Update existing membership
+    const { error: updateError } = await serviceClient
+      .from('user_memberships')
+      .update({
+        tier: tierId,
+        started_at: startedAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.error('[PayPal Webhook] Failed to update membership:', updateError);
+      return;
+    }
+  } else {
+    // Create new membership record
+    const { error: insertError } = await serviceClient
+      .from('user_memberships')
+      .insert({
+        user_id: userId,
+        tier: tierId,
+        started_at: startedAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        auto_renew: false,
+      });
+
+    if (insertError) {
+      console.error('[PayPal Webhook] Failed to create membership:', insertError);
+      return;
+    }
+  }
+
+  // Add monthly credits to user
+  if (tier.monthly_credits > 0) {
+    await addCreditsToUser(userId, tier.monthly_credits);
+    await createTransactionRecord(
+      userId,
+      'membership_grant',
+      tier.monthly_credits,
+      `${tier.name_en} membership monthly credits`
+    );
+  }
+
+  console.log('[PayPal Webhook] Membership activated:', {
+    userId,
+    tierId,
+    expiresAt: expiresAt.toISOString(),
+    creditsGranted: tier.monthly_credits,
+  });
 }

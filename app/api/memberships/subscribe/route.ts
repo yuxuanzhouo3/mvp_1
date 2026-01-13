@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -184,6 +184,25 @@ async function handleStripeSubscription(
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams);
+
+    // Create payment record for tracking
+    const serviceClient = createServiceClient();
+    await serviceClient
+      .from('payments')
+      .insert({
+        user_id: user.id,
+        amount: tier.monthly_price_usd,
+        currency: 'USD',
+        credits: tier.monthly_credits,
+        payment_method: 'stripe',
+        status: 'pending',
+        stripe_checkout_session_id: session.id,
+        metadata: {
+          type: 'membership',
+          tier_id: tierId,
+          stripe_session_id: session.id,
+        },
+      });
 
     return NextResponse.json({
       success: true,
