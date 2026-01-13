@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: process.env.NEXT_OUTPUT_MODE || 'standalone',
+  // Only use standalone for self-hosted deployments, not for Vercel
+  ...(process.env.NEXT_OUTPUT_MODE === 'standalone' ? { output: 'standalone' } : {}),
   
   // Performance optimizations
   experimental: {
