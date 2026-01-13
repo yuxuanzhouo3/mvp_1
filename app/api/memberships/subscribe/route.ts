@@ -229,21 +229,10 @@ async function handlePayPalSubscription(
   supabase: any
 ) {
   try {
-    // For PayPal, we'll use one-time payment for simplicity
-    // Import PayPal functions
-    const { createPayPalOrder } = await import('@/lib/payment/paypal');
+    const serviceClient = createServiceClient();
 
-    const paypalOrder = await createPayPalOrder({
-      paymentId: `membership_${user.id}_${tierId}_${Date.now()}`,
-      amount: tier.monthly_price_usd,
-      credits: 0, // No credits for membership purchase
-      userId: user.id,
-      currency: 'USD',
-      description: `${tier.name_en} Membership - 1 Month`,
-    });
-
-    // Store membership intent in metadata
-    await supabase
+    // First create payment record to get the real payment ID
+    const { data: payment, error: insertError } = await serviceClient
       .from('payments')
       .insert({
         user_id: user.id,
@@ -252,13 +241,46 @@ async function handlePayPalSubscription(
         credits: tier.monthly_credits,
         payment_method: 'paypal',
         status: 'pending',
+        metadata: {
+          type: 'membership',
+          tier_id: tierId,
+        },
+      })
+      .select()
+      .single();
+
+    if (insertError || !payment) {
+      console.error('Failed to create payment record:', insertError);
+      return NextResponse.json(
+        { error: 'Failed to create payment record' },
+        { status: 500 }
+      );
+    }
+
+    // Now create PayPal order with the real payment ID
+    const { createPayPalOrder } = await import('@/lib/payment/paypal');
+
+    const paypalOrder = await createPayPalOrder({
+      paymentId: payment.id, // Use the real database payment ID
+      amount: tier.monthly_price_usd,
+      credits: tier.monthly_credits,
+      userId: user.id,
+      currency: 'USD',
+      description: `${tier.name_en} Membership - 1 Month`,
+    });
+
+    // Update payment record with PayPal order ID
+    await serviceClient
+      .from('payments')
+      .update({
         paypal_order_id: paypalOrder.orderId,
         metadata: {
           type: 'membership',
           tier_id: tierId,
           paypal_order_id: paypalOrder.orderId,
         },
-      });
+      })
+      .eq('id', payment.id);
 
     return NextResponse.json({
       success: true,
@@ -266,6 +288,7 @@ async function handlePayPalSubscription(
         orderId: paypalOrder.orderId,
         approvalUrl: paypalOrder.approvalUrl,
         tier: tierId,
+        paymentId: payment.id,
         isSubscription: false,
       },
     });

@@ -404,6 +404,28 @@ async function handleMembershipCheckoutCompleted(session: Stripe.Checkout.Sessio
     sessionId: session.id,
   });
 
+  // Update payment record status to completed
+  const { data: payment } = await supabase
+    .from('payments')
+    .select('id')
+    .eq('stripe_checkout_session_id', session.id)
+    .single();
+
+  if (payment) {
+    await supabase
+      .from('payments')
+      .update({
+        status: 'completed',
+        stripe_payment_intent_id: typeof session.payment_intent === 'string'
+          ? session.payment_intent
+          : session.payment_intent?.id,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', payment.id);
+    console.log('[Stripe Webhook] Payment status updated to completed:', payment.id);
+  }
+
   // Get tier details for monthly credits
   const { data: tier, error: tierError } = await supabase
     .from('membership_tiers')
