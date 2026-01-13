@@ -157,6 +157,23 @@ export async function addCreditsToUser(userId: string, credits: number) {
     .eq('user_id', userId)
     .single();
 
+  // 如果用户没有 profile 记录，尝试创建一个
+  if (fetchError && fetchError.code === 'PGRST116') {
+    console.log('[addCreditsToUser] User profile not found, creating one:', userId);
+    const { error: insertError } = await supabase
+      .from('user_profiles')
+      .insert({
+        user_id: userId,
+        credits: credits,
+        credits_updated_at: new Date().toISOString(),
+      });
+
+    if (insertError) {
+      throw new Error(`Failed to create user profile: ${insertError.message}`);
+    }
+    return;
+  }
+
   if (fetchError) {
     throw new Error(`Failed to fetch user profile: ${fetchError.message}`);
   }

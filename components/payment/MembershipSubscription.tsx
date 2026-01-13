@@ -235,6 +235,23 @@ export default function MembershipSubscription() {
     }
   };
 
+  // 根据 benefits 对象生成本地化的功能列表
+  const getLocalizedFeatures = (tier: MembershipTier): string[] => {
+    const features: string[] = [];
+    const benefits = tier.benefits;
+
+    if (benefits.unlimitedLikes) features.push(t.membership.features.unlimitedLikes);
+    if (tier.monthlyCredits > 0) features.push(`+${tier.monthlyCredits} ${t.membership.creditsPerMonth}`);
+    if (benefits.noAds) features.push(t.membership.features.noAds);
+    if (benefits.canSeeWhoLikesMe) features.push(t.membership.features.canSeeWhoLikesMe);
+    if (benefits.priorityMatching) features.push(t.membership.features.priorityMatching);
+    if (benefits.invisibleMode) features.push(t.membership.features.invisibleMode);
+    if (benefits.changeLocation) features.push(t.membership.features.changeLocation);
+    if (benefits.vipSupport) features.push(t.membership.features.vipSupport);
+
+    return features;
+  };
+
   const getBenefitIcon = (benefit: string) => {
     if (benefit.includes('Like') || benefit.includes('喜欢')) return Heart;
     if (benefit.includes('积分') || benefit.includes('credit')) return Gift;
@@ -363,7 +380,7 @@ export default function MembershipSubscription() {
 
               {/* Benefits */}
               <ul className="space-y-2">
-                {tier.features.slice(0, 4).map((feature, index) => {
+                {getLocalizedFeatures(tier).slice(0, 4).map((feature, index) => {
                   const BenefitIcon = getBenefitIcon(feature);
                   return (
                     <li key={index} className="flex items-center text-sm text-gray-600 dark:text-gray-400">

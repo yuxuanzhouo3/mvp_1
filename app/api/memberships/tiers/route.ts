@@ -14,6 +14,8 @@ interface MembershipTier {
   monthly_price_cny: number;
   monthly_credits: number;
   features: string[];
+  features_en?: string[];
+  features_zh?: string[];
   unlimited_likes: boolean;
   can_see_who_likes_me: boolean;
   priority_matching: boolean;
@@ -153,29 +155,39 @@ export async function GET(request: NextRequest) {
           isPopular: tier.id === 'premium',
           isBestValue: tier.id === 'vip',
         }))
-      : (tiers as MembershipTier[]).map((tier) => ({
-          id: tier.id,
-          name: isChineseLocale ? tier.name_zh : tier.name_en,
-          nameEn: tier.name_en,
-          nameZh: tier.name_zh,
-          monthlyPrice: isChineseLocale ? tier.monthly_price_cny : tier.monthly_price_usd,
-          monthlyPriceUsd: tier.monthly_price_usd,
-          monthlyPriceCny: tier.monthly_price_cny,
-          monthlyCredits: tier.monthly_credits,
-          features: tier.features,
-          benefits: {
-            unlimitedLikes: tier.unlimited_likes,
-            canSeeWhoLikesMe: tier.can_see_who_likes_me,
-            priorityMatching: tier.priority_matching,
-            invisibleMode: tier.invisible_mode,
-            changeLocation: tier.change_location,
-            noAds: tier.no_ads,
-            vipSupport: tier.vip_support,
-          },
-          sortOrder: tier.sort_order,
-          isPopular: tier.id === 'premium',
-          isBestValue: tier.id === 'vip',
-        }));
+      : (tiers as MembershipTier[]).map((tier) => {
+          // 根据语言选择正确的 features
+          let features = tier.features;
+          if (isChineseLocale && tier.features_zh && tier.features_zh.length > 0) {
+            features = tier.features_zh;
+          } else if (!isChineseLocale && tier.features_en && tier.features_en.length > 0) {
+            features = tier.features_en;
+          }
+
+          return {
+            id: tier.id,
+            name: isChineseLocale ? tier.name_zh : tier.name_en,
+            nameEn: tier.name_en,
+            nameZh: tier.name_zh,
+            monthlyPrice: isChineseLocale ? tier.monthly_price_cny : tier.monthly_price_usd,
+            monthlyPriceUsd: tier.monthly_price_usd,
+            monthlyPriceCny: tier.monthly_price_cny,
+            monthlyCredits: tier.monthly_credits,
+            features: features,
+            benefits: {
+              unlimitedLikes: tier.unlimited_likes,
+              canSeeWhoLikesMe: tier.can_see_who_likes_me,
+              priorityMatching: tier.priority_matching,
+              invisibleMode: tier.invisible_mode,
+              changeLocation: tier.change_location,
+              noAds: tier.no_ads,
+              vipSupport: tier.vip_support,
+            },
+            sortOrder: tier.sort_order,
+            isPopular: tier.id === 'premium',
+            isBestValue: tier.id === 'vip',
+          };
+        });
 
     return NextResponse.json({
       success: true,

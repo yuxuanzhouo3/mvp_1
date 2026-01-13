@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyPayPalWebhook, type PayPalWebhookEvent } from '@/lib/payment/paypal';
 import { updatePaymentStatus, addCreditsToUser, createTransactionRecord } from '@/lib/payment/payments';
 import { notifyPaymentSuccess, notifyPaymentFailed } from '@/lib/services/notifications';
-import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: NextRequest) {
   console.log('[PayPal Webhook] ===== Received webhook request =====');
@@ -99,7 +99,7 @@ async function handleCaptureCompleted(event: PayPalWebhookEvent) {
     amount: resource.amount?.value,
   });
 
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   // 查找支付记录
   const { data: payment, error } = await supabase
@@ -160,7 +160,7 @@ async function handleCaptureFailed(event: PayPalWebhookEvent) {
     eventType: event.event_type,
   });
 
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   // 查找支付记录
   const { data: payment } = await supabase
@@ -201,7 +201,7 @@ async function handleOrderCompleted(event: PayPalWebhookEvent) {
     paymentId,
   });
 
-  const supabase = createClient();
+  const supabase = createServiceClient();
 
   // 查找支付记录
   const { data: payment, error } = await supabase
@@ -312,13 +312,22 @@ async function activateMembership(userId: string, tierId: string) {
 
   // Add monthly credits to user
   if (tier.monthly_credits > 0) {
-    await addCreditsToUser(userId, tier.monthly_credits);
-    await createTransactionRecord(
-      userId,
-      'membership_grant',
-      tier.monthly_credits,
-      `${tier.name_en} membership monthly credits`
-    );
+    try {
+      await addCreditsToUser(userId, tier.monthly_credits);
+      await createTransactionRecord(
+        userId,
+        'membership_grant',
+        tier.monthly_credits,
+        `${tier.name_en} membership monthly credits`
+      );
+      console.log('[PayPal Webhook] Credits added successfully:', {
+        userId,
+        credits: tier.monthly_credits,
+      });
+    } catch (creditsError) {
+      console.error('[PayPal Webhook] Failed to add credits:', creditsError);
+      // 不要因为积分添加失败而中断会员激活流程
+    }
   }
 
   console.log('[PayPal Webhook] Membership activated:', {
