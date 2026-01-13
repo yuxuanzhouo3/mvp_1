@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPayPalWebhook, type PayPalWebhookEvent } from '@/lib/payment/paypal';
-import { updatePaymentStatus, addCreditsToUser, createTransactionRecord } from '@/lib/payment/payments';
+import { updatePaymentStatus } from '@/lib/payment/payments';
 import { notifyPaymentSuccess, notifyPaymentFailed } from '@/lib/services/notifications';
 import { createServiceClient } from '@/lib/supabase/server';
 
@@ -310,25 +310,9 @@ async function activateMembership(userId: string, tierId: string) {
     }
   }
 
-  // Add monthly credits to user
-  if (tier.monthly_credits > 0) {
-    try {
-      await addCreditsToUser(userId, tier.monthly_credits);
-      await createTransactionRecord(
-        userId,
-        'membership_grant',
-        tier.monthly_credits,
-        `${tier.name_en} membership monthly credits`
-      );
-      console.log('[PayPal Webhook] Credits added successfully:', {
-        userId,
-        credits: tier.monthly_credits,
-      });
-    } catch (creditsError) {
-      console.error('[PayPal Webhook] Failed to add credits:', creditsError);
-      // 不要因为积分添加失败而中断会员激活流程
-    }
-  }
+  // NOTE: Credits are automatically added by database trigger (on_payment_completed)
+  // when payment status changes to 'completed'. Do NOT manually add credits here
+  // to avoid double-crediting the user.
 
   console.log('[PayPal Webhook] Membership activated:', {
     userId,
