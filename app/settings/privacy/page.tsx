@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Shield, Search, Bell, Loader2 } from 'lucide-react';
+import { ArrowLeft, Shield, Search, Bell, Loader2, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -25,6 +25,7 @@ import {
   IncomeSelect,
 } from '@/components/settings';
 import { useSettings } from '@/hooks/useSettings';
+import { updateAIChatConsent } from '@/lib/services/ai-service';
 
 export default function PrivacySettingsPage() {
   const router = useRouter();
@@ -32,8 +33,39 @@ export default function PrivacySettingsPage() {
   const t = useTranslations(language);
   const { session, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('privacy');
+  const [aiChatConsent, setAiChatConsent] = useState(false);
+  const [aiConsentLoading, setAiConsentLoading] = useState(false);
 
   const { privacy, preferences, notifications, isLoading, isSaving } = useSettings();
+
+  // Load AI chat consent status
+  useEffect(() => {
+    const loadAiConsent = async () => {
+      if (!session?.user?.id) return;
+      try {
+        const response = await fetch('/api/user/profile');
+        if (response.ok) {
+          const data = await response.json();
+          setAiChatConsent(data.ai_chat_consent ?? false);
+        }
+      } catch (error) {
+        console.error('Failed to load AI consent:', error);
+      }
+    };
+    loadAiConsent();
+  }, [session?.user?.id]);
+
+  const handleAiConsentChange = async (checked: boolean) => {
+    setAiConsentLoading(true);
+    try {
+      await updateAIChatConsent(checked);
+      setAiChatConsent(checked);
+    } catch (error) {
+      console.error('Failed to update AI consent:', error);
+    } finally {
+      setAiConsentLoading(false);
+    }
+  };
 
   // Redirect if not authenticated
   if (!authLoading && !session) {
@@ -224,6 +256,25 @@ export default function PrivacySettingsPage() {
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    {/* AI Chat Consent */}
+                    <div className="py-4 border-t border-gray-100 dark:border-gray-800">
+                      <div className="flex items-start gap-3 mb-2">
+                        <Bot className="h-5 w-5 text-purple-500 mt-0.5" />
+                        <div className="flex-1">
+                          <PrivacySwitch
+                            id="ai-chat-consent"
+                            label={language === 'zh' ? '允许AI模拟对话' : 'Allow AI Chat Simulation'}
+                            description={language === 'zh'
+                              ? '允许其他用户使用AI模拟与您的对话风格进行练习。这是一个Beta功能，AI回复仅供参考。'
+                              : 'Allow other users to practice conversations with an AI that simulates your chat style. This is a Beta feature, AI responses are for reference only.'}
+                            checked={aiChatConsent}
+                            onCheckedChange={handleAiConsentChange}
+                            disabled={aiConsentLoading}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}

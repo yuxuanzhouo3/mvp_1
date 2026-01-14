@@ -2294,6 +2294,25 @@ export const en = {
   audioPlayer: {
     audioLoadError: 'Failed to load audio',
   },
+
+  // Dashboard Stats Component
+  dashboardStats: {
+    totalMatches: 'Total Matches',
+    messageCount: 'Message Count',
+    activeChats: 'Active Chats',
+    profileCompletion: 'Profile Completion',
+    weeklyActivity: 'Weekly Activity',
+    weeklyActivityDesc: 'Activity stats for the past 7 days',
+    newMatches: 'New Matches',
+    avgResponseTime: 'Avg Response Time',
+    onlineDuration: 'Online Duration',
+    hours: '{time} hours',
+    days: '{time} days',
+    topInterests: 'Top Interests',
+    topInterestsDesc: 'Your most popular interest tags',
+    recentActivity: 'Recent Activity',
+    recentActivityDesc: 'Your recent operation records',
+  },
 } as const;
 
 export type EnTranslations = typeof en;

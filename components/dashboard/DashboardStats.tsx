@@ -2,16 +2,17 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Heart, 
-  MessageSquare, 
-  Users, 
-  TrendingUp, 
+import {
+  Heart,
+  MessageSquare,
+  Users,
+  TrendingUp,
   Calendar,
   Clock,
-  MapPin,
   Star
 } from 'lucide-react';
+import { useLanguage } from '@/components/language-provider';
+import { useTranslations, interpolate } from '@/lib/i18n';
 
 interface DashboardStatsProps {
   stats: {
@@ -31,6 +32,9 @@ interface DashboardStatsProps {
 }
 
 export default function DashboardStats({ stats }: DashboardStatsProps) {
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+
   const getResponseTimeColor = (time: number) => {
     if (time < 1) return 'text-green-600';
     if (time < 3) return 'text-yellow-600';
@@ -38,9 +42,8 @@ export default function DashboardStats({ stats }: DashboardStatsProps) {
   };
 
   const getResponseTimeText = (time: number) => {
-    if (time < 1) return `${time} 小时`;
-    if (time < 24) return `${time} 小时`;
-    return `${Math.floor(time / 24)} 天`;
+    if (time < 24) return interpolate(t.dashboardStats.hours, { time: time.toString() });
+    return interpolate(t.dashboardStats.days, { time: Math.floor(time / 24).toString() });
   };
 
   return (
@@ -53,7 +56,7 @@ export default function DashboardStats({ stats }: DashboardStatsProps) {
               <Heart className="h-8 w-8 text-red-500 mr-3" />
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  总匹配数
+                  {t.dashboardStats.totalMatches}
                 </p>
                 <p className="text-2xl font-bold">{stats.totalMatches}</p>
               </div>
@@ -67,7 +70,7 @@ export default function DashboardStats({ stats }: DashboardStatsProps) {
               <MessageSquare className="h-8 w-8 text-blue-500 mr-3" />
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  消息数量
+                  {t.dashboardStats.messageCount}
                 </p>
                 <p className="text-2xl font-bold">{stats.totalMessages}</p>
               </div>
@@ -81,7 +84,7 @@ export default function DashboardStats({ stats }: DashboardStatsProps) {
               <Users className="h-8 w-8 text-green-500 mr-3" />
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  活跃聊天
+                  {t.dashboardStats.activeChats}
                 </p>
                 <p className="text-2xl font-bold">{stats.activeChats}</p>
               </div>
@@ -95,7 +98,7 @@ export default function DashboardStats({ stats }: DashboardStatsProps) {
               <TrendingUp className="h-8 w-8 text-purple-500 mr-3" />
               <div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  资料完整度
+                  {t.dashboardStats.profileCompletion}
                 </p>
                 <p className="text-2xl font-bold">{stats.profileCompletion}%</p>
               </div>
@@ -111,22 +114,22 @@ export default function DashboardStats({ stats }: DashboardStatsProps) {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Calendar className="h-5 w-5 mr-2" />
-              本周活动
+              {t.dashboardStats.weeklyActivity}
             </CardTitle>
             <CardDescription>
-              过去7天的活跃度统计
+              {t.dashboardStats.weeklyActivityDesc}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                新匹配
+                {t.dashboardStats.newMatches}
               </span>
               <span className="font-medium">{stats.weeklyMatches}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                平均响应时间
+                {t.dashboardStats.avgResponseTime}
               </span>
               <span className={`font-medium ${getResponseTimeColor(stats.averageResponseTime)}`}>
                 {getResponseTimeText(stats.averageResponseTime)}
@@ -134,9 +137,9 @@ export default function DashboardStats({ stats }: DashboardStatsProps) {
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                在线时长
+                {t.dashboardStats.onlineDuration}
               </span>
-              <span className="font-medium">12.5 小时</span>
+              <span className="font-medium">{interpolate(t.dashboardStats.hours, { time: '12.5' })}</span>
             </div>
           </CardContent>
         </Card>
@@ -146,17 +149,17 @@ export default function DashboardStats({ stats }: DashboardStatsProps) {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Star className="h-5 w-5 mr-2" />
-              热门兴趣
+              {t.dashboardStats.topInterests}
             </CardTitle>
             <CardDescription>
-              您最受欢迎的兴趣标签
+              {t.dashboardStats.topInterestsDesc}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
               {stats.topInterests.map((interest, index) => (
-                <Badge 
-                  key={index} 
+                <Badge
+                  key={index}
                   variant="secondary"
                   className="text-xs"
                 >
@@ -173,10 +176,10 @@ export default function DashboardStats({ stats }: DashboardStatsProps) {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Clock className="h-5 w-5 mr-2" />
-            最近活动
+            {t.dashboardStats.recentActivity}
           </CardTitle>
           <CardDescription>
-            您的最近操作记录
+            {t.dashboardStats.recentActivityDesc}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -202,4 +205,4 @@ export default function DashboardStats({ stats }: DashboardStatsProps) {
       </Card>
     </div>
   );
-} 
+}

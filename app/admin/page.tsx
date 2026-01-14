@@ -19,6 +19,7 @@ import {
   Shield,
   DollarSign,
   Coins,
+  Brain,
 } from 'lucide-react';
 
 interface Stats {
@@ -100,6 +101,14 @@ export default function AdminPage() {
       path: '/admin/analytics/credits',
       color: 'text-amber-600',
       bgColor: 'bg-amber-100',
+    },
+    {
+      title: language === 'zh' ? 'AI预算控制' : 'AI Budget',
+      description: language === 'zh' ? '监控AI功能Token使用和预算' : 'Monitor AI token usage and budget',
+      icon: Brain,
+      path: '/admin/analytics/ai-budget',
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-100',
     },
   ];
 

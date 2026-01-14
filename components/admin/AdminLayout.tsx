@@ -16,6 +16,7 @@ import {
   Home,
   DollarSign,
   Coins,
+  Brain,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -138,6 +139,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       label: language === 'zh' ? '积分统计' : 'Credits Stats',
       icon: Coins,
       path: '/admin/analytics/credits',
+    },
+    {
+      label: language === 'zh' ? 'AI预算控制' : 'AI Budget',
+      icon: Brain,
+      path: '/admin/analytics/ai-budget',
     },
     {
       label: t.admin.layout.backToApp,

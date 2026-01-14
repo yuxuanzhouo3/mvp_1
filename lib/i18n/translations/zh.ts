@@ -2299,6 +2299,25 @@ export const zh = {
   audioPlayer: {
     audioLoadError: '无法加载音频',
   },
+
+  // 仪表盘统计组件
+  dashboardStats: {
+    totalMatches: '总匹配数',
+    messageCount: '消息数量',
+    activeChats: '活跃聊天',
+    profileCompletion: '资料完整度',
+    weeklyActivity: '本周活动',
+    weeklyActivityDesc: '过去7天的活跃度统计',
+    newMatches: '新匹配',
+    avgResponseTime: '平均响应时间',
+    onlineDuration: '在线时长',
+    hours: '{time} 小时',
+    days: '{time} 天',
+    topInterests: '热门兴趣',
+    topInterestsDesc: '您最受欢迎的兴趣标签',
+    recentActivity: '最近活动',
+    recentActivityDesc: '您的最近操作记录',
+  },
 } as const;
 
 export type ZhTranslations = typeof zh;

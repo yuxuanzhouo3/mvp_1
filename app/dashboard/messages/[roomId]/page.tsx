@@ -32,6 +32,7 @@ import {
   Loader2,
   Trash2,
   LogOut,
+  Bot,
 } from 'lucide-react';
 import {
   Dialog,
@@ -45,6 +46,7 @@ import { EmojiPicker } from '@/components/ui/emoji-picker';
 import { uploadChatImage } from '@/lib/storage/upload-image';
 import { uploadChatAudio, formatAudioDuration } from '@/lib/storage/upload-audio';
 import { uploadChatVideo, formatVideoDuration } from '@/lib/storage/upload-video';
+import { AIAssistant } from '@/components/ai';
 
 interface ChatUser {
   id: string;
@@ -84,6 +86,7 @@ export default function ChatRoomPage() {
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [aiAssistantMessage, setAiAssistantMessage] = useState<{ id: string; content: string } | null>(null);
 
   // 媒体相关状态
   const [isUploading, setIsUploading] = useState(false);
@@ -1033,6 +1036,18 @@ export default function ChatRoomPage() {
                           >
                             {language === 'zh' ? '回复' : 'Reply'}
                           </button>
+                          {!isOwn && message.message_type === 'text' && (
+                            <button
+                              onClick={() => {
+                                setAiAssistantMessage({ id: message.id, content: message.content });
+                                setShowMenu(null);
+                              }}
+                              className="flex items-center w-full px-4 py-2.5 text-sm text-left text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                            >
+                              <Bot className="h-4 w-4 mr-2" />
+                              {language === 'zh' ? 'AI小助手' : 'AI Assistant'}
+                            </button>
+                          )}
                           {canRecall(message) && (
                             <button
                               onClick={() => handleRecall(message.id)}
@@ -1307,6 +1322,22 @@ export default function ChatRoomPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AI小助手弹窗 */}
+      {aiAssistantMessage && (
+        <div className="fixed bottom-24 right-4 z-50 animate-in slide-in-from-bottom-4 duration-300">
+          <AIAssistant
+            message={aiAssistantMessage.content}
+            targetUserName={chatUser?.username}
+            chatHistory={messages.slice(-10).map(m => ({
+              content: m.content,
+              isOwn: m.sender_id === user?.id,
+            }))}
+            language={language as 'zh' | 'en'}
+            onClose={() => setAiAssistantMessage(null)}
+          />
+        </div>
+      )}
     </div>
   );
 }
