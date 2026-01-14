@@ -34,22 +34,22 @@ export default function AboutPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-12 px-4">
+    <div className="max-w-6xl mx-auto py-8 sm:py-12 px-4">
       {/* Hero Section */}
-      <div className="text-center mb-16">
-        <h1 className="text-5xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+      <div className="text-center mb-12 sm:mb-16">
+        <h1 className="text-3xl sm:text-5xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
           {t.about.title}
         </h1>
-        <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
+        <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-6 sm:mb-8">
           {t.about.heroDescription}
         </p>
-        <div className="flex justify-center gap-4">
-          <Button asChild size="lg">
+        <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
+          <Button asChild size="lg" className="w-full sm:w-auto">
             <Link href="/auth/register">
               {t.about.getStarted}
             </Link>
           </Button>
-          <Button variant="outline" size="lg" asChild>
+          <Button variant="outline" size="lg" asChild className="w-full sm:w-auto">
             <Link href="/contact">
               {t.about.contactUs}
             </Link>
@@ -58,14 +58,14 @@ export default function AboutPage() {
       </div>
 
       {/* Mission Section */}
-      <div className="mb-16">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
+      <div className="mb-12 sm:mb-16">
+        <div className="grid md:grid-cols-2 gap-8 sm:gap-12 items-center">
           <div>
-            <h2 className="text-3xl font-bold mb-6">{t.about.mission.title}</h2>
-            <p className="text-lg text-muted-foreground mb-6">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6">{t.about.mission.title}</h2>
+            <p className="text-base sm:text-lg text-muted-foreground mb-4 sm:mb-6">
               {t.about.mission.paragraph1}
             </p>
-            <p className="text-lg text-muted-foreground mb-6">
+            <p className="text-base sm:text-lg text-muted-foreground mb-4 sm:mb-6">
               {t.about.mission.paragraph2}
             </p>
             <div className="flex items-center gap-2 text-blue-600 font-medium">
@@ -74,8 +74,8 @@ export default function AboutPage() {
             </div>
           </div>
           <div className="relative">
-            <div className="bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl p-8">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl p-4 sm:p-8">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div className="bg-white rounded-lg p-4 text-center">
                   <Heart className="h-8 w-8 text-red-500 mx-auto mb-2" />
                   <p className="font-semibold">10K+</p>
@@ -103,9 +103,9 @@ export default function AboutPage() {
       </div>
 
       {/* Features Section */}
-      <div className="mb-16">
-        <h2 className="text-3xl font-bold text-center mb-12">{t.about.features.whyChoose}</h2>
-        <div className="grid md:grid-cols-3 gap-8">
+      <div className="mb-12 sm:mb-16">
+        <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">{t.about.features.whyChoose}</h2>
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
           <Card className="text-center">
             <CardHeader>
               <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
@@ -145,45 +145,45 @@ export default function AboutPage() {
       </div>
 
       {/* How It Works */}
-      <div className="mb-16">
-        <h2 className="text-3xl font-bold text-center mb-12">{t.about.howItWorks.title}</h2>
-        <div className="grid md:grid-cols-4 gap-8">
+      <div className="mb-12 sm:mb-16">
+        <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">{t.about.howItWorks.title}</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8">
           <div className="text-center">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl font-bold text-blue-600">1</span>
+            <div className="w-12 sm:w-16 h-12 sm:h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+              <span className="text-xl sm:text-2xl font-bold text-blue-600">1</span>
             </div>
-            <h3 className="text-xl font-semibold mb-2">{t.about.howItWorks.createProfile.title}</h3>
-            <p className="text-muted-foreground">
+            <h3 className="text-base sm:text-xl font-semibold mb-2">{t.about.howItWorks.createProfile.title}</h3>
+            <p className="text-sm sm:text-base text-muted-foreground">
               {t.about.howItWorks.createProfile.description}
             </p>
           </div>
 
           <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl font-bold text-green-600">2</span>
+            <div className="w-12 sm:w-16 h-12 sm:h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+              <span className="text-xl sm:text-2xl font-bold text-green-600">2</span>
             </div>
-            <h3 className="text-xl font-semibold mb-2">{t.about.howItWorks.getMatched.title}</h3>
-            <p className="text-muted-foreground">
+            <h3 className="text-base sm:text-xl font-semibold mb-2">{t.about.howItWorks.getMatched.title}</h3>
+            <p className="text-sm sm:text-base text-muted-foreground">
               {t.about.howItWorks.getMatched.description}
             </p>
           </div>
 
           <div className="text-center">
-            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl font-bold text-purple-600">3</span>
+            <div className="w-12 sm:w-16 h-12 sm:h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+              <span className="text-xl sm:text-2xl font-bold text-purple-600">3</span>
             </div>
-            <h3 className="text-xl font-semibold mb-2">{t.about.howItWorks.startChatting.title}</h3>
-            <p className="text-muted-foreground">
+            <h3 className="text-base sm:text-xl font-semibold mb-2">{t.about.howItWorks.startChatting.title}</h3>
+            <p className="text-sm sm:text-base text-muted-foreground">
               {t.about.howItWorks.startChatting.description}
             </p>
           </div>
 
           <div className="text-center">
-            <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl font-bold text-orange-600">4</span>
+            <div className="w-12 sm:w-16 h-12 sm:h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+              <span className="text-xl sm:text-2xl font-bold text-orange-600">4</span>
             </div>
-            <h3 className="text-xl font-semibold mb-2">{t.about.howItWorks.buildFriendship.title}</h3>
-            <p className="text-muted-foreground">
+            <h3 className="text-base sm:text-xl font-semibold mb-2">{t.about.howItWorks.buildFriendship.title}</h3>
+            <p className="text-sm sm:text-base text-muted-foreground">
               {t.about.howItWorks.buildFriendship.description}
             </p>
           </div>
@@ -191,9 +191,9 @@ export default function AboutPage() {
       </div>
 
       {/* Team Section */}
-      <div className="mb-16">
-        <h2 className="text-3xl font-bold text-center mb-12">{t.about.team.title}</h2>
-        <div className="grid md:grid-cols-3 gap-8">
+      <div className="mb-12 sm:mb-16">
+        <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">{t.about.team.title}</h2>
+        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
           <Card className="text-center">
             <CardHeader>
               <div className="w-24 h-24 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full mx-auto mb-4 flex items-center justify-center">

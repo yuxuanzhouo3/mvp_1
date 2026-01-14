@@ -18,12 +18,14 @@ interface SystemMetrics {
 
 interface SystemMonitorProps {
   showDetails?: boolean;
+  embedded?: boolean; // 嵌入模式，只渲染内容
   onMetricsUpdate?: (metrics: SystemMetrics) => void;
 }
 
-export function SystemMonitor({ 
-  showDetails = false, 
-  onMetricsUpdate 
+export function SystemMonitor({
+  showDetails = false,
+  embedded = false,
+  onMetricsUpdate
 }: SystemMonitorProps) {
   const [metrics, setMetrics] = useState<SystemMetrics>({
     online: navigator.onLine,
@@ -147,9 +149,65 @@ export function SystemMonitor({
     return online ? <Wifi className="h-4 w-4 text-green-500" /> : <WifiOff className="h-4 w-4 text-red-500" />;
   };
 
+  // 嵌入模式：直接渲染内容
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {getStatusIcon(metrics.online)}
+            <span className="text-sm">网络状态</span>
+          </div>
+          <Badge variant={metrics.online ? "default" : "destructive"}>
+            {metrics.online ? "在线" : "离线"}
+          </Badge>
+        </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {metrics.batteryCharging ? (
+              <BatteryCharging className="h-4 w-4 text-green-500" />
+            ) : (
+              <Battery className={`h-4 w-4 ${getStatusColor(metrics.batteryLevel, { good: 50, warning: 20, critical: 10 })}`} />
+            )}
+            <span className="text-sm">电池</span>
+          </div>
+          <span className="text-sm font-mono">{Math.round(metrics.batteryLevel)}%</span>
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <HardDrive className="h-4 w-4 text-blue-500" />
+              <span className="text-sm">内存使用</span>
+            </div>
+            <span className={`text-sm font-mono ${getStatusColor(metrics.memoryUsage, { good: 70, warning: 85, critical: 95 })}`}>
+              {Math.round(metrics.memoryUsage)}%
+            </span>
+          </div>
+          <Progress value={metrics.memoryUsage} className="h-2" />
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Cpu className="h-4 w-4 text-purple-500" />
+              <span className="text-sm">CPU 使用</span>
+            </div>
+            <span className={`text-sm font-mono ${getStatusColor(metrics.cpuUsage, { good: 50, warning: 80, critical: 90 })}`}>
+              {Math.round(metrics.cpuUsage)}%
+            </span>
+          </div>
+          <Progress value={metrics.cpuUsage} className="h-2" />
+        </div>
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <span>运行时间</span>
+          <span className="font-mono">{Math.floor(metrics.uptime / 1000 / 60)} 分钟</span>
+        </div>
+      </div>
+    );
+  }
+
   if (!isVisible) {
     return (
-      <div className="fixed top-4 right-4 z-50">
+      <div className="hidden md:block fixed top-4 right-4 z-50">
         <button
           onClick={() => setIsVisible(true)}
           className="bg-white border border-gray-200 rounded-lg p-2 shadow-lg hover:shadow-xl transition-shadow"
@@ -162,7 +220,7 @@ export function SystemMonitor({
   }
 
   return (
-    <div className="fixed top-4 right-4 z-50 w-80">
+    <div className="hidden md:block fixed top-4 right-4 z-50 w-80">
       <Card className="shadow-xl">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">

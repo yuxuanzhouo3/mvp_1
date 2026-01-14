@@ -16,12 +16,14 @@ interface PerformanceMetrics {
 
 interface PerformanceMonitorProps {
   showDetails?: boolean;
+  embedded?: boolean; // 嵌入模式，只渲染内容
   onMetricsUpdate?: (metrics: PerformanceMetrics) => void;
 }
 
-export function PerformanceMonitor({ 
-  showDetails = false, 
-  onMetricsUpdate 
+export function PerformanceMonitor({
+  showDetails = false,
+  embedded = false,
+  onMetricsUpdate
 }: PerformanceMonitorProps) {
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
   const [isVisible, setIsVisible] = useState(showDetails);
@@ -182,9 +184,66 @@ export function PerformanceMonitor({
 
   if (!metrics) return null;
 
+  // 嵌入模式：直接渲染内容，不渲染固定定位的卡片
+  if (embedded) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium">性能评分</span>
+          <Badge className={performanceColor}>{performanceScore}/100</Badge>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="flex items-center space-x-1">
+            <Zap className="h-3 w-3 text-blue-500" />
+            <span>LCP:</span>
+            <span className="font-mono">
+              {metrics.largestContentfulPaint > 0
+                ? `${Math.round(metrics.largestContentfulPaint)}ms`
+                : 'N/A'
+              }
+            </span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <Clock className="h-3 w-3 text-green-500" />
+            <span>FID:</span>
+            <span className="font-mono">
+              {metrics.firstInputDelay > 0
+                ? `${Math.round(metrics.firstInputDelay)}ms`
+                : 'N/A'
+              }
+            </span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <Activity className="h-3 w-3 text-purple-500" />
+            <span>CLS:</span>
+            <span className="font-mono">
+              {metrics.cumulativeLayoutShift > 0
+                ? metrics.cumulativeLayoutShift.toFixed(3)
+                : 'N/A'
+              }
+            </span>
+          </div>
+          <div className="flex items-center space-x-1">
+            <Clock className="h-3 w-3 text-orange-500" />
+            <span>TTI:</span>
+            <span className="font-mono">
+              {Math.round(metrics.timeToInteractive)}ms
+            </span>
+          </div>
+        </div>
+        {performanceLevel === 'poor' && (
+          <div className="flex items-center space-x-2 p-2 bg-red-50 rounded text-xs text-red-700">
+            <AlertTriangle className="h-3 w-3" />
+            <span>性能需要优化</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (!isVisible) {
     return (
-      <div className="fixed bottom-4 left-20 z-50">
+      <div className="hidden md:block fixed bottom-4 left-20 z-50">
         <button
           onClick={() => setIsVisible(true)}
           className="bg-white border border-gray-200 rounded-lg p-2 shadow-lg hover:shadow-xl transition-shadow"
@@ -197,7 +256,7 @@ export function PerformanceMonitor({
   }
 
   return (
-    <div className="fixed bottom-4 left-20 z-50 w-80">
+    <div className="hidden md:block fixed bottom-4 left-20 z-50 w-80">
       <Card className="shadow-xl">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">

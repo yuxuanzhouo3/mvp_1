@@ -23,24 +23,24 @@ export default function ContactPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-12 px-4">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold mb-4">{t.contact.title}</h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+    <div className="max-w-6xl mx-auto py-8 sm:py-12 px-4">
+      <div className="text-center mb-8 sm:mb-12">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-3 sm:mb-4">{t.contact.title}</h1>
+        <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
           {t.contact.description}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12">
         {/* Contact Form */}
         <div>
-          <h2 className="text-2xl font-semibold mb-6">{t.contact.sendMessage}</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6">{t.contact.sendMessage}</h2>
           <ContactForm />
         </div>
 
         {/* Contact Information */}
         <div>
-          <h2 className="text-2xl font-semibold mb-6">{t.contact.getInTouch}</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6">{t.contact.getInTouch}</h2>
           <div className="space-y-6">
             <ContactCard
               icon={Mail}

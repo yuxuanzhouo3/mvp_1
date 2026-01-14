@@ -19,7 +19,11 @@ import {
   Palette,
   Save,
   ArrowLeft,
-  ChevronRight
+  ChevronRight,
+  TrendingUp,
+  CreditCard,
+  Receipt,
+  Settings
 } from 'lucide-react';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
@@ -157,67 +161,106 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-16 md:pb-0">
+      <div className="max-w-4xl mx-auto px-3 py-4 md:px-4 md:py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4 md:mb-8">
+          <div className="flex items-center space-x-3 md:space-x-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.back()}
-              className="flex items-center space-x-2"
+              className="items-center space-x-2 hidden md:flex"
             >
               <ArrowLeft className="h-4 w-4" />
               <span>{t.dashboardSettings.back}</span>
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t.dashboardSettings.title}</h1>
-              <p className="text-gray-600 dark:text-gray-400">{t.dashboardSettings.subtitle}</p>
+              <h1 className="text-xl md:text-3xl font-bold text-gray-900 dark:text-white">{language === 'zh' ? '我的' : 'Me'}</h1>
+              <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">{t.dashboardSettings.subtitle}</p>
             </div>
           </div>
-          <Button onClick={handleSaveSettings} disabled={loading}>
-            <Save className="h-4 w-4 mr-2" />
-            {loading ? t.dashboardSettings.saving : t.dashboardSettings.saveSettings}
+          <Button onClick={handleSaveSettings} disabled={loading} size="sm" className="h-8 px-3">
+            <Save className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">{loading ? t.dashboardSettings.saving : t.dashboardSettings.saveSettings}</span>
           </Button>
         </div>
 
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <User className="h-5 w-5" />
+        {/* Mobile Quick Actions - Only visible on mobile */}
+        <Card className="mb-4 md:hidden">
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-sm flex items-center space-x-2">
+              <Settings className="h-4 w-4" />
+              <span>{language === 'zh' ? '快捷功能' : 'Quick Actions'}</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-4 gap-2 px-4 pb-4">
+            <Button variant="ghost" className="h-auto py-2 px-1 flex flex-col items-center justify-center" asChild>
+              <Link href="/profile/score-details">
+                <TrendingUp className="h-5 w-5 mb-1 text-blue-500" />
+                <span className="text-[10px]">{language === 'zh' ? '市场价值' : 'Value'}</span>
+              </Link>
+            </Button>
+            <Button variant="ghost" className="h-auto py-2 px-1 flex flex-col items-center justify-center" asChild>
+              <Link href="/payment/recharge">
+                <CreditCard className="h-5 w-5 mb-1 text-green-500" />
+                <span className="text-[10px]">{language === 'zh' ? '充值' : 'Recharge'}</span>
+              </Link>
+            </Button>
+            <Button variant="ghost" className="h-auto py-2 px-1 flex flex-col items-center justify-center" asChild>
+              <Link href="/dashboard/orders">
+                <Receipt className="h-5 w-5 mb-1 text-orange-500" />
+                <span className="text-[10px]">{language === 'zh' ? '订单' : 'Orders'}</span>
+              </Link>
+            </Button>
+            <Button variant="ghost" className="h-auto py-2 px-1 flex flex-col items-center justify-center" asChild>
+              <Link href="/dashboard/notifications">
+                <Bell className="h-5 w-5 mb-1 text-red-500" />
+                <span className="text-[10px]">{language === 'zh' ? '通知' : 'Notify'}</span>
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Profile Card */}
+        <Card className="mb-4 md:mb-8">
+          <CardHeader className="py-3 px-4 md:p-6">
+            <CardTitle className="text-sm md:text-base flex items-center space-x-2">
+              <User className="h-4 w-4 md:h-5 md:w-5" />
               <span>{t.dashboardSettings.profile}</span>
             </CardTitle>
-            <CardDescription>{t.dashboardSettings.profileDesc}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-4">
-              <Avatar className="h-16 w-16">
+          <CardContent className="px-4 pb-4 md:p-6 md:pt-0">
+            <div className="flex items-center space-x-3 md:space-x-4">
+              <Avatar className="h-12 w-12 md:h-16 md:w-16">
                 <AvatarImage src={user?.user_metadata?.avatar_url} />
-                <AvatarFallback>
+                <AvatarFallback className="text-sm md:text-base">
                   {user?.user_metadata?.full_name?.[0] || user?.email?.[0] || 'U'}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm md:text-lg font-semibold truncate">
                   {user?.user_metadata?.full_name || user?.email}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400">{user?.email}</p>
+                <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 truncate">{user?.email}</p>
               </div>
-              <Button variant="outline">{t.dashboardSettings.editProfile}</Button>
+              <Button variant="outline" size="sm" className="text-xs md:text-sm shrink-0">
+                {language === 'zh' ? '编辑' : 'Edit'}
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Settings Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Bell className="h-5 w-5" />
+            <CardHeader className="py-3 px-4 md:p-6">
+              <CardTitle className="text-sm md:text-base flex items-center space-x-2">
+                <Bell className="h-4 w-4 md:h-5 md:w-5" />
                 <span>{t.dashboardSettings.notificationSettings}</span>
               </CardTitle>
-              <CardDescription>{t.dashboardSettings.notificationSettingsDesc}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="px-4 pb-4 md:p-6 md:pt-0 space-y-3 md:space-y-4">
               <div className="flex items-center justify-between">
                 <Label htmlFor="new-matches">{t.dashboardSettings.newMatchNotifications}</Label>
                 <Switch
@@ -261,14 +304,13 @@ export default function SettingsPage() {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Shield className="h-5 w-5" />
+            <CardHeader className="py-3 px-4 md:p-6">
+              <CardTitle className="text-sm md:text-base flex items-center space-x-2">
+                <Shield className="h-4 w-4 md:h-5 md:w-5" />
                 <span>{t.dashboardSettings.privacySettings}</span>
               </CardTitle>
-              <CardDescription>{t.dashboardSettings.privacySettingsDesc}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="px-4 pb-4 md:p-6 md:pt-0 space-y-3 md:space-y-4">
               <div className="flex items-center justify-between">
                 <Label htmlFor="online-status">{t.dashboardSettings.showOnlineStatus}</Label>
                 <Switch
@@ -307,14 +349,13 @@ export default function SettingsPage() {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Palette className="h-5 w-5" />
+            <CardHeader className="py-3 px-4 md:p-6">
+              <CardTitle className="text-sm md:text-base flex items-center space-x-2">
+                <Palette className="h-4 w-4 md:h-5 md:w-5" />
                 <span>{t.dashboardSettings.preferences}</span>
               </CardTitle>
-              <CardDescription>{t.dashboardSettings.preferencesDesc}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="px-4 pb-4 md:p-6 md:pt-0 space-y-3 md:space-y-4">
               <div>
                 <Label htmlFor="language">{t.dashboardSettings.language}</Label>
                 <select
@@ -357,23 +398,23 @@ export default function SettingsPage() {
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Globe className="h-5 w-5" />
+            <CardHeader className="py-3 px-4 md:p-6">
+              <CardTitle className="text-sm md:text-base flex items-center space-x-2">
+                <Globe className="h-4 w-4 md:h-5 md:w-5" />
                 <span>{t.dashboardSettings.accountManagement}</span>
               </CardTitle>
-              <CardDescription>{t.dashboardSettings.accountManagementDesc}</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <Button variant="outline" className="w-full">
+            <CardContent className="px-4 pb-4 md:p-6 md:pt-0 space-y-2 md:space-y-4">
+              <Button variant="outline" className="w-full text-sm" size="sm">
                 {t.dashboardSettings.changePassword}
               </Button>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full text-sm" size="sm">
                 {t.dashboardSettings.deleteAccount}
               </Button>
-              <Button 
-                variant="destructive" 
-                className="w-full"
+              <Button
+                variant="destructive"
+                className="w-full text-sm"
+                size="sm"
                 onClick={handleSignOut}
               >
                 {t.dashboardSettings.signOut}

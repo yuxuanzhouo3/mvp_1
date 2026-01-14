@@ -15,14 +15,16 @@ interface CacheInfo {
 
 interface CacheManagerProps {
   showDetails?: boolean;
+  embedded?: boolean; // 嵌入模式，只渲染内容
   onCacheUpdate?: (caches: CacheInfo[]) => void;
 }
 
-export function CacheManager({ 
-  showDetails = false, 
-  onCacheUpdate 
+export function CacheManager({
+  showDetails = false,
+  embedded = false,
+  onCacheUpdate
 }: CacheManagerProps) {
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(showDetails);
   const [isLoading, setIsLoading] = useState(false);
   const [cacheList, setCacheList] = useState<CacheInfo[]>([]);
 
@@ -208,9 +210,66 @@ export function CacheManager({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const totalSize = cacheList.reduce((sum, cache) => sum + cache.size, 0);
+
+  // 嵌入模式：直接渲染内容
+  if (embedded) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium">总缓存大小</span>
+          <Badge variant="secondary">{formatBytes(totalSize)}</Badge>
+        </div>
+        <div className="space-y-2">
+          {cacheList.map((cache, index) => (
+            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
+              <div className="flex items-center space-x-2">
+                <HardDrive className="h-4 w-4 text-gray-500" />
+                <div>
+                  <div className="text-sm font-medium">{cache.name}</div>
+                  <div className="text-xs text-gray-500">{formatBytes(cache.size)}</div>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => clearCache(cache.type)}
+                disabled={isLoading}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          ))}
+        </div>
+        <div className="flex space-x-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={refreshCacheInfo}
+            disabled={isLoading}
+            className="flex-1"
+          >
+            <RefreshCw className={`h-3 w-3 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+            刷新
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={clearAllCaches}
+            disabled={isLoading}
+            className="flex-1"
+          >
+            <Trash2 className="h-3 w-3 mr-1" />
+            清除全部
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (!isVisible) {
     return (
-      <div className="fixed bottom-4 left-36 z-50">
+      <div className="hidden md:block fixed bottom-4 left-36 z-50">
         <button
           onClick={() => setIsVisible(true)}
           className="bg-white border border-gray-200 rounded-lg p-2 shadow-lg hover:shadow-xl transition-shadow"
@@ -222,10 +281,8 @@ export function CacheManager({
     );
   }
 
-  const totalSize = cacheList.reduce((sum, cache) => sum + cache.size, 0);
-
   return (
-    <div className="fixed bottom-4 left-36 z-50 w-80">
+    <div className="hidden md:block fixed bottom-4 left-36 z-50 w-80">
       <Card className="shadow-xl">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">

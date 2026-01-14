@@ -397,34 +397,34 @@ export default function ProfileEditPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-3xl mx-auto px-4 py-4 sm:py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
               {t.profileEdit.title}
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
               {t.profileEdit.subtitle}
             </p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {/* Market Value Score Badge */}
             {marketValueScore && (
               <Link href="/profile/score-details">
-                <div className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
+                <div className="flex items-center gap-2 px-2 sm:px-3 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer">
                   <TrendingUp className="h-4 w-4 text-blue-500" />
                   <CompactScoreBadge totalScore={marketValueScore.totalScore} />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                  <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:inline">
                     {marketValueScore.totalScore.toFixed(1)}
                   </span>
                 </div>
               </Link>
             )}
             <Link href="/dashboard">
-              <Button variant="outline">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                {t.profileEdit.backToDashboard}
+              <Button variant="outline" size="sm" className="sm:size-default">
+                <ArrowLeft className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">{t.profileEdit.backToDashboard}</span>
               </Button>
             </Link>
           </div>
@@ -792,7 +792,7 @@ export default function ProfileEditPage() {
                   <Brain className="h-4 w-4" />
                   {t.profileEdit.mbti}
                 </Label>
-                <div className="grid grid-cols-4 gap-2 mt-2">
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 mt-2">
                   {MBTI_TYPES.map((type) => (
                     <button
                       key={type.type}
@@ -806,7 +806,7 @@ export default function ProfileEditPage() {
                         }
                       `}
                     >
-                      <span className="text-lg">{type.emoji}</span>
+                      <span className="text-base sm:text-lg">{type.emoji}</span>
                       <p className="text-xs font-bold mt-1">{type.type}</p>
                     </button>
                   ))}

@@ -78,7 +78,7 @@ export default function PaymentRechargePage() {
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardSidebar user={user} isAdmin={isAdmin} />
-      <main className="flex-1 w-full">
+      <main className="flex-1 w-full pt-14 md:pt-0">
         <CreditRecharge />
       </main>
     </div>

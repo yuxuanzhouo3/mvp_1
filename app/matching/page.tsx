@@ -363,8 +363,8 @@ export default function MatchingPage() {
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardSidebar user={user} isAdmin={isAdmin} />
 
-      <main className="flex-1 w-full">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="flex-1 w-full pt-14 pb-16 md:pt-0 md:pb-0">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           {/* Page Header */}
           <div className="mb-6">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">

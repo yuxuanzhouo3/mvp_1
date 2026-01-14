@@ -138,10 +138,11 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className={`flex flex-col md:flex-row ${isChatRoomPage ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-gray-50 dark:bg-gray-900`}>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardSidebar user={user} isAdmin={isAdmin} />
-      <main className={`flex-1 w-full ${isChatRoomPage ? 'h-full overflow-hidden' : ''}`}>
-        <div className={`${isSettingsPage || isChatRoomPage ? 'p-0 h-full' : 'p-6'}`}>
+      {/* 主内容区域：移动端顶部边距避开 mobile header，桌面端左边距和顶部边距避开固定侧边栏和 header */}
+      <main className={`pt-0 pb-14 md:pb-0 md:pt-[73px] md:pl-64 transition-all duration-200 ${isChatRoomPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+        <div className={`${isSettingsPage || isChatRoomPage ? 'p-0 h-full' : 'p-4 sm:p-6'}`}>
           {children}
         </div>
       </main>

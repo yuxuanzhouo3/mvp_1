@@ -304,8 +304,8 @@ export default function DashboardPage() {
   return (
     <>
       {/* Main Content */}
-      <div className="transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="transition-all duration-300 pt-14 md:pt-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           {/* Welcome Section */}
           <div className="mb-6">
             <div className="bg-white rounded-lg shadow-sm p-6 text-center">

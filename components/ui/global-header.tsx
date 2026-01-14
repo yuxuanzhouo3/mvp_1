@@ -84,32 +84,32 @@ export function GlobalHeader() {
   }
 
   return (
-    <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
-      <div className="container mx-auto px-4 py-4">
+    <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 fixed top-0 left-0 right-0 z-40">
+      <div className="container mx-auto px-2 py-2 md:px-4 md:py-4">
         <nav className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-                <Heart className="h-6 w-6 text-white" />
+          <div className="flex items-center space-x-2 md:space-x-3">
+            <Link href="/" className="flex items-center space-x-2 md:space-x-3">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-primary rounded-lg flex items-center justify-center">
+                <Heart className="h-4 w-4 md:h-6 md:w-6 text-white" />
               </div>
-              <span className="text-2xl font-bold text-gray-900 dark:text-white">
+              <span className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
                 PersonaLink
               </span>
             </Link>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-1 md:space-x-4">
             {/* Settings Button */}
             <div className="relative" ref={settingsRef}>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowSettings(!showSettings)}
-                className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 md:px-3"
               >
-                <Settings className="h-5 w-5 mr-2" />
-                {t.header.settings}
-                <ChevronDown className={`h-4 w-4 ml-1 transition-transform ${showSettings ? 'rotate-180' : ''}`} />
+                <Settings className="h-4 w-4 md:h-5 md:w-5 md:mr-2" />
+                <span className="hidden md:inline">{t.header.settings}</span>
+                <ChevronDown className={`h-3 w-3 md:h-4 md:w-4 ml-0.5 md:ml-1 transition-transform ${showSettings ? 'rotate-180' : ''}`} />
               </Button>
 
               {/* Settings Dropdown */}
@@ -184,27 +184,27 @@ export function GlobalHeader() {
             {!user ? (
               <>
                 <Link href="/auth/login">
-                  <Button variant="ghost" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800">
+                  <Button variant="ghost" size="sm" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs md:text-sm px-2 md:px-3">
                     {t.header.signIn}
                   </Button>
                 </Link>
                 <Link href="/auth/register">
-                  <Button className="btn-primary">
+                  <Button size="sm" className="btn-primary text-xs md:text-sm px-2 md:px-3">
                     {t.header.getStarted}
                   </Button>
                 </Link>
               </>
             ) : (
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-1 md:space-x-3">
                 {/* Help Button */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
+                  className="h-7 w-7 md:h-9 md:w-9 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
                   asChild
                 >
                   <Link href="/help">
-                    <HelpCircle className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                    <HelpCircle className="h-4 w-4 md:h-5 md:w-5 text-gray-600 dark:text-gray-400" />
                   </Link>
                 </Button>
 
@@ -215,13 +215,14 @@ export function GlobalHeader() {
                 <div className="relative" ref={userMenuRef}>
                   <Button
                     variant="ghost"
+                    size="sm"
                     onClick={() => setShowUserMenu(!showUserMenu)}
-                    className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-1 md:px-3"
                   >
-                    <span className="mr-2">
+                    <span className="hidden md:inline mr-2">
                       {user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'}
                     </span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`h-3 w-3 md:h-4 md:w-4 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
                   </Button>
 
                   {/* User Dropdown Menu */}

@@ -16,16 +16,24 @@ interface MonitoringDashboardProps {
   onToggle?: (visible: boolean) => void;
 }
 
-export function MonitoringDashboard({ 
-  isVisible = false, 
-  onToggle 
+export function MonitoringDashboard({
+  isVisible: externalIsVisible,
+  onToggle
 }: MonitoringDashboardProps) {
+  const [internalIsVisible, setInternalIsVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [isMinimized, setIsMinimized] = useState(false);
 
+  // 使用外部状态或内部状态
+  const isVisible = onToggle ? (externalIsVisible ?? false) : internalIsVisible;
+
   const handleToggle = () => {
     const newVisible = !isVisible;
-    onToggle?.(newVisible);
+    if (onToggle) {
+      onToggle(newVisible);
+    } else {
+      setInternalIsVisible(newVisible);
+    }
   };
 
   const handleMinimize = () => {
@@ -34,7 +42,7 @@ export function MonitoringDashboard({
 
   if (!isVisible) {
     return (
-      <div className="fixed bottom-4 left-4 z-50">
+      <div className="hidden md:block fixed bottom-4 right-4 z-50">
         <button
           onClick={handleToggle}
           className="bg-white border border-gray-200 rounded-lg p-2 shadow-lg hover:shadow-xl transition-shadow"
@@ -48,7 +56,7 @@ export function MonitoringDashboard({
 
   if (isMinimized) {
     return (
-      <div className="fixed bottom-4 left-4 z-50">
+      <div className="hidden md:block fixed bottom-4 right-4 z-50">
         <Card className="w-64 shadow-xl">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -130,25 +138,25 @@ export function MonitoringDashboard({
                       <CardTitle className="text-sm">性能概览</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <PerformanceMonitor showDetails={true} />
+                      <PerformanceMonitor embedded={true} />
                     </CardContent>
                   </Card>
-                  
+
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm">系统状态</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <SystemMonitor showDetails={true} />
+                      <SystemMonitor embedded={true} />
                     </CardContent>
                   </Card>
-                  
+
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm">缓存状态</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <CacheManager showDetails={true} />
+                      <CacheManager embedded={true} />
                     </CardContent>
                   </Card>
                   
@@ -167,44 +175,44 @@ export function MonitoringDashboard({
                 </div>
               </TabsContent>
               
-              <TabsContent value="performance" className="h-full">
-                <Card className="h-full">
+              <TabsContent value="performance">
+                <Card>
                   <CardHeader>
                     <CardTitle>性能监控</CardTitle>
                     <CardDescription>
                       详细的性能指标和优化建议
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="h-full">
-                    <PerformanceMonitor showDetails={true} />
+                  <CardContent>
+                    <PerformanceMonitor embedded={true} />
                   </CardContent>
                 </Card>
               </TabsContent>
-              
-              <TabsContent value="system" className="h-full">
-                <Card className="h-full">
+
+              <TabsContent value="system">
+                <Card>
                   <CardHeader>
                     <CardTitle>系统监控</CardTitle>
                     <CardDescription>
                       系统资源使用情况和网络状态
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="h-full">
-                    <SystemMonitor showDetails={true} />
+                  <CardContent>
+                    <SystemMonitor embedded={true} />
                   </CardContent>
                 </Card>
               </TabsContent>
-              
-              <TabsContent value="cache" className="h-full">
-                <Card className="h-full">
+
+              <TabsContent value="cache">
+                <Card>
                   <CardHeader>
                     <CardTitle>缓存管理</CardTitle>
                     <CardDescription>
                       管理应用程序缓存和存储
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="h-full">
-                    <CacheManager showDetails={true} />
+                  <CardContent>
+                    <CacheManager embedded={true} />
                   </CardContent>
                 </Card>
               </TabsContent>

@@ -20,9 +20,11 @@ import {
   Bell,
   Shield,
   TrendingUp,
-  Receipt
+  Receipt,
+  Menu,
+  X
 } from 'lucide-react'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface UserData {
   id: string;
@@ -47,12 +49,29 @@ interface DashboardSidebarProps {
 
 export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProps) => {
   const [open, setOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname()
   const router = useRouter()
   const { signOut } = useAuth()
   const { toast } = useToast()
   const { language } = useLanguage()
   const t = useTranslations(language)
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Close mobile menu on window resize to desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setMobileOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const navigation: NavigationItem[] = [
     { name: t.dashboard.sidebar.home, href: '/dashboard', icon: Home },
@@ -79,21 +98,50 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
   }
 
   return (
-    <div className="relative">
-      {/* Toggle button positioned 99% to the left */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="absolute -left-12 top-4 z-50 p-2 rounded-md bg-background border shadow-md hover:bg-muted focus:outline-none transition-colors"
-        title={open ? (language === 'zh' ? '收起侧边栏' : 'Collapse sidebar') : (language === 'zh' ? '展开侧边栏' : 'Expand sidebar')}
-      >
-        {open ? (
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        ) : (
-          <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        )}
-      </button>
+    <>
+      {/* Mobile Bottom Navigation Bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t z-50 safe-area-bottom">
+        <nav className="flex items-center justify-around h-14">
+          {[
+            { name: language === 'zh' ? '首页' : 'Home', href: '/dashboard', icon: Home },
+            { name: language === 'zh' ? '匹配' : 'Match', href: '/matching', icon: Heart },
+            { name: language === 'zh' ? '消息' : 'Messages', href: '/dashboard/messages', icon: MessageSquare },
+            { name: language === 'zh' ? '我的' : 'Me', href: '/dashboard/settings', icon: User },
+          ].map((item) => {
+            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href))
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors',
+                  isActive ? 'text-primary' : 'text-muted-foreground'
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                <span className="text-xs mt-1">{item.name}</span>
+              </Link>
+            )
+          })}
+        </nav>
+      </div>
 
-      <div className={`flex flex-col ${open ? 'w-64' : 'w-20'} bg-background border-r transition-all duration-200`}>
+      {/* Desktop Sidebar */}
+      <div className={`hidden md:block ${open ? 'w-64' : 'w-20'} shrink-0 transition-all duration-200`}>
+        {/* Toggle button */}
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className={`fixed top-[85px] z-50 p-1.5 rounded-full bg-background border shadow-md hover:bg-muted focus:outline-none transition-all duration-200 ${open ? 'left-[248px]' : 'left-[68px]'}`}
+          title={open ? (language === 'zh' ? '收起侧边栏' : 'Collapse sidebar') : (language === 'zh' ? '展开侧边栏' : 'Expand sidebar')}
+        >
+          {open ? (
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          ) : (
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          )}
+        </button>
+
+        <div className={`flex flex-col ${open ? 'w-64' : 'w-20'} h-[calc(100vh-73px)] bg-background border-r transition-all duration-200 fixed top-[73px] left-0 z-50 overflow-y-auto`}>
       <div className="flex items-center justify-center h-16 border-b px-4">
           <h1 className={`text-xl font-bold text-primary transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>PersonaLink</h1>
       </div>
@@ -161,7 +209,8 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   )
 } 
