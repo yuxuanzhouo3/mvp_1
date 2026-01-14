@@ -69,31 +69,70 @@ export async function GET(request: NextRequest) {
     const totalSessions = allSessions.length;
     const uniqueUsers = new Set(allSessions.map(s => s.user_id)).size;
 
-    // Sessions by type
+    // Get AI usage logs (includes AI Assistant)
+    const { data: usageLogs } = await supabaseAdmin
+      .from('ai_usage_logs')
+      .select('user_id, feature, tokens_used, created_at');
+
+    const allUsageLogs = usageLogs || [];
+    const monthUsageLogs = allUsageLogs.filter(l => new Date(l.created_at) >= monthStart);
+    const assistantTokens = monthUsageLogs
+      .filter(l => l.feature === 'assistant')
+      .reduce((sum, l) => sum + (l.tokens_used || 0), 0);
+
+    // Count assistant sessions (each usage log is a session)
+    const assistantSessions = allUsageLogs.filter(l => l.feature === 'assistant').length;
+
+    // Sessions by type (include assistant usage)
     const sessionsByType = {
       free_trial: allSessions.filter(s => s.session_type === 'free_trial').length,
       vip_unlimited: allSessions.filter(s => s.session_type === 'vip_unlimited').length,
+      assistant: assistantSessions,
     };
 
-    // Daily stats for past 30 days
+    // Daily stats for past 30 days (combine ai_chat_sessions and ai_usage_logs)
     const dailyStats: Array<{ date: string; sessions: number; tokens: number }> = [];
     for (let i = 29; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
 
-      const daySessions = allSessions.filter(s => s.created_at.split('T')[0] === dateStr);
+      // Sessions from ai_chat_sessions
+      const daySessions = allSessions.filter(s => {
+        try {
+          const sessionDate = s.created_at?.substring(0, 10) || new Date(s.created_at).toISOString().split('T')[0];
+          return sessionDate === dateStr;
+        } catch {
+          return false;
+        }
+      });
+      const daySessionTokens = daySessions.reduce((sum, s) => sum + (s.token_usage || 0), 0);
+
+      // Usage from ai_usage_logs
+      const dayUsageLogs = allUsageLogs.filter(l => {
+        try {
+          const logDate = l.created_at?.substring(0, 10) || new Date(l.created_at).toISOString().split('T')[0];
+          return logDate === dateStr;
+        } catch {
+          return false;
+        }
+      });
+      const dayUsageTokens = dayUsageLogs.reduce((sum, l) => sum + (l.tokens_used || 0), 0);
+
       dailyStats.push({
         date: dateStr,
-        sessions: daySessions.length,
-        tokens: daySessions.reduce((sum, s) => sum + (s.token_usage || 0), 0),
+        sessions: daySessions.length + dayUsageLogs.length,
+        tokens: daySessionTokens + dayUsageTokens,
       });
     }
 
-    // Top users by token usage
+    // Top users by token usage (combine both tables)
     const userTokenMap: Record<string, number> = {};
     allSessions.forEach(s => {
       userTokenMap[s.user_id] = (userTokenMap[s.user_id] || 0) + (s.token_usage || 0);
+    });
+    allUsageLogs.forEach(l => {
+      userTokenMap[l.user_id] = (userTokenMap[l.user_id] || 0) + (l.tokens_used || 0);
     });
 
     const topUserIds = Object.entries(userTokenMap)
@@ -118,17 +157,6 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get AI usage logs (includes AI Assistant)
-    const { data: usageLogs } = await supabaseAdmin
-      .from('ai_usage_logs')
-      .select('user_id, feature, tokens_used, created_at');
-
-    const allUsageLogs = usageLogs || [];
-    const monthUsageLogs = allUsageLogs.filter(l => new Date(l.created_at) >= monthStart);
-    const assistantTokens = monthUsageLogs
-      .filter(l => l.feature === 'assistant')
-      .reduce((sum, l) => sum + (l.tokens_used || 0), 0);
-
     // Get AI usage limits stats
     const { data: usageLimits } = await supabaseAdmin
       .from('ai_usage_limits')
@@ -148,12 +176,13 @@ export async function GET(request: NextRequest) {
         warning_threshold: BUDGET_WARNING_THRESHOLD * 100,
       },
       overview: {
-        total_sessions: totalSessions,
+        total_sessions: totalSessions + assistantSessions,
         total_tokens: totalTokenUsage + allUsageLogs.reduce((sum, l) => sum + (l.tokens_used || 0), 0),
-        unique_users: uniqueUsers,
+        unique_users: new Set([...allSessions.map(s => s.user_id), ...allUsageLogs.map(l => l.user_id)]).size,
         total_analysis_count: totalAnalysisCount,
         total_chat_count: totalChatCount,
         assistant_tokens: assistantTokens,
+        assistant_sessions: assistantSessions,
       },
       sessions_by_type: sessionsByType,
       daily_stats: dailyStats,

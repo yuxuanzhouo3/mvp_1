@@ -142,7 +142,12 @@ export default function NotificationsPage() {
       markAsRead(notification.id);
     }
 
-    if (notification.action_url) {
+    // 根据通知类型跳转到对应页面
+    if (notification.type === 'payment') {
+      router.push('/dashboard/orders');
+    } else if (notification.type === 'match') {
+      router.push('/matching/history');
+    } else if (notification.action_url) {
       router.push(notification.action_url);
     }
   };

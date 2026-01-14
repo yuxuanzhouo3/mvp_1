@@ -1036,7 +1036,8 @@ export default function ChatRoomPage() {
                           >
                             {language === 'zh' ? '回复' : 'Reply'}
                           </button>
-                          {!isOwn && message.message_type === 'text' && (
+                          {/* AI小助手 - 对方的文字消息 */}
+                          {!isOwn && message.content && (
                             <button
                               onClick={() => {
                                 setAiAssistantMessage({ id: message.id, content: message.content });

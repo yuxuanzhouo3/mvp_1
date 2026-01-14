@@ -20,6 +20,7 @@ import {
   Zap,
   MessageSquare,
   BarChart3,
+  Bot,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -38,10 +39,13 @@ interface AIStats {
     unique_users: number;
     total_analysis_count: number;
     total_chat_count: number;
+    assistant_tokens: number;
+    assistant_sessions: number;
   };
   sessions_by_type: {
     free_trial: number;
     vip_unlimited: number;
+    assistant: number;
   };
   daily_stats: Array<{
     date: string;
@@ -62,10 +66,12 @@ export default function AIBudgetPage() {
 
   const [stats, setStats] = useState<AIStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
-  const loadStats = async () => {
+  const loadStats = async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) setIsLoading(true);
       const supabase = getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -93,6 +99,7 @@ export default function AIBudgetPage() {
       const data = await response.json();
       if (data.success) {
         setStats(data);
+        setLastUpdated(new Date());
       }
     } catch (error) {
       console.error('Load stats error:', error);
@@ -108,8 +115,18 @@ export default function AIBudgetPage() {
 
   useEffect(() => {
     loadStats();
+
+    // Auto refresh every 30 seconds
+    let interval: NodeJS.Timeout | null = null;
+    if (autoRefresh) {
+      interval = setInterval(() => loadStats(false), 30000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [autoRefresh]);
 
   if (isLoading) {
     return (
@@ -138,9 +155,18 @@ export default function AIBudgetPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={loadStats}>
+          <Button variant="outline" onClick={() => loadStats()}>
             <RefreshCw className="h-4 w-4 mr-2" />
             {language === 'zh' ? '刷新' : 'Refresh'}
+          </Button>
+          <Button
+            variant={autoRefresh ? 'default' : 'outline'}
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={autoRefresh ? 'bg-green-600 hover:bg-green-700' : ''}
+          >
+            {autoRefresh
+              ? (language === 'zh' ? '自动刷新: 开' : 'Auto: ON')
+              : (language === 'zh' ? '自动刷新: 关' : 'Auto: OFF')}
           </Button>
           <Link href="/admin">
             <Button>
@@ -150,6 +176,19 @@ export default function AIBudgetPage() {
           </Link>
         </div>
       </div>
+
+      {/* Last Updated */}
+      {lastUpdated && (
+        <div className="text-sm text-gray-500 mb-4">
+          {language === 'zh' ? '最后更新: ' : 'Last updated: '}
+          {lastUpdated.toLocaleTimeString()}
+          {autoRefresh && (
+            <span className="ml-2 text-green-600">
+              ({language === 'zh' ? '每30秒自动刷新' : 'auto-refresh every 30s'})
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Budget Alert */}
       {stats?.budget && (stats.budget.is_warning || stats.budget.is_over_budget) && (
@@ -215,7 +254,7 @@ export default function AIBudgetPage() {
       </Card>
 
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
@@ -245,7 +284,24 @@ export default function AIBudgetPage() {
               {stats?.overview.total_sessions || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '总对话次数' : 'total sessions'}
+              {language === 'zh' ? '总会话数' : 'total sessions'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {language === 'zh' ? '聊天消息数' : 'Chat Messages'}
+            </CardTitle>
+            <MessageSquare className="h-5 w-5 text-indigo-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-indigo-600">
+              {stats?.overview.total_chat_count || 0}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {language === 'zh' ? '总消息次数' : 'total messages'}
             </p>
           </CardContent>
         </Card>
@@ -283,6 +339,23 @@ export default function AIBudgetPage() {
             </p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {language === 'zh' ? 'AI助手Token' : 'Assistant Tokens'}
+            </CardTitle>
+            <Bot className="h-5 w-5 text-cyan-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-cyan-600">
+              {formatTokens(stats?.overview.assistant_tokens || 0)}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {language === 'zh' ? '本月AI助手消耗' : 'assistant this month'}
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Charts Row */}
@@ -295,18 +368,19 @@ export default function AIBudgetPage() {
               {language === 'zh' ? '会话类型分布' : 'Sessions by Type'}
             </CardTitle>
             <CardDescription>
-              {language === 'zh' ? '免费试用 vs VIP无限' : 'Free trial vs VIP unlimited'}
+              {language === 'zh' ? '各类型AI功能使用分布' : 'AI feature usage distribution'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {stats?.sessions_by_type ? (
               <div className="space-y-4">
                 {[
+                  { key: 'assistant', label: language === 'zh' ? 'AI助手' : 'AI Assistant', color: 'bg-cyan-500' },
                   { key: 'free_trial', label: language === 'zh' ? '免费试用' : 'Free Trial', color: 'bg-blue-500' },
                   { key: 'vip_unlimited', label: language === 'zh' ? 'VIP无限' : 'VIP Unlimited', color: 'bg-purple-500' },
                 ].map(item => {
                   const count = stats.sessions_by_type[item.key as keyof typeof stats.sessions_by_type] || 0;
-                  const total = (stats.sessions_by_type.free_trial || 0) + (stats.sessions_by_type.vip_unlimited || 0);
+                  const total = (stats.sessions_by_type.free_trial || 0) + (stats.sessions_by_type.vip_unlimited || 0) + (stats.sessions_by_type.assistant || 0);
                   const percent = total > 0 ? (count / total) * 100 : 0;
 
                   return (
@@ -369,6 +443,106 @@ export default function AIBudgetPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Daily Trend Chart */}
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-emerald-500" />
+            {language === 'zh' ? '每日趋势' : 'Daily Trend'}
+          </CardTitle>
+          <CardDescription>
+            {language === 'zh' ? '过去30天Token和会话趋势图' : 'Token and session trend for the past 30 days'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {stats?.daily_stats && stats.daily_stats.length > 0 ? (() => {
+            const hasData = stats.daily_stats.some(d => d.tokens > 0 || d.sessions > 0);
+            if (!hasData) {
+              return (
+                <div className="text-center py-8 text-gray-500">
+                  {language === 'zh' ? '暂无趋势数据' : 'No trend data available'}
+                </div>
+              );
+            }
+            const dataWithValues = stats.daily_stats.filter(d => d.tokens > 0 || d.sessions > 0);
+            const maxTokens = Math.max(...dataWithValues.map(d => d.tokens), 1);
+            const maxSessions = Math.max(...dataWithValues.map(d => d.sessions), 1);
+            return (
+              <div className="space-y-6">
+                {/* Token Trend */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-emerald-500 rounded" />
+                      <span className="text-sm font-medium">{language === 'zh' ? 'Token消耗' : 'Token Usage'}</span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {language === 'zh' ? '总计: ' : 'Total: '}{formatTokens(stats.daily_stats.reduce((sum, d) => sum + d.tokens, 0))}
+                    </span>
+                  </div>
+                  <div className="flex items-end gap-2 h-32 overflow-x-auto pb-6">
+                    {dataWithValues.map((day, index) => {
+                      const height = (day.tokens / maxTokens) * 100;
+                      return (
+                        <div key={index} className="flex flex-col items-center min-w-[40px] h-full group relative">
+                          <div className="flex-1 flex items-end w-full">
+                            <div
+                              className="w-6 bg-emerald-500 rounded-t hover:bg-emerald-600 transition-colors cursor-pointer mx-auto"
+                              style={{ height: `${Math.max(height, 8)}%` }}
+                              title={`${day.date}: ${formatTokens(day.tokens)} tokens`}
+                            />
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1 whitespace-nowrap">{day.date.slice(5)}</div>
+                          <div className="absolute bottom-full mb-1 hidden group-hover:block bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
+                            {day.date}: {formatTokens(day.tokens)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {/* Session Trend */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-blue-500 rounded" />
+                      <span className="text-sm font-medium">{language === 'zh' ? '会话数' : 'Sessions'}</span>
+                    </div>
+                    <span className="text-xs text-gray-500">
+                      {language === 'zh' ? '总计: ' : 'Total: '}{stats.daily_stats.reduce((sum, d) => sum + d.sessions, 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-end gap-2 h-32 overflow-x-auto pb-6">
+                    {dataWithValues.map((day, index) => {
+                      const height = (day.sessions / maxSessions) * 100;
+                      return (
+                        <div key={index} className="flex flex-col items-center min-w-[40px] h-full group relative">
+                          <div className="flex-1 flex items-end w-full">
+                            <div
+                              className="w-6 bg-blue-500 rounded-t hover:bg-blue-600 transition-colors cursor-pointer mx-auto"
+                              style={{ height: `${Math.max(height, 8)}%` }}
+                              title={`${day.date}: ${day.sessions} sessions`}
+                            />
+                          </div>
+                          <div className="text-xs text-gray-400 mt-1 whitespace-nowrap">{day.date.slice(5)}</div>
+                          <div className="absolute bottom-full mb-1 hidden group-hover:block bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
+                            {day.date}: {day.sessions} {language === 'zh' ? '会话' : 'sessions'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })() : (
+            <div className="text-center py-8 text-gray-500">
+              {language === 'zh' ? '暂无趋势数据' : 'No trend data available'}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Daily Stats Table */}
       <Card>
