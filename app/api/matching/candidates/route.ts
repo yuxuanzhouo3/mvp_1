@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user interests for all candidates
-    const candidateIds = candidates.map(c => c.id);
+    const candidateIds = candidates.map((c: any) => c.id);
     const { data: interestsData } = await db
       .from('users_interests_map')
       .select(`
@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
 
     // Create interest map
     const interestMap = new Map<string, string[]>();
-    interestsData?.forEach(ui => {
+    interestsData?.forEach((ui: any) => {
       if (!interestMap.has(ui.user_id)) {
         interestMap.set(ui.user_id, []);
       }
@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Enhanced matching logic with scoring
-    const enrichedCandidates = candidates.map((candidate) => {
+    const enrichedCandidates = candidates.map((candidate: any) => {
       const profile = candidate.user_profiles as unknown as {
         real_name: string | null;
         bio: string | null;
@@ -262,7 +262,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Sort by score and apply refresh variety
-    let sortedCandidates = enrichedCandidates.sort((a, b) => b.score - a.score);
+    let sortedCandidates = enrichedCandidates.sort((a: any, b: any) => b.score - a.score);
 
     if (refresh) {
       sortedCandidates = applyRefreshVariety(sortedCandidates, refresh);

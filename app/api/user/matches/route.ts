@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get the IDs of matched users (the other user in each match)
-    const matchedUserIds = matchesData.map(match =>
+    const matchedUserIds = matchesData.map((match: any) =>
       match.user_1 === authUser.userId ? match.user_2 : match.user_1
     );
 
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
 
     // Create a map of user data for quick lookup
     const userMap = new Map();
-    usersData?.forEach(u => {
+    usersData?.forEach((u: any) => {
       userMap.set(u.id, {
         id: u.id,
         full_name: u.username || 'User',
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Merge with profile data (real_name takes priority)
-    profilesData?.forEach(p => {
+    profilesData?.forEach((p: any) => {
       if (userMap.has(p.user_id) && p.real_name) {
         const userData = userMap.get(p.user_id);
         userData.full_name = p.real_name;
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Build the response
-    const matches = matchesData.map(match => {
+    const matches = matchesData.map((match: any) => {
       const matchedUserId = match.user_1 === authUser.userId ? match.user_2 : match.user_1;
       const matchedUser = userMap.get(matchedUserId) || {
         id: matchedUserId,

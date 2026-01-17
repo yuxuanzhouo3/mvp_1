@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取被推荐用户的详细信息
-    const targetUserIds = recommendations.map(r => r.target_user_id);
+    const targetUserIds = recommendations.map((r: any) => r.target_user_id);
     const { data: targetUsers, error: usersError } = await db
       .from('v_user_full_profile')
       .select('*')
@@ -172,10 +172,10 @@ export async function GET(request: NextRequest) {
     }
 
     // 创建用户信息映射
-    const userMap = new Map(targetUsers?.map(u => [u.id, u]) || []);
+    const userMap = new Map(targetUsers?.map((u: any) => [u.id, u]) || []);
 
     // 组装响应数据
-    const enrichedRecommendations = recommendations.map(rec => ({
+    const enrichedRecommendations = recommendations.map((rec: any) => ({
       id: rec.id,
       targetUser: userMap.get(rec.target_user_id) || null,
       matchScore: rec.match_score,
@@ -271,7 +271,7 @@ export async function POST(request: NextRequest) {
 
     const excludeUserIds = new Set([
       authUser.userId,
-      ...(swipedUsers?.map(s => s.target_id) || [])
+      ...(swipedUsers?.map((s: any) => s.target_id) || [])
     ]);
 
     // 获取"喜欢我但我还没互动过"的用户列表（优先展示）
@@ -283,8 +283,8 @@ export async function POST(request: NextRequest) {
 
     const likedMeUserIds = new Set(
       (usersWhoLikedMe || [])
-        .map(s => s.actor_id)
-        .filter(id => !excludeUserIds.has(id))
+        .map((s: any) => s.actor_id)
+        .filter((id: any) => !excludeUserIds.has(id))
     );
 
     // 获取已匹配的用户列表
@@ -294,7 +294,7 @@ export async function POST(request: NextRequest) {
       .or(`user_1.eq.${authUser.userId},user_2.eq.${authUser.userId}`)
       .is('unmatched_at', null);
 
-    matchedUsers?.forEach(m => {
+    matchedUsers?.forEach((m: any) => {
       excludeUserIds.add(m.user_1 === authUser.userId ? m.user_2 : m.user_1);
     });
 
@@ -324,9 +324,9 @@ export async function POST(request: NextRequest) {
 
     // 过滤并转换候选人
     const candidates = (candidatesData || [])
-      .filter(c => !excludeUserIds.has(c.id))
-      .map(c => transformDbUserToMatchProfile(c))
-      .filter((c): c is NonNullable<typeof c> => c !== null);
+      .filter((c: any) => !excludeUserIds.has(c.id))
+      .map((c: any) => transformDbUserToMatchProfile(c))
+      .filter((c: any): c is NonNullable<typeof c> => c !== null);
 
     if (candidates.length === 0) {
       return NextResponse.json({
@@ -361,7 +361,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 保存推荐结果到数据库
-    const recommendationsToInsert = batchResult.matches.map(match => ({
+    const recommendationsToInsert = batchResult.matches.map((match: any) => ({
       user_id: authUser.userId,
       target_user_id: match.targetUserId,
       algorithm_type: algorithm,
@@ -390,19 +390,19 @@ export async function POST(request: NextRequest) {
     }
 
     // 创建 target_user_id -> recommendation id 的映射
-    const recIdMap = new Map(insertedRecommendations.map(r => [r.target_user_id, r.id]));
+    const recIdMap = new Map(insertedRecommendations.map((r: any) => [r.target_user_id, r.id]));
 
     // 获取被推荐用户的详细信息
-    const targetUserIds = batchResult.matches.map(m => m.targetUserId);
+    const targetUserIds = batchResult.matches.map((m: any) => m.targetUserId);
     const { data: targetUsers } = await db
       .from('v_user_full_profile')
       .select('*')
       .in('id', targetUserIds);
 
-    const userMap = new Map(targetUsers?.map(u => [u.id, u]) || []);
+    const userMap = new Map(targetUsers?.map((u: any) => [u.id, u]) || []);
 
     // 组装响应数据（包含 recommendation id）
-    let enrichedRecommendations = batchResult.matches.map(match => ({
+    let enrichedRecommendations = batchResult.matches.map((match: any) => ({
       id: recIdMap.get(match.targetUserId) || null,
       targetUser: userMap.get(match.targetUserId) || null,
       matchScore: match.matchScore,
@@ -413,8 +413,8 @@ export async function POST(request: NextRequest) {
 
     // 把"喜欢我的人"排在最前面
     enrichedRecommendations = [
-      ...enrichedRecommendations.filter(r => r.likedMe),
-      ...enrichedRecommendations.filter(r => !r.likedMe)
+      ...enrichedRecommendations.filter((r: any) => r.likedMe),
+      ...enrichedRecommendations.filter((r: any) => !r.likedMe)
     ];
 
     return NextResponse.json({

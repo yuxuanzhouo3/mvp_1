@@ -126,7 +126,7 @@ export default function Step5PersonalityInterests({ data, onUpdate, onValidChang
       onUpdate({
         mbti,
         // We'll convert interest names to IDs in the API
-        interest_ids: selectedInterests.map((_, index) => index + 1), // Placeholder
+        interest_ids: selectedInterests.map((_: any, index: any) => index + 1), // Placeholder
         bio,
       });
     }
@@ -137,19 +137,19 @@ export default function Step5PersonalityInterests({ data, onUpdate, onValidChang
 
   // 获取翻译后的 MBTI 信息
   const getMbtiTranslation = (type: MBTIType) => {
-    const translations = t.profileSetup?.mbtiTypes as Record<string, { name: string; description: string }> | undefined;
+    const translations = (t.profileSetup as any)?.mbtiTypes as Record<string, { name: string; description: string }> | undefined;
     return translations?.[type] || { name: type, description: '' };
   };
 
   // 获取翻译后的分类名称
   const getCategoryName = (key: string) => {
-    const translations = t.profileSetup?.interestCategories as Record<string, string> | undefined;
+    const translations = (t.profileSetup as any)?.interestCategories as Record<string, string> | undefined;
     return translations?.[key] || key;
   };
 
   // 获取翻译后的兴趣名称
   const getInterestName = (interest: string) => {
-    const translations = t.profileSetup?.interestItems as Record<string, string> | undefined;
+    const translations = (t.profileSetup as any)?.interests as Record<string, string> | undefined;
     return translations?.[interest] || interest;
   };
 
@@ -175,7 +175,7 @@ export default function Step5PersonalityInterests({ data, onUpdate, onValidChang
 
         {/* MBTI Grid */}
         <div className="grid grid-cols-4 gap-2">
-          {mbtiTypes.map((type) => (
+          {mbtiTypes.map((type: any) => (
             <button
               key={type.type}
               type="button"
@@ -225,13 +225,13 @@ export default function Step5PersonalityInterests({ data, onUpdate, onValidChang
         </div>
 
         <div className="space-y-4">
-          {interestCategories.map((category) => (
+          {interestCategories.map((category: any) => (
             <div key={category.categoryKey}>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
                 {category.emoji} {getCategoryName(category.categoryKey)}
               </p>
               <div className="flex flex-wrap gap-2">
-                {category.interests.map((interest) => (
+                {category.interests.map((interest: any) => (
                   <Button
                     key={interest}
                     type="button"
@@ -266,7 +266,7 @@ export default function Step5PersonalityInterests({ data, onUpdate, onValidChang
               {t.profileSetup?.selectedInterests || 'Selected interests:'}
             </p>
             <div className="flex flex-wrap gap-2">
-              {selectedInterests.map((interest) => (
+              {selectedInterests.map((interest: any) => (
                 <span
                   key={interest}
                   className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm flex items-center gap-1"

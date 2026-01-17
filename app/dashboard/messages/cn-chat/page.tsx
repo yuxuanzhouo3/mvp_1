@@ -326,7 +326,7 @@ export default function CnChatPage() {
   };
 
   // 过滤会话
-  const filteredRooms = rooms.filter(room =>
+  const filteredRooms = rooms.filter((room: any) =>
     room.otherUser?.username?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -403,7 +403,7 @@ export default function CnChatPage() {
               <p>{language === 'zh' ? '暂无会话' : 'No conversations'}</p>
             </div>
           ) : (
-            sortedRooms.map(room => (
+            sortedRooms.map((room: any) => (
               <div
                 key={room.id}
                 onClick={() => handleSelectRoom(room)}
@@ -579,7 +579,7 @@ export default function CnChatPage() {
                   <p>{language === 'zh' ? '暂无消息，发送第一条消息吧' : 'No messages yet'}</p>
                 </div>
               ) : (
-                messages.map(message => {
+                messages.map((message: any) => {
                   const isOwn = message.senderId === user?.id;
 
                   // 搜索过滤
@@ -597,10 +597,10 @@ export default function CnChatPage() {
                         isOwn && "flex-row-reverse space-x-reverse"
                       )}>
                         <Avatar className="w-8 h-8">
-                          <AvatarImage src={isOwn ? user?.avatarUrl : selectedRoom.otherUser?.avatarUrl} />
+                          <AvatarImage src={isOwn ? (user as any)?.avatarUrl : selectedRoom.otherUser?.avatarUrl} />
                           <AvatarFallback className="text-xs bg-gray-400 text-white">
                             {isOwn
-                              ? (user?.username?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || '?')
+                              ? ((user as any)?.username?.charAt(0).toUpperCase() || (user as any)?.email?.charAt(0).toUpperCase() || '?')
                               : (selectedRoom.otherUser?.username?.charAt(0).toUpperCase() || '?')
                             }
                           </AvatarFallback>

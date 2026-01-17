@@ -85,9 +85,9 @@ export async function GET(request: NextRequest) {
       .from('user_photos')
       .select('id, audit_status, created_at, reviewed_at, rejected_reason, reviewed_by');
 
-    const totalPending = photos?.filter(p => p.audit_status === 'pending').length || 0;
-    const totalApproved = photos?.filter(p => p.audit_status === 'approved').length || 0;
-    const totalRejected = photos?.filter(p => p.audit_status === 'rejected').length || 0;
+    const totalPending = photos?.filter((p: any) => p.audit_status === 'pending').length || 0;
+    const totalApproved = photos?.filter((p: any) => p.audit_status === 'approved').length || 0;
+    const totalRejected = photos?.filter((p: any) => p.audit_status === 'rejected').length || 0;
     const totalReviewed = totalApproved + totalRejected;
 
     // Calculate approval/rejection rates
@@ -95,11 +95,11 @@ export async function GET(request: NextRequest) {
     const rejectionRate = totalReviewed > 0 ? (totalRejected / totalReviewed) * 100 : 0;
 
     // Calculate average review time
-    const reviewedPhotos = photos?.filter(p => p.reviewed_at && p.created_at) || [];
+    const reviewedPhotos = photos?.filter((p: any) => p.reviewed_at && p.created_at) || [];
     let avgReviewTimeHours: number | null = null;
 
     if (reviewedPhotos.length > 0) {
-      const totalTime = reviewedPhotos.reduce((sum, p) => {
+      const totalTime = reviewedPhotos.reduce((sum: number, p: any) => {
         const created = new Date(p.created_at).getTime();
         const reviewed = new Date(p.reviewed_at).getTime();
         return sum + (reviewed - created);
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
 
     // Get top rejection reasons
     const rejectionReasons: Record<string, number> = {};
-    photos?.forEach(p => {
+    photos?.forEach((p: any) => {
       if (p.audit_status === 'rejected' && p.rejected_reason) {
         rejectionReasons[p.rejected_reason] = (rejectionReasons[p.rejected_reason] || 0) + 1;
       }
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
 
     // Get reviewer stats
     const reviewerMap: Record<string, { approved: number; rejected: number; times: number[] }> = {};
-    photos?.forEach(p => {
+    photos?.forEach((p: any) => {
       if (p.reviewed_by && (p.audit_status === 'approved' || p.audit_status === 'rejected')) {
         if (!reviewerMap[p.reviewed_by]) {
           reviewerMap[p.reviewed_by] = { approved: 0, rejected: 0, times: [] };
@@ -176,16 +176,16 @@ export async function GET(request: NextRequest) {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
 
-      const dayPhotos = photos?.filter(p => {
+      const dayPhotos = photos?.filter((p: any) => {
         const createdDate = p.created_at.split('T')[0];
         return createdDate === dateStr;
       }) || [];
 
       dailyStats.push({
         date: dateStr,
-        approved: dayPhotos.filter(p => p.audit_status === 'approved').length,
-        rejected: dayPhotos.filter(p => p.audit_status === 'rejected').length,
-        pending: dayPhotos.filter(p => p.audit_status === 'pending').length,
+        approved: dayPhotos.filter((p: any) => p.audit_status === 'approved').length,
+        rejected: dayPhotos.filter((p: any) => p.audit_status === 'rejected').length,
+        pending: dayPhotos.filter((p: any) => p.audit_status === 'pending').length,
       });
     }
 

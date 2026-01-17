@@ -4,7 +4,8 @@
  */
 
 export * from './types';
-export * from './intl-database';
-export * from './cn-database';
-export * from './server';
+export { IntlDatabaseService } from './intl-database';
+export { CnDatabaseService } from './cn-database';
+export { createServiceClient, createServiceClientAsync, getDatabaseClient, isChinaDeployment } from './server';
+
 

@@ -205,8 +205,8 @@ export async function GET(request: NextRequest) {
       },
       overview: {
         total_sessions: totalSessions + assistantSessions,
-        total_tokens: totalTokenUsage + allUsageLogs.reduce((sum, l) => sum + (l.tokens_used || 0), 0),
-        unique_users: new Set([...allSessions.map(s => s.user_id), ...allUsageLogs.map(l => l.user_id)]).size,
+        total_tokens: totalTokenUsage + allUsageLogs.reduce((sum: number, l: any) => sum + (l.tokens_used || 0), 0),
+        unique_users: new Set([...allSessions.map((s: any) => s.user_id), ...allUsageLogs.map((l: any) => l.user_id)]).size,
         total_analysis_count: totalAnalysisCount,
         total_chat_count: totalChatCount,
         assistant_tokens: assistantTokens,

@@ -6,11 +6,16 @@
  */
 
 // 支付方式
-export type PaymentMethod = 
-  | 'stripe'      // INTL - 信用卡/借记卡
-  | 'paypal'      // INTL - PayPal
-  | 'wechat'      // CN - 微信支付
-  | 'alipay';     // CN - 支付宝
+export type PaymentMethod =
+  | 'stripe'         // INTL - 信用卡/借记卡
+  | 'paypal'         // INTL - PayPal
+  | 'wechat'         // CN - 微信支付
+  | 'wechat_native'  // CN - 微信扫码支付
+  | 'wechat_jsapi'   // CN - 微信公众号支付
+  | 'wechat_h5'      // CN - 微信H5支付
+  | 'alipay'         // CN - 支付宝
+  | 'alipay_face'    // CN - 支付宝当面付
+  | 'alipay_wap';    // CN - 支付宝手机网站支付
 
 // 支付状态
 export type PaymentStatus = 
@@ -61,6 +66,7 @@ export interface CreatePaymentResponse {
   qrCodeUrl?: string;        // 二维码支付（微信, 支付宝）
   qrCodeBase64?: string;     // Base64 二维码图片
   prepayId?: string;         // 微信支付预支付ID
+  jsapiParams?: any;         // 微信JSAPI支付参数
   error?: string;
   errorCode?: string;
 }

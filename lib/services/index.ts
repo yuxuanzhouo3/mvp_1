@@ -8,7 +8,6 @@
  */
 
 // 导出所有类型
-export * from './database';
 export * from './auth/types';
 export * from './payment/types';
 export * from './chat/types';
@@ -56,7 +55,7 @@ export function getAuthServiceSingleton(): IAuthService {
       authServiceInstance = new IntlAuthService();
     }
   }
-  return authServiceInstance;
+  return authServiceInstance as IAuthService;
 }
 
 /**
@@ -72,7 +71,7 @@ export function getPaymentServiceSingleton(): IPaymentService {
       paymentServiceInstance = new IntlPaymentService();
     }
   }
-  return paymentServiceInstance;
+  return paymentServiceInstance as IPaymentService;
 }
 
 /**
@@ -88,7 +87,7 @@ export function getChatServiceSingleton(): IChatService {
       chatServiceInstance = new IntlChatService();
     }
   }
-  return chatServiceInstance;
+  return chatServiceInstance as IChatService;
 }
 
 /**
@@ -104,7 +103,7 @@ export function getAIServiceSingleton(): IAIService {
       aiServiceInstance = new MistralAIService();
     }
   }
-  return aiServiceInstance;
+  return aiServiceInstance as IAIService;
 }
 
 /**

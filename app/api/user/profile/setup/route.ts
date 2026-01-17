@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
         .eq('user_id', authUser.userId);
 
       // Then insert new interests
-      const interestRecords = interest_ids.map((interestId: number) => ({
+      const interestRecords = interest_ids.map((interestId: any) => ({
         user_id: authUser.userId,
         interest_id: interestId,
       }));
@@ -419,7 +419,7 @@ export async function GET(request: NextRequest) {
       data: {
         user: userData,
         profile: profileData,
-        interests: interestsData?.map(i => i.interest_id) || [],
+        interests: interestsData?.map((i: any) => i.interest_id) || [],
         photos: photosData || [],
         completion,
       }

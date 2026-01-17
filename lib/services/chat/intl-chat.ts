@@ -339,7 +339,7 @@ export class IntlChatService implements IChatService {
           table: 'messages',
           filter: `room_id=eq.${roomId}`,
         },
-        (payload) => {
+        (payload: any) => {
           const msg = payload.new;
           callbacks.onMessageReceived?.({
             id: msg.id,
@@ -361,7 +361,7 @@ export class IntlChatService implements IChatService {
           table: 'messages',
           filter: `room_id=eq.${roomId}`,
         },
-        (payload) => {
+        (payload: any) => {
           const msg = payload.new;
           if (msg.deleted_at) {
             callbacks.onMessageRecalled?.(msg.id, roomId);
@@ -379,9 +379,9 @@ export class IntlChatService implements IChatService {
           }
         }
       )
-      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+      .on('broadcast', { event: 'typing' }, ({ payload }: any) => {
         if (payload.userId !== this.currentUserId) {
-          callbacks.onTypingStatusChanged?.(roomId, payload.userId, payload.isTyping);
+          callbacks.onTypingStatusChanged?.(roomId, payload.userId);
         }
       })
       .subscribe();
@@ -407,7 +407,7 @@ export class IntlChatService implements IChatService {
           schema: 'public',
           table: 'messages',
         },
-        async (payload) => {
+        async (payload: any) => {
           // 验证消息是否属于用户的聊天室
           const msg = payload.new || payload.old;
           if (!msg) return;

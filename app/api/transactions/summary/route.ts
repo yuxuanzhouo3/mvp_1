@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       console.error('Failed to get purchase data:', purchaseError);
     }
 
-    const totalPurchased = (purchaseData || []).reduce((sum, t) => sum + t.amount, 0);
+    const totalPurchased = (purchaseData || []).reduce((sum: any, t: any) => sum + t.amount, 0);
 
     // Get total credits consumed (negative amounts)
     const { data: consumeData, error: consumeError } = await serviceDb
@@ -71,11 +71,11 @@ export async function GET(request: NextRequest) {
       console.error('Failed to get consume data:', consumeError);
     }
 
-    const totalConsumed = Math.abs((consumeData || []).reduce((sum, t) => sum + t.amount, 0));
+    const totalConsumed = Math.abs((consumeData || []).reduce((sum: any, t: any) => sum + t.amount, 0));
 
     // Calculate consumption by type
     const consumptionByType: Record<string, number> = {};
-    (consumeData || []).forEach(t => {
+    (consumeData || []).forEach((t: any) => {
       const typeName = t.type || 'other';
       if (!consumptionByType[typeName]) {
         consumptionByType[typeName] = 0;
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
 
     let totalPaymentUSD = 0;
     let totalPaymentCNY = 0;
-    (paymentData || []).forEach(p => {
+    (paymentData || []).forEach((p: any) => {
       if (p.currency === 'CNY') {
         totalPaymentCNY += p.amount;
       } else {

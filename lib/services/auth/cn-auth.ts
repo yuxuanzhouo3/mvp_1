@@ -63,9 +63,9 @@ async function getCloudbaseApp(): Promise<CloudbaseApp> {
     // @ts-ignore - Cloudbase SDK
     const cloudbase = await import(/* webpackIgnore: true */ '@cloudbase/js-sdk');
 
-    cloudbaseApp = cloudbase.init({
+    cloudbaseApp = (cloudbase.default || cloudbase).init({
       env: process.env.NEXT_PUBLIC_CLOUDBASE_ENV_ID || '',
-    }) as CloudbaseApp;
+    }) as unknown as CloudbaseApp;
 
     return cloudbaseApp;
   } catch (error) {

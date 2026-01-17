@@ -147,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             display_name: result.user.displayName,
             avatar_url: result.user.avatarUrl,
           },
-        } as User;
+        } as any;
         setUser(cnUser);
         userRef.current = cnUser;
         // CN 环境：创建模拟 session

@@ -67,10 +67,11 @@ async function getCloudbaseApp(): Promise<CloudbaseApp> {
   // 动态导入 Cloudbase SDK
   // @ts-ignore - Cloudbase SDK 未安装时忽略类型错误
   const cloudbase = await import('@cloudbase/js-sdk');
-  
-  cloudbaseApp = cloudbase.init({
+
+  // @ts-ignore
+  cloudbaseApp = (cloudbase.default || cloudbase).init({
     env: process.env.NEXT_PUBLIC_CLOUDBASE_ENV_ID || '',
-  }) as CloudbaseApp;
+  }) as unknown as CloudbaseApp;
 
   return cloudbaseApp;
 }

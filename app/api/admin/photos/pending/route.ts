@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user info for each photo
-    const userIds = [...new Set((photos || []).map(p => p.user_id))];
+    const userIds = Array.from(new Set((photos || []).map((p: any) => p.user_id)));
     let users: any[] = [];
     if (userIds.length > 0) {
       const { data: usersData } = await db
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Attach user info to photos
-    const photosWithUsers = (photos || []).map(p => ({
+    const photosWithUsers = (photos || []).map((p: any) => ({
       ...p,
       user: users.find(u => u.id === p.user_id) || null
     }));

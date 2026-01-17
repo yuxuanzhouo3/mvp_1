@@ -104,7 +104,7 @@ export async function GET(
     }
 
     // Get sender info for all messages
-    const senderIds = Array.from(new Set(messages?.map(m => m.sender_id) || []));
+    const senderIds = Array.from(new Set(messages?.map((m: any) => m.sender_id) || []));
     let senders: any[] = [];
     
     if (senderIds.length > 0) {
@@ -115,10 +115,10 @@ export async function GET(
       senders = data || [];
     }
 
-    const senderMap = new Map(senders.map(s => [s.id, s]));
+    const senderMap = new Map(senders.map((s: any) => [s.id, s]));
 
     // Map messages with sender info
-    const messagesWithSenders = messages?.map(m => ({
+    const messagesWithSenders = messages?.map((m: any) => ({
       id: m.id,
       content: m.content,
       message_type: m.message_type,

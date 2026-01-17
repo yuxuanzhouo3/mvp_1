@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取匹配对象的用户信息
-    const otherUserIds = (matches || []).map(m => 
+    const otherUserIds = (matches || []).map((m: any) =>
       m.user_1 === authUser.userId ? m.user_2 : m.user_1
     );
 
@@ -137,10 +137,10 @@ export async function GET(request: NextRequest) {
       otherUsers = users || [];
     }
 
-    const userMap = new Map(otherUsers.map(u => [u.id, u]));
+    const userMap = new Map(otherUsers.map((u: any) => [u.id, u]));
 
     // 检查是否有聊天室
-    const matchIds = (matches || []).map(m => m.id);
+    const matchIds = (matches || []).map((m: any) => m.id);
     let chatRooms: { match_id: string; id: string; last_message_content: string | null; last_message_at: string | null }[] = [];
     
     if (matchIds.length > 0) {
@@ -152,10 +152,10 @@ export async function GET(request: NextRequest) {
       chatRooms = rooms || [];
     }
 
-    const chatRoomMap = new Map(chatRooms.map(r => [r.match_id, r]));
+    const chatRoomMap = new Map(chatRooms.map((r: any) => [r.match_id, r]));
 
     // 组装响应数据
-    const enrichedMatches = (matches || []).map(match => {
+    const enrichedMatches = (matches || []).map((match: any) => {
       const otherUserId = match.user_1 === authUser.userId ? match.user_2 : match.user_1;
       const chatRoom = chatRoomMap.get(match.id);
       

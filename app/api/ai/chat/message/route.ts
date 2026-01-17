@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     
     const messages = [
       { role: 'system' as const, content: systemPrompt },
-      ...(historyMessages || []).map(m => ({
+      ...(historyMessages || []).map((m: any) => ({
         role: m.role as 'user' | 'assistant',
         content: m.content,
       })),

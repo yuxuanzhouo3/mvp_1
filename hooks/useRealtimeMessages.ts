@@ -65,16 +65,19 @@ export function useRealtimeMessages({
         await cnChatService.initialize(user.id);
         const cnMessages = await cnChatService.getMessages(roomId, { limit: pageSize });
         // 转换为 Message 格式
-        data = cnMessages.map(msg => ({
+        data = cnMessages.map((msg: any) => ({
           id: msg.id,
           room_id: msg.roomId,
           sender_id: msg.senderId,
           content: msg.content,
-          type: msg.type as MessageType,
+          message_type: msg.type as MessageType,
           metadata: msg.metadata || {},
-          status: msg.status || 'sent',
+          reply_to_message_id: null,
+          is_read: false,
+          read_at: null,
           sent_at: msg.createdAt,
-          reply_to: null,
+          deleted_at: null,
+          created_at: msg.createdAt,
         }));
       } else {
         data = await chatClient.getMessages(roomId, pageSize);
@@ -176,14 +179,17 @@ export function useRealtimeMessages({
             room_id: roomId,
             sender_id: user.id,
             content: result.message.content,
-            type: result.message.type as MessageType,
+            message_type: result.message.type as MessageType,
             metadata: result.message.metadata || {},
-            status: 'sent',
+            reply_to_message_id: null,
+            is_read: false,
+            read_at: null,
             sent_at: result.message.createdAt,
-            reply_to: null,
+            deleted_at: null,
+            created_at: result.message.createdAt,
           };
           setMessages(prev =>
-            prev.map(msg => msg.id === tempId ? sentMessage : msg)
+            prev.map((msg: any) => msg.id === tempId ? sentMessage : msg)
           );
         } else {
           throw new Error(result.error || '发送失败');
@@ -202,13 +208,13 @@ export function useRealtimeMessages({
         // 替换临时消息为真实消息
         if (sentMessage) {
           setMessages(prev =>
-            prev.map(msg => msg.id === tempId ? sentMessage : msg)
+            prev.map((msg: any) => msg.id === tempId ? sentMessage : msg)
           );
         }
       }
     } catch (err) {
       // 发送失败，移除临时消息
-      setMessages(prev => prev.filter(msg => !msg.id.startsWith('temp-')));
+      setMessages(prev => prev.filter((msg: any) => !msg.id.startsWith('temp-')));
       setError(err as Error);
       console.error('发送消息失败:', err);
       throw err;
@@ -226,7 +232,7 @@ export function useRealtimeMessages({
       if (isChinaDeployment()) {
         const cnChatService = getChatService();
         // 环信的已读标记通过 SDK 处理，这里可以留空或调用 markAsRead
-        const messageIds = messages.filter(m => m.sender_id !== user.id).map(m => m.id);
+        const messageIds = messages.filter((m: any) => m.sender_id !== user.id).map((m: any) => m.id);
         if (messageIds.length > 0) {
           await cnChatService.markAsRead(roomId, messageIds);
         }
@@ -257,7 +263,7 @@ export function useRealtimeMessages({
       if (success) {
         // 更新本地状态
         setMessages(prev =>
-          prev.map(msg =>
+          prev.map((msg: any) =>
             msg.id === messageId
               ? { ...msg, deleted_at: new Date().toISOString(), content: null }
               : msg
@@ -280,10 +286,10 @@ export function useRealtimeMessages({
         // 避免重复添加自己发送的消息（已通过乐观更新添加）
         setMessages(prev => {
           // 检查是否已存在
-          const exists = prev.some(msg => msg.id === newMessage.id);
+          const exists = prev.some((msg: any) => msg.id === newMessage.id);
           // 检查是否是临时消息（已被真实消息替换）
-          const isReplaced = prev.some(
-            msg => msg.id.startsWith('temp-') && 
+          const isReplaced = prev.some((msg: any) =>
+            msg.id.startsWith('temp-') &&
             msg.sender_id === newMessage.sender_id &&
             Math.abs(new Date(msg.sent_at).getTime() - new Date(newMessage.sent_at).getTime()) < 5000
           );
@@ -299,14 +305,14 @@ export function useRealtimeMessages({
       case 'UPDATE': {
         const updatedMessage = payload.new as Message;
         setMessages(prev =>
-          prev.map(msg => msg.id === updatedMessage.id ? updatedMessage : msg)
+          prev.map((msg: any) => msg.id === updatedMessage.id ? updatedMessage : msg)
         );
         break;
       }
       case 'DELETE': {
         const deletedMessage = payload.old as Message;
         setMessages(prev =>
-          prev.map(msg =>
+          prev.map((msg: any) =>
             msg.id === deletedMessage.id
               ? { ...msg, deleted_at: new Date().toISOString(), content: null }
               : msg

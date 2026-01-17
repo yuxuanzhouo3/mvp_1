@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        transactions: (transactions || []).map(t => ({
+        transactions: (transactions || []).map((t: any) => ({
           id: t.id,
           type: t.type,
           amount: t.amount,

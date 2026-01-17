@@ -761,6 +761,7 @@ async function getCloudbaseApp() {
     // 客户端使用 JS SDK
     // @ts-ignore - 动态导入
     const cloudbase = await import('@cloudbase/js-sdk');
+    // @ts-ignore
     cloudbaseApp = cloudbase.init({
       env: process.env.NEXT_PUBLIC_CLOUDBASE_ENV_ID || '',
     });

@@ -209,7 +209,7 @@ async function handleCNSubscription(
       amount: tier.monthly_price_cny,
       currency: 'CNY',
       credits: tier.monthly_credits,
-      method: method === 'wechat' ? 'wechat_native' : 'alipay_face',
+      method: (method === 'wechat' ? 'wechat_native' : 'alipay_face') as any,
       packageId: `membership_${tierId}`,
       returnUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/payment/success?type=membership&tier=${tierId}`,
       cancelUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/payment/cancel`,

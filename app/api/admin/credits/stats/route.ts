@@ -108,16 +108,16 @@ export async function GET(request: NextRequest) {
     const allTransactions = transactions || [];
 
     // Calculate total issued credits (positive transactions)
-    const issuedTransactions = allTransactions.filter(t => t.amount > 0);
-    const totalCreditsIssued = issuedTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const issuedTransactions = allTransactions.filter((t: any) => t.amount > 0);
+    const totalCreditsIssued = issuedTransactions.reduce((sum: number, t: any) => sum + t.amount, 0);
 
     // Calculate total consumed credits (negative transactions)
-    const consumedTransactions = allTransactions.filter(t => t.amount < 0);
-    const totalCreditsConsumed = consumedTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const consumedTransactions = allTransactions.filter((t: any) => t.amount < 0);
+    const totalCreditsConsumed = consumedTransactions.reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
 
     // Calculate credits by type
     const creditsByType: Record<string, { count: number; total: number }> = {};
-    allTransactions.forEach(t => {
+    allTransactions.forEach((t: any) => {
       if (!creditsByType[t.type]) {
         creditsByType[t.type] = { count: 0, total: 0 };
       }
@@ -157,18 +157,18 @@ export async function GET(request: NextRequest) {
     }
 
     const profiles = userProfiles || [];
-    const totalCurrentCredits = profiles.reduce((sum, p) => sum + (p.credits || 0), 0);
-    const usersWithCredits = profiles.filter(p => (p.credits || 0) > 0).length;
+    const totalCurrentCredits = profiles.reduce((sum: number, p: any) => sum + (p.credits || 0), 0);
+    const usersWithCredits = profiles.filter((p: any) => (p.credits || 0) > 0).length;
     const totalUsers = profiles.length;
 
     // Credit distribution buckets
     const distribution = {
-      zero: profiles.filter(p => (p.credits || 0) === 0).length,
-      '1-50': profiles.filter(p => (p.credits || 0) >= 1 && (p.credits || 0) <= 50).length,
-      '51-100': profiles.filter(p => (p.credits || 0) >= 51 && (p.credits || 0) <= 100).length,
-      '101-200': profiles.filter(p => (p.credits || 0) >= 101 && (p.credits || 0) <= 200).length,
-      '201-500': profiles.filter(p => (p.credits || 0) >= 201 && (p.credits || 0) <= 500).length,
-      '500+': profiles.filter(p => (p.credits || 0) > 500).length,
+      zero: profiles.filter((p: any) => (p.credits || 0) === 0).length,
+      '1-50': profiles.filter((p: any) => (p.credits || 0) >= 1 && (p.credits || 0) <= 50).length,
+      '51-100': profiles.filter((p: any) => (p.credits || 0) >= 51 && (p.credits || 0) <= 100).length,
+      '101-200': profiles.filter((p: any) => (p.credits || 0) >= 101 && (p.credits || 0) <= 200).length,
+      '201-500': profiles.filter((p: any) => (p.credits || 0) >= 201 && (p.credits || 0) <= 500).length,
+      '500+': profiles.filter((p: any) => (p.credits || 0) > 500).length,
     };
 
     // Daily transactions for the past 30 days
@@ -178,18 +178,18 @@ export async function GET(request: NextRequest) {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
 
-      const dayTransactions = allTransactions.filter(t => {
+      const dayTransactions = allTransactions.filter((t: any) => {
         const txDate = t.created_at.split('T')[0];
         return txDate === dateStr;
       });
 
       const issued = dayTransactions
-        .filter(t => t.amount > 0)
-        .reduce((sum, t) => sum + t.amount, 0);
+        .filter((t: any) => t.amount > 0)
+        .reduce((sum: number, t: any) => sum + t.amount, 0);
 
       const consumed = dayTransactions
-        .filter(t => t.amount < 0)
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+        .filter((t: any) => t.amount < 0)
+        .reduce((sum: number, t: any) => sum + Math.abs(t.amount), 0);
 
       dailyStats.push({
         date: dateStr,
@@ -201,7 +201,7 @@ export async function GET(request: NextRequest) {
 
     // Top consumers
     const userConsumeMap: Record<string, number> = {};
-    consumedTransactions.forEach(t => {
+    consumedTransactions.forEach((t: any) => {
       userConsumeMap[t.user_id] = (userConsumeMap[t.user_id] || 0) + Math.abs(t.amount);
     });
 
@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
         .in('id', topConsumerIds);
 
       topConsumers = topConsumerIds.map(userId => {
-        const user = users?.find(u => u.id === userId);
+        const user = users?.find((u: any) => u.id === userId);
         return {
           user_id: userId,
           username: user?.username || user?.email?.split('@')[0] || userId.slice(0, 8),

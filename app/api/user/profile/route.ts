@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
       relationship_history_count: profileData?.relationship_history_count,
       children_preference: profileData?.children_preference,
       mbti: profileData?.mbti,
-      interests: interestsData?.map(i => (i.interests as any)?.name).filter(Boolean) || [],
+      interests: interestsData?.map((i: any) => (i.interests as any)?.name).filter(Boolean) || [],
       credits: profileData?.credits ?? 0,
       is_profile_complete: profileData?.is_profile_complete || false,
       created_at: userData?.created_at || new Date().toISOString(),

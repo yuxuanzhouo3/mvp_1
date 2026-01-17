@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform data for frontend
-    const transformedChats = chats?.map(chat => ({
+    const transformedChats = chats?.map((chat: any) => ({
       id: chat.id,
       matched_user: chat.user1_id === authUser.userId ? chat.other_user : {
         id: chat.user1_id,

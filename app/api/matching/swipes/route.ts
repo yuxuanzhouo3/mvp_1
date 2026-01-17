@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取目标用户的基本信息
-    const targetIds = swipes?.map(s => s.target_id) || [];
+    const targetIds = swipes?.map((s: any) => s.target_id) || [];
     let targetUsers: Record<string, unknown>[] = [];
     
     if (targetIds.length > 0) {
@@ -133,10 +133,10 @@ export async function GET(request: NextRequest) {
       targetUsers = users || [];
     }
 
-    const userMap = new Map(targetUsers.map(u => [u.id, u]));
+    const userMap = new Map(targetUsers.map((u: any) => [u.id, u]));
 
     // 组装响应数据
-    const enrichedSwipes = (swipes || []).map(swipe => ({
+    const enrichedSwipes = (swipes || []).map((swipe: any) => ({
       id: swipe.id,
       targetUser: userMap.get(swipe.target_id) || { id: swipe.target_id },
       action: swipe.action,

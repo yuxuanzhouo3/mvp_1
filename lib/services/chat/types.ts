@@ -70,6 +70,7 @@ export interface ChatRoomWithUser extends ChatRoom {
     id: string;
     username: string;
     avatarUrl?: string;
+    email?: string;
     gender?: string;
     isOnline?: boolean;
     lastActiveAt?: string;

@@ -170,7 +170,7 @@ async function getConnection(): Promise<EasemobConnection> {
     logger: false,
   });
 
-  return easemobConnection;
+  return easemobConnection!;
 }
 
 /**
@@ -568,7 +568,7 @@ export class CnChatService implements IChatService {
 
       const messages = (result.messages || []).map((msg: any) => convertEasemobMessage(msg, roomId));
       // 按时间从早到晚排序
-      messages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      messages.sort((a: any, b: any) => a.createdAt.localeCompare(b.createdAt));
       return messages;
     } catch (error: any) {
       return [];
@@ -594,8 +594,7 @@ export class CnChatService implements IChatService {
         return {
           success: false,
           error: creditsData.error || '积分不足',
-          errorCode: creditsData.errorCode || 'INSUFFICIENT_CREDITS',
-        };
+        } as any;
       }
 
       const sdk = await getEasemobSDK();

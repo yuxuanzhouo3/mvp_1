@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user profiles for the likers
-    const likerIds = swipes?.map(s => s.actor_id) || [];
+    const likerIds = swipes?.map((s: any) => s.actor_id) || [];
     let likerProfiles: Record<string, unknown>[] = [];
 
     if (likerIds.length > 0) {
@@ -222,10 +222,10 @@ export async function POST(request: NextRequest) {
       likerProfiles = profiles || [];
     }
 
-    const profileMap = new Map(likerProfiles.map(p => [p.id, p]));
+    const profileMap = new Map(likerProfiles.map((p: any) => [p.id, p]));
 
     // Combine swipe data with user profiles
-    const likers = (swipes || []).map(swipe => ({
+    const likers = (swipes || []).map((swipe: any) => ({
       swipeId: swipe.id,
       action: swipe.action,
       likedAt: swipe.created_at,

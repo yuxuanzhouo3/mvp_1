@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
 
         if (!roomsError && rooms) {
           // 转换数据格式
-          const formattedRooms = (rooms || []).map((room: Record<string, unknown>) => ({
+          const formattedRooms = (rooms || []).map((room: Record<string, unknown>): any => ({
             id: room.room_id,
             match_id: room.match_id,
             last_message_content: room.last_message_content,
@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取 match 信息
-    const matchIds = chatRooms?.map(r => r.match_id).filter(Boolean) || [];
+    const matchIds = chatRooms?.map((r: any) => r.match_id).filter(Boolean) || [];
     let matches: any[] = [];
     
     if (matchIds.length > 0) {
@@ -143,16 +143,16 @@ export async function GET(request: NextRequest) {
       matches = data || [];
     }
 
-    const matchMap = new Map(matches.map(m => [m.id, m]));
+    const matchMap = new Map(matches.map((m: any) => [m.id, m]));
 
     // 过滤出当前用户参与的聊天室
-    const userRooms = chatRooms?.filter(room => {
+    const userRooms = chatRooms?.filter((room: any) => {
       const match = matchMap.get(room.match_id);
       return match && (match.user_1 === authUser.userId || match.user_2 === authUser.userId);
     }) || [];
 
     // 获取其他用户信息
-    const otherUserIds = userRooms.map(room => {
+    const otherUserIds = userRooms.map((room: any) => {
       const match = matchMap.get(room.match_id);
       if (!match) return null;
       return match.user_1 === authUser.userId ? match.user_2 : match.user_1;
@@ -167,10 +167,10 @@ export async function GET(request: NextRequest) {
       otherUsers = data || [];
     }
 
-    const userMap = new Map(otherUsers.map(u => [u.id, u]));
+    const userMap = new Map(otherUsers.map((u: any) => [u.id, u]));
 
     // 组装返回数据
-    const formattedRooms = userRooms.map(room => {
+    const formattedRooms = userRooms.map((room: any) => {
       const match = matchMap.get(room.match_id);
       const otherUserId = match?.user_1 === authUser.userId ? match?.user_2 : match?.user_1;
       const otherUser = otherUserId ? userMap.get(otherUserId) : null;

@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取对应的 chat_rooms
-    const matchIds = matches.map((m: any) => m.id);
+    const matchIds = matches.map((m: any): any => m.id);
     const { data: chatRooms, error: roomError } = await db
       .from('chat_rooms')
       .select('id, match_id, is_active, created_at, updated_at')
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取对方用户信息
-    const otherUserIds = matches.map((m: any) =>
+    const otherUserIds = matches.map((m: any): any =>
       m.user_1 === userId ? m.user_2 : m.user_1
     );
 
@@ -70,14 +70,14 @@ export async function GET(request: NextRequest) {
       .select('id, username, avatar_url')
       .in('id', otherUserIds);
 
-    const userMap = new Map((users || []).map((u: any) => [u.id, u]));
-    const matchMap = new Map(matches.map((m: any) => [m.id, m]));
+    const userMap = new Map((users || []).map((u: any): any => [u.id, u]));
+    const matchMap = new Map(matches.map((m: any): any => [m.id, m]));
 
     // 转换为聊天室格式
-    const rooms = chatRooms.map((room: any) => {
-      const match = matchMap.get(room.match_id);
+    const rooms = chatRooms.map((room: any): any => {
+      const match = matchMap.get(room.match_id) as any;
       const otherUserId = match ? (match.user_1 === userId ? match.user_2 : match.user_1) : '';
-      const otherUser = userMap.get(otherUserId);
+      const otherUser = userMap.get(otherUserId) as any;
 
       return {
         id: otherUserId,

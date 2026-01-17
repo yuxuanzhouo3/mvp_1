@@ -32,6 +32,6 @@ export function getChatService(): IChatService {
     chatServiceInstance = new IntlChatService();
   }
 
-  return chatServiceInstance;
+  return chatServiceInstance as IChatService;
 }
 

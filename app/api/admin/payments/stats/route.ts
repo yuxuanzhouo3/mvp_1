@@ -90,9 +90,9 @@ export async function GET(request: NextRequest) {
     }
 
     const allPayments = payments || [];
-    const completedPayments = allPayments.filter(p => p.status === 'completed');
-    const failedPayments = allPayments.filter(p => p.status === 'failed');
-    const pendingPayments = allPayments.filter(p => p.status === 'pending');
+    const completedPayments = allPayments.filter((p: any) => p.status === 'completed');
+    const failedPayments = allPayments.filter((p: any) => p.status === 'failed');
+    const pendingPayments = allPayments.filter((p: any) => p.status === 'pending');
 
     // Calculate success rate
     const totalAttempts = completedPayments.length + failedPayments.length;
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate total revenue by currency
     const revenueByCurrency: Record<string, number> = {};
-    completedPayments.forEach(p => {
+    completedPayments.forEach((p: any) => {
       const currency = p.currency || 'CNY';
       revenueByCurrency[currency] = (revenueByCurrency[currency] || 0) + parseFloat(p.amount);
     });
@@ -112,14 +112,14 @@ export async function GET(request: NextRequest) {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
 
-      const dayPayments = completedPayments.filter(p => {
+      const dayPayments = completedPayments.filter((p: any) => {
         const paymentDate = (p.completed_at || p.created_at).split('T')[0];
         return paymentDate === dateStr;
       });
 
       let amountCny = 0;
       let amountUsd = 0;
-      dayPayments.forEach(p => {
+      dayPayments.forEach((p: any) => {
         const amount = parseFloat(p.amount);
         if (p.currency === 'USD') {
           amountUsd += amount;
@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
       date.setMonth(date.getMonth() - i);
       const monthStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-      const monthPayments = completedPayments.filter(p => {
+      const monthPayments = completedPayments.filter((p: any) => {
         const paymentDate = new Date(p.completed_at || p.created_at);
         const paymentMonth = `${paymentDate.getFullYear()}-${String(paymentDate.getMonth() + 1).padStart(2, '0')}`;
         return paymentMonth === monthStr;
@@ -151,7 +151,7 @@ export async function GET(request: NextRequest) {
 
       let amountCny = 0;
       let amountUsd = 0;
-      monthPayments.forEach(p => {
+      monthPayments.forEach((p: any) => {
         const amount = parseFloat(p.amount);
         if (p.currency === 'USD') {
           amountUsd += amount;
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
 
     // Get package sales stats
     const packageSales: Record<string, { count: number; revenue_cny: number; revenue_usd: number }> = {};
-    completedPayments.forEach(p => {
+    completedPayments.forEach((p: any) => {
       const packageId = p.metadata?.package_id || 'unknown';
       if (!packageSales[packageId]) {
         packageSales[packageId] = { count: 0, revenue_cny: 0, revenue_usd: 0 };
@@ -190,7 +190,7 @@ export async function GET(request: NextRequest) {
       .select('id, name_en, name_zh, credits');
 
     const packageStats = Object.entries(packageSales).map(([id, stats]) => {
-      const pkg = packages?.find(p => p.id === id);
+      const pkg = packages?.find((p: any) => p.id === id);
       return {
         package_id: id,
         package_name: pkg?.name_zh || pkg?.name_en || id,
@@ -201,7 +201,7 @@ export async function GET(request: NextRequest) {
 
     // Payment method distribution
     const paymentMethodStats: Record<string, { count: number; revenue_cny: number; revenue_usd: number }> = {};
-    completedPayments.forEach(p => {
+    completedPayments.forEach((p: any) => {
       const method = p.payment_method;
       if (!paymentMethodStats[method]) {
         paymentMethodStats[method] = { count: 0, revenue_cny: 0, revenue_usd: 0 };
@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
     // Total stats
     const totalRevenueCny = revenueByCurrency['CNY'] || 0;
     const totalRevenueUsd = revenueByCurrency['USD'] || 0;
-    const totalCreditsIssued = completedPayments.reduce((sum, p) => sum + (p.credits || 0), 0);
+    const totalCreditsIssued = completedPayments.reduce((sum: number, p: any) => sum + (p.credits || 0), 0);
 
     return NextResponse.json({
       success: true,

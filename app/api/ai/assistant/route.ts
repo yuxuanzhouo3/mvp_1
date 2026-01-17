@@ -99,7 +99,14 @@ export async function POST(request: NextRequest) {
     console.log(`[AI Assistant] Using ${isCN ? 'Qwen' : 'Mistral'} AI service`);
 
     // 获取系统提示词
-    const systemPrompt = getSystemPrompt(type, context);
+    const systemPrompt = getSystemPrompt(type, context ? {
+      targetName: context.name,
+      targetAge: context.age,
+      targetGender: context.gender,
+      targetInterests: context.interests,
+      targetPersonality: context.personality,
+      targetBio: context.bio,
+    } : undefined);
 
     // 构建完整的消息列表
     const fullMessages: ChatMessage[] = [

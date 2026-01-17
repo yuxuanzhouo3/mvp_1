@@ -538,7 +538,7 @@ export default function ChatRoomPage() {
       setPlayingAudioId(null);
     } else {
       // 停止其他正在播放的音频
-      audioElementsRef.current.forEach((a, id) => {
+      audioElementsRef.current.forEach((a: any, id: any) => {
         if (id !== messageId) {
           a.pause();
           a.currentTime = 0;
@@ -613,7 +613,7 @@ export default function ChatRoomPage() {
     const groups: { date: string; messages: Message[] }[] = [];
     let currentDate = '';
 
-    messages.forEach(msg => {
+    messages.forEach((msg: any) => {
       const msgDate = new Date(msg.sent_at).toDateString();
       if (msgDate !== currentDate) {
         currentDate = msgDate;
@@ -1060,7 +1060,7 @@ export default function ChatRoomPage() {
                           {!isOwn && message.content && (
                             <button
                               onClick={() => {
-                                setAiAssistantMessage({ id: message.id, content: message.content });
+                                setAiAssistantMessage({ id: message.id, content: message.content! });
                                 setShowMenu(null);
                               }}
                               className="flex items-center w-full px-4 py-2.5 text-sm text-left text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
@@ -1350,7 +1350,7 @@ export default function ChatRoomPage() {
           <AIAssistant
             message={aiAssistantMessage.content}
             targetUserName={chatUser?.username}
-            chatHistory={messages.slice(-10).map(m => ({
+            chatHistory={messages.slice(-10).map((m: any) => ({
               content: m.content,
               isOwn: m.sender_id === user?.id,
             }))}
