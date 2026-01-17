@@ -3,17 +3,22 @@ import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 
-// Admin client for checking user profile
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
+// 延迟初始化 Admin client，避免构建时因缺少环境变量而失败
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  
+  if (!url || !key) {
+    throw new Error('Supabase configuration is missing');
+  }
+  
+  return createClient(url, key, {
     auth: {
       autoRefreshToken: false,
       persistSession: false
     }
-  }
-);
+  });
+}
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -60,6 +65,7 @@ export async function GET(request: NextRequest) {
 
       if (data.user) {
         // Check if user has completed profile setup
+        const supabaseAdmin = getSupabaseAdmin();
         const { data: profile, error: profileError } = await supabaseAdmin
           .from('user_profiles')
           .select('id, is_profile_complete')

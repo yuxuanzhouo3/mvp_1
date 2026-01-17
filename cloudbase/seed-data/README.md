@@ -155,3 +155,4 @@ tcb database import membership_tiers ./membership_tiers.json --env YOUR_ENV_ID
 5. CN 环境聊天功能主要使用环信 IM，`chat_rooms`、`messages`、`message_attachments` 可选创建
 
 
+
