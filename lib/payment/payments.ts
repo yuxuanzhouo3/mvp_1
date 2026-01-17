@@ -4,9 +4,8 @@ import { notifyPaymentSuccess, notifyPaymentFailed } from '@/lib/services/notifi
 import { isPayPalAvailable } from './paypal';
 import { getDefaultCurrency } from '@/config/payment-config';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia' as any,
-});
+// 注意: Stripe 客户端不在模块级别初始化，避免构建时因缺少环境变量而失败
+// processStripeWebhook 函数接收的是已解析的 Stripe.Event，不需要 Stripe 客户端
 
 export interface PaymentMethod {
   id: string;

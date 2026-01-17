@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { processStripeWebhook } from '@/lib/payment/payments';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia' as any,
-});
-
-// Support both production and test webhook secrets
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-const testWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET_TEST;
+// 延迟初始化 Stripe，避免在构建时因缺少环境变量而失败
+function getStripeClient(): Stripe | null {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return null;
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2024-12-18.acacia' as any,
+  });
+}
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -16,6 +18,26 @@ export async function POST(request: NextRequest) {
   let eventId = 'unknown';
 
   try {
+    const stripe = getStripeClient();
+    if (!stripe) {
+      console.error('[Stripe Webhook] Stripe is not configured');
+      return NextResponse.json(
+        { error: 'Stripe is not configured' },
+        { status: 500 }
+      );
+    }
+
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const testWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET_TEST;
+
+    if (!webhookSecret) {
+      console.error('[Stripe Webhook] Webhook secret is not configured');
+      return NextResponse.json(
+        { error: 'Webhook secret is not configured' },
+        { status: 500 }
+      );
+    }
+
     const body = await request.text();
     const signature = request.headers.get('stripe-signature');
 

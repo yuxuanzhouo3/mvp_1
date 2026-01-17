@@ -3,9 +3,15 @@ import { createClient } from '@/lib/supabase/server';
 import Stripe from 'stripe';
 import { getPayPalOrder } from '@/lib/payment/paypal';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia' as any,
-});
+// 延迟初始化 Stripe，避免在构建时因缺少环境变量而失败
+function getStripeClient(): Stripe | null {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return null;
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2024-12-18.acacia' as any,
+  });
+}
 
 interface VerifyRequest {
   sessionId?: string;
@@ -39,6 +45,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Missing session ID' },
         { status: 400 }
+      );
+    }
+
+    const stripe = getStripeClient();
+    if (!stripe) {
+      return NextResponse.json(
+        { error: 'Stripe is not configured' },
+        { status: 500 }
       );
     }
 

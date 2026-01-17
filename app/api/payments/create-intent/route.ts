@@ -12,9 +12,15 @@ import { createPayPalOrder, convertCNYtoUSD } from '@/lib/payment/paypal';
 import { getDefaultCurrency } from '@/config/payment-config';
 import { getPaymentService } from '@/lib/services/payment';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia' as any,
-});
+// 延迟初始化 Stripe，避免在构建时因缺少环境变量而失败
+function getStripeClient(): Stripe | null {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return null;
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: '2024-12-18.acacia' as any,
+  });
+}
 
 interface CreateIntentRequest {
   packageId: string;
@@ -124,6 +130,14 @@ export async function POST(request: NextRequest) {
 }
 
 async function handleStripePayment(payment: any, amount: number, credits: number) {
+  const stripe = getStripeClient();
+  if (!stripe) {
+    return NextResponse.json(
+      { error: 'Stripe is not configured' },
+      { status: 500 }
+    );
+  }
+
   try {
     // Get currency based on deployment region
     const currency = getDefaultCurrency().toLowerCase(); // Stripe expects lowercase currency codes
