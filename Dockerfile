@@ -20,16 +20,14 @@ WORKDIR /app
 # ========== 构建阶段 ==========
 FROM base AS builder
 
-ARG NODE_ENV=production
 ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
 
-ENV NODE_ENV=$NODE_ENV
 ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
 
 # 复制包管理文件
 COPY package.json package-lock.json ./
 
-# 安装依赖
+# 安装依赖（包括 devDependencies，构建时需要）
 RUN npm ci
 
 # 复制源代码
@@ -47,6 +45,9 @@ ENV NEXT_OUTPUT_MODE=standalone
 
 # 构建应用
 RUN npm run build
+
+# 构建完成后设置生产环境
+ENV NODE_ENV=production
 
 # ========== 生产阶段 ==========
 FROM base AS production
