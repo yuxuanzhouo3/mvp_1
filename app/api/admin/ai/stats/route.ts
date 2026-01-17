@@ -90,14 +90,14 @@ export async function GET(request: NextRequest) {
     // Calculate current month stats
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthSessions = allSessions.filter(s => new Date(s.created_at) >= monthStart);
-    const monthlyTokenUsage = monthSessions.reduce((sum, s) => sum + (s.token_usage || 0), 0);
+    const monthSessions = allSessions.filter((s: any) => new Date(s.created_at) >= monthStart);
+    const monthlyTokenUsage = monthSessions.reduce((sum: number, s: any) => sum + (s.token_usage || 0), 0);
 
     // Budget status
     const budgetUsagePercent = (monthlyTokenUsage / MONTHLY_TOKEN_BUDGET) * 100;
 
     // Total stats
-    const totalTokenUsage = allSessions.reduce((sum, s) => sum + (s.token_usage || 0), 0);
+    const totalTokenUsage = allSessions.reduce((sum: number, s: any) => sum + (s.token_usage || 0), 0);
     const totalSessions = allSessions.length;
 
     // Get AI usage logs
@@ -106,17 +106,17 @@ export async function GET(request: NextRequest) {
       .select('user_id, feature, tokens_used, created_at');
 
     const allUsageLogs = usageLogs || [];
-    const monthUsageLogs = allUsageLogs.filter(l => new Date(l.created_at) >= monthStart);
+    const monthUsageLogs = allUsageLogs.filter((l: any) => new Date(l.created_at) >= monthStart);
     const assistantTokens = monthUsageLogs
-      .filter(l => l.feature === 'assistant')
-      .reduce((sum, l) => sum + (l.tokens_used || 0), 0);
+      .filter((l: any) => l.feature === 'assistant')
+      .reduce((sum: number, l: any) => sum + (l.tokens_used || 0), 0);
 
-    const assistantSessions = allUsageLogs.filter(l => l.feature === 'assistant').length;
+    const assistantSessions = allUsageLogs.filter((l: any) => l.feature === 'assistant').length;
 
     // Sessions by type
     const sessionsByType = {
-      free_trial: allSessions.filter(s => s.session_type === 'free_trial').length,
-      vip_unlimited: allSessions.filter(s => s.session_type === 'vip_unlimited').length,
+      free_trial: allSessions.filter((s: any) => s.session_type === 'free_trial').length,
+      vip_unlimited: allSessions.filter((s: any) => s.session_type === 'vip_unlimited').length,
       assistant: assistantSessions,
     };
 
@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
 
-      const daySessions = allSessions.filter(s => {
+      const daySessions = allSessions.filter((s: any) => {
         try {
           const sessionDate = s.created_at?.substring(0, 10) || new Date(s.created_at).toISOString().split('T')[0];
           return sessionDate === dateStr;
@@ -135,9 +135,9 @@ export async function GET(request: NextRequest) {
           return false;
         }
       });
-      const daySessionTokens = daySessions.reduce((sum, s) => sum + (s.token_usage || 0), 0);
+      const daySessionTokens = daySessions.reduce((sum: number, s: any) => sum + (s.token_usage || 0), 0);
 
-      const dayUsageLogs = allUsageLogs.filter(l => {
+      const dayUsageLogs = allUsageLogs.filter((l: any) => {
         try {
           const logDate = l.created_at?.substring(0, 10) || new Date(l.created_at).toISOString().split('T')[0];
           return logDate === dateStr;
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
           return false;
         }
       });
-      const dayUsageTokens = dayUsageLogs.reduce((sum, l) => sum + (l.tokens_used || 0), 0);
+      const dayUsageTokens = dayUsageLogs.reduce((sum: number, l: any) => sum + (l.tokens_used || 0), 0);
 
       dailyStats.push({
         date: dateStr,
@@ -156,10 +156,10 @@ export async function GET(request: NextRequest) {
 
     // Top users by token usage
     const userTokenMap: Record<string, number> = {};
-    allSessions.forEach(s => {
+    allSessions.forEach((s: any) => {
       userTokenMap[s.user_id] = (userTokenMap[s.user_id] || 0) + (s.token_usage || 0);
     });
-    allUsageLogs.forEach(l => {
+    allUsageLogs.forEach((l: any) => {
       userTokenMap[l.user_id] = (userTokenMap[l.user_id] || 0) + (l.tokens_used || 0);
     });
 
@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
         .in('id', topUserIds);
 
       topUsers = topUserIds.map(userId => {
-        const user = users?.find(u => u.id === userId);
+        const user = users?.find((u: any) => u.id === userId);
         return {
           user_id: userId,
           username: user?.username || user?.email?.split('@')[0] || userId.slice(0, 8),
@@ -190,8 +190,8 @@ export async function GET(request: NextRequest) {
       .from('ai_usage_limits')
       .select('daily_analysis_count, total_chat_count');
 
-    const totalAnalysisCount = usageLimits?.reduce((sum, u) => sum + (u.daily_analysis_count || 0), 0) || 0;
-    const totalChatCount = usageLimits?.reduce((sum, u) => sum + (u.total_chat_count || 0), 0) || 0;
+    const totalAnalysisCount = usageLimits?.reduce((sum: number, u: any) => sum + (u.daily_analysis_count || 0), 0) || 0;
+    const totalChatCount = usageLimits?.reduce((sum: number, u: any) => sum + (u.total_chat_count || 0), 0) || 0;
 
     return NextResponse.json({
       success: true,

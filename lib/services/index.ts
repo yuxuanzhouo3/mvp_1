@@ -8,7 +8,7 @@
  */
 
 // 导出所有类型
-export * from './database/types';
+export * from './database';
 export * from './auth/types';
 export * from './payment/types';
 export * from './chat/types';

@@ -54,7 +54,7 @@ export function AIAssistant({
 
       <div className="text-xs text-gray-500 dark:text-gray-400 mb-3 p-2 bg-gray-50 dark:bg-gray-900 rounded">
         {language === 'zh' ? '分析消息：' : 'Analyzing: '}
-        <span className="text-gray-700 dark:text-gray-300">"{message.slice(0, 50)}{message.length > 50 ? '...' : ''}"</span>
+        <span className="text-gray-700 dark:text-gray-300">&quot;{message.slice(0, 50)}{message.length > 50 ? '...' : ''}&quot;</span>
       </div>
 
       {!analysis && !loading && (

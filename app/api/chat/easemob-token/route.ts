@@ -120,7 +120,7 @@ async function ensureUserExists(userId: string, username?: string): Promise<void
  * 发送系统消息（用于创建会话）
  * 通过 REST API 从系统账号发送消息
  */
-export async function sendSystemMessage(
+async function sendSystemMessage(
   fromUserId: string,
   toUserId: string,
   message: string

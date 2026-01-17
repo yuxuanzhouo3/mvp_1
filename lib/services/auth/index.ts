@@ -29,7 +29,6 @@ export function getAuthService(): IAuthService {
   if (isChinaDeployment()) {
     throw new Error('CN environment requires async auth service. Use getAuthServiceAsync() instead.');
   }
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { IntlAuthService } = require('./intl-auth');
   return new IntlAuthService();
 }

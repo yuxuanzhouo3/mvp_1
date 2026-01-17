@@ -13,7 +13,7 @@ import { getDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-cli
 import { createClient } from '@supabase/supabase-js';
 import { notifyMatchSuccess, notifySomeoneLikedYou } from '@/lib/services/notifications';
 import { checkAndConsumeCredits, CREDIT_COSTS } from '@/lib/credits/credits';
-import { sendSystemMessage } from '@/app/api/chat/easemob-token/route';
+import { sendSystemMessage } from '@/lib/chat/easemob-utils';
 import type { SwipeActionEnum } from '@/types/database';
 
 // 统一认证函数
