@@ -1,10 +1,14 @@
 /**
- * Transactions Summary API - 交易汇总
- * GET /api/transactions/summary - 获取交易汇总统计
+ * 交易汇总 API
+ * Transactions Summary API
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getDbClient, getServiceDbClient } from '@/lib/db-client';
 
 /**
  * GET /api/transactions/summary
@@ -16,10 +20,10 @@ import { createClient } from '@/lib/supabase/server';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const db = await getDbClient();
 
     // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await db.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -27,8 +31,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Use service client for data operations
+    const serviceDb = await getServiceDbClient();
+
     // Get user's current balance
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await serviceDb
       .from('user_profiles')
       .select('credits')
       .eq('user_id', user.id)
@@ -41,7 +48,7 @@ export async function GET(request: NextRequest) {
     const currentBalance = profile?.credits || 0;
 
     // Get total credits purchased (positive amounts)
-    const { data: purchaseData, error: purchaseError } = await supabase
+    const { data: purchaseData, error: purchaseError } = await serviceDb
       .from('transactions')
       .select('amount')
       .eq('user_id', user.id)
@@ -54,7 +61,7 @@ export async function GET(request: NextRequest) {
     const totalPurchased = (purchaseData || []).reduce((sum, t) => sum + t.amount, 0);
 
     // Get total credits consumed (negative amounts)
-    const { data: consumeData, error: consumeError } = await supabase
+    const { data: consumeData, error: consumeError } = await serviceDb
       .from('transactions')
       .select('amount, type')
       .eq('user_id', user.id)
@@ -85,7 +92,7 @@ export async function GET(request: NextRequest) {
     })).sort((a, b) => b.amount - a.amount);
 
     // Get total payment amount (in USD and CNY)
-    const { data: paymentData, error: paymentError } = await supabase
+    const { data: paymentData, error: paymentError } = await serviceDb
       .from('payments')
       .select('amount, currency')
       .eq('user_id', user.id)

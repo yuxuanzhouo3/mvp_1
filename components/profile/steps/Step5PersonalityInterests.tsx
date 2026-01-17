@@ -16,59 +16,59 @@ interface Step5Props {
 }
 
 // MBTI Types with descriptions
-const mbtiTypes: { type: MBTIType; name: string; emoji: string; description: string }[] = [
-  { type: 'INTJ', name: 'Architect', emoji: '🧠', description: 'Strategic, independent, determined' },
-  { type: 'INTP', name: 'Logician', emoji: '🔬', description: 'Analytical, objective, reserved' },
-  { type: 'ENTJ', name: 'Commander', emoji: '👑', description: 'Bold, imaginative, strong-willed' },
-  { type: 'ENTP', name: 'Debater', emoji: '💡', description: 'Smart, curious, can\'t resist a challenge' },
-  { type: 'INFJ', name: 'Advocate', emoji: '🌟', description: 'Quiet, mystical, inspiring' },
-  { type: 'INFP', name: 'Mediator', emoji: '🦋', description: 'Poetic, kind, altruistic' },
-  { type: 'ENFJ', name: 'Protagonist', emoji: '🎭', description: 'Charismatic, inspiring, natural leader' },
-  { type: 'ENFP', name: 'Campaigner', emoji: '🎪', description: 'Enthusiastic, creative, sociable' },
-  { type: 'ISTJ', name: 'Logistician', emoji: '📋', description: 'Practical, fact-minded, reliable' },
-  { type: 'ISFJ', name: 'Defender', emoji: '🛡️', description: 'Dedicated, warm, protective' },
-  { type: 'ESTJ', name: 'Executive', emoji: '📊', description: 'Excellent administrators, unsurpassed' },
-  { type: 'ESFJ', name: 'Consul', emoji: '🤝', description: 'Caring, social, popular' },
-  { type: 'ISTP', name: 'Virtuoso', emoji: '🔧', description: 'Bold, practical experimenters' },
-  { type: 'ISFP', name: 'Adventurer', emoji: '🎨', description: 'Flexible, charming artists' },
-  { type: 'ESTP', name: 'Entrepreneur', emoji: '🏃', description: 'Smart, energetic, perceptive' },
-  { type: 'ESFP', name: 'Entertainer', emoji: '🎉', description: 'Spontaneous, energetic, enthusiastic' },
+const mbtiTypes: { type: MBTIType; emoji: string }[] = [
+  { type: 'INTJ', emoji: '🧠' },
+  { type: 'INTP', emoji: '🔬' },
+  { type: 'ENTJ', emoji: '👑' },
+  { type: 'ENTP', emoji: '💡' },
+  { type: 'INFJ', emoji: '🌟' },
+  { type: 'INFP', emoji: '🦋' },
+  { type: 'ENFJ', emoji: '🎭' },
+  { type: 'ENFP', emoji: '🎪' },
+  { type: 'ISTJ', emoji: '📋' },
+  { type: 'ISFJ', emoji: '🛡️' },
+  { type: 'ESTJ', emoji: '📊' },
+  { type: 'ESFJ', emoji: '🤝' },
+  { type: 'ISTP', emoji: '🔧' },
+  { type: 'ISFP', emoji: '🎨' },
+  { type: 'ESTP', emoji: '🏃' },
+  { type: 'ESFP', emoji: '🎉' },
 ];
 
-// Interest categories
+// Interest categories - keys for translation
 const interestCategories = [
   {
-    category: 'Sports & Fitness',
+    categoryKey: 'sportsAndFitness',
     emoji: '🏃',
     interests: ['Running', 'Gym', 'Yoga', 'Swimming', 'Hiking', 'Cycling', 'Tennis', 'Basketball']
   },
   {
-    category: 'Arts & Culture',
+    categoryKey: 'artsAndCulture',
     emoji: '🎨',
     interests: ['Photography', 'Painting', 'Music', 'Movies', 'Theater', 'Museums', 'Dancing', 'Writing']
   },
   {
-    category: 'Food & Drinks',
+    categoryKey: 'foodAndDrinks',
     emoji: '🍽️',
     interests: ['Cooking', 'Wine', 'Coffee', 'Foodie', 'Baking', 'Brunch', 'Cocktails', 'BBQ']
   },
   {
-    category: 'Travel & Adventure',
+    categoryKey: 'travelAndAdventure',
     emoji: '✈️',
     interests: ['Travel', 'Camping', 'Road Trips', 'Beach', 'Mountains', 'City Explorer', 'Backpacking']
   },
   {
-    category: 'Entertainment',
+    categoryKey: 'entertainment',
     emoji: '🎮',
     interests: ['Gaming', 'Netflix', 'Anime', 'Board Games', 'Karaoke', 'Concerts', 'Comedy']
   },
   {
-    category: 'Lifestyle',
+    categoryKey: 'lifestyle',
     emoji: '🌿',
     interests: ['Reading', 'Meditation', 'Pets', 'Gardening', 'Fashion', 'DIY', 'Volunteering']
   },
   {
-    category: 'Tech & Science',
+    categoryKey: 'techAndScience',
     emoji: '💻',
     interests: ['Programming', 'Startups', 'Crypto', 'AI', 'Science', 'Space', 'Gadgets']
   },
@@ -135,6 +135,24 @@ export default function Step5PersonalityInterests({ data, onUpdate, onValidChang
 
   const selectedMbtiInfo = mbti ? mbtiTypes.find(m => m.type === mbti) : null;
 
+  // 获取翻译后的 MBTI 信息
+  const getMbtiTranslation = (type: MBTIType) => {
+    const translations = t.profileSetup?.mbtiTypes as Record<string, { name: string; description: string }> | undefined;
+    return translations?.[type] || { name: type, description: '' };
+  };
+
+  // 获取翻译后的分类名称
+  const getCategoryName = (key: string) => {
+    const translations = t.profileSetup?.interestCategories as Record<string, string> | undefined;
+    return translations?.[key] || key;
+  };
+
+  // 获取翻译后的兴趣名称
+  const getInterestName = (interest: string) => {
+    const translations = t.profileSetup?.interestItems as Record<string, string> | undefined;
+    return translations?.[interest] || interest;
+  };
+
   return (
     <div className="space-y-8">
       {/* MBTI Section */}
@@ -182,8 +200,8 @@ export default function Step5PersonalityInterests({ data, onUpdate, onValidChang
             <div className="flex items-center gap-3">
               <span className="text-4xl">{selectedMbtiInfo.emoji}</span>
               <div>
-                <p className="font-bold text-lg">{selectedMbtiInfo.type} - {selectedMbtiInfo.name}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{selectedMbtiInfo.description}</p>
+                <p className="font-bold text-lg">{selectedMbtiInfo.type} - {getMbtiTranslation(selectedMbtiInfo.type).name}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{getMbtiTranslation(selectedMbtiInfo.type).description}</p>
               </div>
             </div>
           </div>
@@ -208,9 +226,9 @@ export default function Step5PersonalityInterests({ data, onUpdate, onValidChang
 
         <div className="space-y-4">
           {interestCategories.map((category) => (
-            <div key={category.category}>
+            <div key={category.categoryKey}>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
-                {category.emoji} {category.category}
+                {category.emoji} {getCategoryName(category.categoryKey)}
               </p>
               <div className="flex flex-wrap gap-2">
                 {category.interests.map((interest) => (
@@ -223,13 +241,13 @@ export default function Step5PersonalityInterests({ data, onUpdate, onValidChang
                     disabled={!selectedInterests.includes(interest) && selectedInterests.length >= MAX_INTERESTS}
                     className={`
                       transition-all duration-200
-                      ${selectedInterests.includes(interest) 
-                        ? 'bg-primary text-white' 
+                      ${selectedInterests.includes(interest)
+                        ? 'bg-primary text-white'
                         : 'hover:border-primary hover:text-primary'
                       }
                     `}
                   >
-                    {interest}
+                    {getInterestName(interest)}
                   </Button>
                 ))}
               </div>
@@ -249,11 +267,11 @@ export default function Step5PersonalityInterests({ data, onUpdate, onValidChang
             </p>
             <div className="flex flex-wrap gap-2">
               {selectedInterests.map((interest) => (
-                <span 
+                <span
                   key={interest}
                   className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm flex items-center gap-1"
                 >
-                  {interest}
+                  {getInterestName(interest)}
                   <button
                     type="button"
                     onClick={() => toggleInterest(interest)}

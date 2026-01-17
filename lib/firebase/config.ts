@@ -1,11 +1,13 @@
 /**
  * Firebase 配置
- * INTL 环境推送通知配置
+ * 仅 INTL 环境使用推送通知
+ * CN 环境不使用 Firebase
  */
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging';
 import { getAnalytics, Analytics, isSupported } from 'firebase/analytics';
+import { isInternationalDeployment } from '@/lib/config/deployment.config';
 
 // Firebase 配置
 const firebaseConfig = {
@@ -27,9 +29,19 @@ let messaging: Messaging | null = null;
 let analytics: Analytics | null = null;
 
 /**
- * 初始化 Firebase
+ * 检查是否启用 Firebase（仅 INTL 环境）
  */
-export function initializeFirebase(): FirebaseApp {
+export function isFirebaseEnabled(): boolean {
+  return isInternationalDeployment();
+}
+
+/**
+ * 初始化 Firebase（仅 INTL 环境）
+ */
+export function initializeFirebase(): FirebaseApp | null {
+  if (!isFirebaseEnabled()) {
+    return null;
+  }
   if (!app) {
     if (getApps().length === 0) {
       app = initializeApp(firebaseConfig);
@@ -41,15 +53,16 @@ export function initializeFirebase(): FirebaseApp {
 }
 
 /**
- * 获取 Firebase Messaging 实例
+ * 获取 Firebase Messaging 实例（仅 INTL 环境）
  */
 export function getFirebaseMessaging(): Messaging | null {
-  if (typeof window === 'undefined') {
+  if (typeof window === 'undefined' || !isFirebaseEnabled()) {
     return null;
   }
 
   if (!messaging) {
     const app = initializeFirebase();
+    if (!app) return null;
     try {
       messaging = getMessaging(app);
     } catch (error) {
@@ -61,10 +74,10 @@ export function getFirebaseMessaging(): Messaging | null {
 }
 
 /**
- * 获取 Firebase Analytics 实例
+ * 获取 Firebase Analytics 实例（仅 INTL 环境）
  */
 export async function getFirebaseAnalytics(): Promise<Analytics | null> {
-  if (typeof window === 'undefined') {
+  if (typeof window === 'undefined' || !isFirebaseEnabled()) {
     return null;
   }
 
@@ -72,17 +85,19 @@ export async function getFirebaseAnalytics(): Promise<Analytics | null> {
     const supported = await isSupported();
     if (supported) {
       const app = initializeFirebase();
-      analytics = getAnalytics(app);
+      if (app) {
+        analytics = getAnalytics(app);
+      }
     }
   }
   return analytics;
 }
 
 /**
- * 请求推送通知权限并获取 FCM Token
+ * 请求推送通知权限并获取 FCM Token（仅 INTL 环境）
  */
 export async function requestNotificationPermission(): Promise<string | null> {
-  if (typeof window === 'undefined') {
+  if (typeof window === 'undefined' || !isFirebaseEnabled()) {
     return null;
   }
 

@@ -1,30 +1,61 @@
+/**
+ * 批量照片审核通过 API (管理员)
+ * Batch Photo Approve API (Admin)
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
+import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
+// INTL 环境
+function createSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
     }
-  }
-);
+  );
+}
 
 async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: string }> {
   try {
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-    if (error || !user) return { isAdmin: false };
+    let userId: string | undefined;
 
-    const { data: adminRole, error: adminError } = await supabaseAdmin
+    if (isChinaDeployment()) {
+      try {
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        userId = payload.sub || payload.uid;
+      } catch {
+        const db = await getServiceDbClient();
+        const { data, error } = await db.auth.getUser();
+        if (error || !data?.user) return { isAdmin: false };
+        userId = data.user.id;
+      }
+    } else {
+      const supabase = createSupabaseAdmin();
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) return { isAdmin: false };
+      userId = user.id;
+    }
+
+    if (!userId) return { isAdmin: false };
+
+    const db = await getServiceDbClient();
+    const { data: adminRoles } = await db
       .from('admin_roles')
       .select('role')
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', userId)
+      .limit(1);
 
-    if (adminError || !adminRole) return { isAdmin: false };
-    return { isAdmin: true, userId: user.id };
+    return adminRoles && adminRoles.length > 0 ? { isAdmin: true, userId } : { isAdmin: false };
   } catch {
     return { isAdmin: false };
   }
@@ -54,9 +85,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Maximum 100 photos per batch' }, { status: 400 });
     }
 
+    const db = await getServiceDbClient();
     const now = new Date().toISOString();
 
-    const { error: updateError } = await supabaseAdmin
+    const { error: updateError } = await db
       .from('user_photos')
       .update({
         audit_status: 'approved',
@@ -78,7 +110,7 @@ export async function POST(request: NextRequest) {
       reviewed_at: now,
     }));
 
-    await supabaseAdmin.from('photo_audit_logs').insert(auditLogs);
+    await db.from('photo_audit_logs').insert(auditLogs);
 
     return NextResponse.json({
       success: true,

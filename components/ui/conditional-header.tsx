@@ -6,8 +6,10 @@ import { GlobalHeader } from './global-header';
 export function ConditionalHeader() {
   const pathname = usePathname();
   const isAuthPage = pathname.startsWith('/auth/');
-  // 聊天室页面不显示全局 header
-  const isChatRoomPage = pathname?.startsWith('/dashboard/messages/') && pathname !== '/dashboard/messages';
+  // 聊天室页面不显示全局 header（但 cn-chat 页面除外）
+  const isChatRoomPage = pathname?.startsWith('/dashboard/messages/')
+    && pathname !== '/dashboard/messages'
+    && pathname !== '/dashboard/messages/cn-chat';
   // dashboard 页面有自己的侧边栏布局，不需要额外的顶部间距
   const isDashboardPage = pathname?.startsWith('/dashboard');
 

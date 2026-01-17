@@ -1,5 +1,67 @@
+/**
+ * 聊天对象用户信息 API
+ * GET /api/chat/[chatId]/user - 获取聊天对象的用户信息
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@/lib/supabase/server';
+import { getDbClient, isChinaDeployment } from '@/lib/db-client';
+import { createClient } from '@supabase/supabase-js';
+
+// 统一认证函数
+async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
+  const authHeader = request.headers.get('authorization');
+
+  if (isChinaDeployment()) {
+    // CN 环境
+    if (!authHeader) return null;
+    const token = authHeader.replace('Bearer ', '');
+    // CN 环境: 支持 cn_ 前缀的用户 ID token
+    if (token.startsWith('cn_')) {
+      const userId = token.substring(3);
+      if (userId) {
+        return { userId };
+      }
+    }
+    // 从 token 中解析用户信息 (JWT)
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      return {
+        userId: payload.sub || payload.uid,
+        email: payload.email,
+      };
+    } catch {
+      return null;
+    }
+  } else {
+    // INTL 环境: 使用 Supabase 验证 token
+    const db = await getDbClient();
+    const { data: { user }, error } = await db.auth.getUser();
+    if (error || !user) {
+      if (authHeader) {
+        try {
+          const token = authHeader.replace('Bearer ', '');
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+          if (url && key) {
+            const anonClient = createClient(url, key, {
+              auth: { autoRefreshToken: false, persistSession: false }
+            });
+            const { data: { user: tokenUser }, error: tokenError } = await anonClient.auth.getUser(token);
+            if (!tokenError && tokenUser) {
+              return { userId: tokenUser.id, email: tokenUser.email };
+            }
+          }
+        } catch {}
+      }
+      return null;
+    }
+    return { userId: user.id, email: user.email };
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -25,29 +87,18 @@ export async function GET(
       });
     }
 
-    // Create Supabase client for this request
-    const supabase = createRouteHandlerClient();
-
-    // Get the authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    if (!authUser) {
       return NextResponse.json({ error: 'No authorization header' }, { status: 401 });
     }
 
-    // Extract the token
-    const token = authHeader.replace('Bearer ', '');
-
-    // Verify the token and get user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    const db = await getDbClient();
 
     // Get chat information to find the other user
-    // First, try chat_rooms table (new schema)
     let otherUserId: string | null = null;
 
-    const { data: chatRoom, error: chatRoomError } = await supabase
+    const { data: chatRoom, error: chatRoomError } = await db
       .from('chat_rooms')
       .select(`
         id,
@@ -60,7 +111,7 @@ export async function GET(
     if (chatRoom && !chatRoomError) {
       // Determine which user is the other participant
       const matches = chatRoom.matches as unknown as { user_1: string; user_2: string };
-      otherUserId = matches.user_1 === user.id ? matches.user_2 : matches.user_1;
+      otherUserId = matches.user_1 === authUser.userId ? matches.user_2 : matches.user_1;
     }
 
     if (!otherUserId) {
@@ -71,7 +122,7 @@ export async function GET(
     }
 
     // Get the other user's basic info from users table
-    const { data: otherUser, error: userError } = await supabase
+    const { data: otherUser, error: userError } = await db
       .from('users')
       .select('id, username, avatar_url, last_active_at')
       .eq('id', otherUserId)
@@ -99,7 +150,8 @@ export async function GET(
 
     return NextResponse.json({
       user: chatUser,
-      mode: 'real'
+      mode: 'real',
+      region: isChinaDeployment() ? 'CN' : 'INTL'
     });
   } catch (error) {
     console.error('Error in chat user API:', error);

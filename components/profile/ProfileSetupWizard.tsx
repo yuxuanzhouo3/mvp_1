@@ -55,6 +55,19 @@ export default function ProfileSetupWizard() {
   const { language } = useLanguage();
   const t = useTranslations(language);
 
+  // 获取认证 token（支持 CN 和 INTL 环境）
+  const getAuthToken = (): string | null => {
+    // INTL 环境：使用 Supabase session token
+    if (session?.access_token) {
+      return session.access_token;
+    }
+    // CN 环境：使用用户 ID 作为 token
+    if (user?.id) {
+      return `cn_${user.id}`;
+    }
+    return null;
+  };
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!user) {
@@ -126,10 +139,11 @@ export default function ProfileSetupWizard() {
             photoFormData.append('is_primary', photo.is_primary.toString());
             photoFormData.append('sort_order', i.toString());
 
+            const authToken = getAuthToken();
             const photoResponse = await fetch('/api/user/profile/photos', {
               method: 'POST',
               headers: {
-                'Authorization': `Bearer ${session?.access_token}`,
+                ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
               },
               body: photoFormData,
               cache: 'no-store',
@@ -154,7 +168,7 @@ export default function ProfileSetupWizard() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
+          ...(getAuthToken() ? { 'Authorization': `Bearer ${getAuthToken()}` } : {}),
         },
         body: JSON.stringify(profileData),
         cache: 'no-store',

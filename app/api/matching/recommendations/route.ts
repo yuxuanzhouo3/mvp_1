@@ -2,13 +2,17 @@
  * Recommendations API - 推荐列表接口
  * GET /api/matching/recommendations - 获取推荐列表
  * POST /api/matching/recommendations - 生成新推荐
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@/lib/supabase/server';
+import { getDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
+import { createClient } from '@supabase/supabase-js';
 import { 
   generateDailyRecommendations, 
-  executeMatchingAlgorithm 
 } from '@/lib/matching/algorithms';
 import { 
   transformDbUserToMatchProfile 
@@ -19,22 +23,75 @@ import {
   ALGORITHM_NAMES
 } from '@/lib/matching/types';
 
+// 统一认证函数
+async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
+  const authHeader = request.headers.get('authorization');
+
+  if (isChinaDeployment()) {
+    // CN 环境
+    if (!authHeader) return null;
+    const token = authHeader.replace('Bearer ', '');
+    // CN 环境: 支持 cn_ 前缀的用户 ID token
+    if (token.startsWith('cn_')) {
+      const userId = token.substring(3);
+      if (userId) {
+        return { userId };
+      }
+    }
+    // 从 token 中解析用户信息 (JWT)
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      return {
+        userId: payload.sub || payload.uid,
+        email: payload.email,
+      };
+    } catch {
+      return null;
+    }
+  } else {
+    // INTL 环境: 使用 Supabase 验证 token
+    const db = await getDbClient();
+    const { data: { user }, error } = await db.auth.getUser();
+    if (error || !user) {
+      // 尝试从 header 验证
+      if (authHeader) {
+        try {
+          const token = authHeader.replace('Bearer ', '');
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+          if (url && key) {
+            const anonClient = createClient(url, key, {
+              auth: { autoRefreshToken: false, persistSession: false }
+            });
+            const { data: { user: tokenUser }, error: tokenError } = await anonClient.auth.getUser(token);
+            if (!tokenError && tokenUser) {
+              return { userId: tokenUser.id, email: tokenUser.email };
+            }
+          }
+        } catch {}
+      }
+      return null;
+    }
+    return { userId: user.id, email: user.email };
+  }
+}
+
 /**
  * GET /api/matching/recommendations
  * 获取当前用户的推荐列表
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient();
-
-    // 获取当前用户
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    if (!authUser) {
       return NextResponse.json(
         { success: false, error: 'AUTH_REQUIRED', errorCode: 'AUTH_REQUIRED' },
         { status: 401 }
       );
     }
+
+    const db = await getDbClient();
 
     // 获取查询参数
     const { searchParams } = new URL(request.url);
@@ -55,7 +112,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 构建查询
-    let query = supabase
+    let query = db
       .from('recommendations')
       .select(`
         id,
@@ -68,7 +125,7 @@ export async function GET(request: NextRequest) {
         created_at,
         expires_at
       `)
-      .eq('user_id', user.id)
+      .eq('user_id', authUser.userId)
       .eq('algorithm_type', algorithm)
       .eq('status', 'pending')
       .gt('expires_at', new Date().toISOString())
@@ -105,7 +162,7 @@ export async function GET(request: NextRequest) {
 
     // 获取被推荐用户的详细信息
     const targetUserIds = recommendations.map(r => r.target_user_id);
-    const { data: targetUsers, error: usersError } = await supabase
+    const { data: targetUsers, error: usersError } = await db
       .from('v_user_full_profile')
       .select('*')
       .in('id', targetUserIds);
@@ -154,16 +211,16 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient();
-
-    // 获取当前用户
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    if (!authUser) {
       return NextResponse.json(
         { success: false, error: 'AUTH_REQUIRED', errorCode: 'AUTH_REQUIRED' },
         { status: 401 }
       );
     }
+
+    const db = await getDbClient();
 
     // 解析请求体
     const body = await request.json().catch(() => ({}));
@@ -184,10 +241,10 @@ export async function POST(request: NextRequest) {
     }
 
     // 获取当前用户完整资料
-    const { data: currentUser, error: userError } = await supabase
+    const { data: currentUser, error: userError } = await db
       .from('v_user_full_profile')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', authUser.userId)
       .single();
 
     if (userError || !currentUser) {
@@ -207,38 +264,38 @@ export async function POST(request: NextRequest) {
     }
 
     // 获取已互动过的用户列表
-    const { data: swipedUsers } = await supabase
+    const { data: swipedUsers } = await db
       .from('swipes')
       .select('target_id')
-      .eq('actor_id', user.id);
+      .eq('actor_id', authUser.userId);
 
     const excludeUserIds = new Set([
-      user.id,
+      authUser.userId,
       ...(swipedUsers?.map(s => s.target_id) || [])
     ]);
 
     // 获取"喜欢我但我还没互动过"的用户列表（优先展示）
-    const { data: usersWhoLikedMe } = await supabase
+    const { data: usersWhoLikedMe } = await db
       .from('swipes')
       .select('actor_id')
-      .eq('target_id', user.id)
+      .eq('target_id', authUser.userId)
       .in('action', ['like', 'super_like']);
 
     const likedMeUserIds = new Set(
       (usersWhoLikedMe || [])
         .map(s => s.actor_id)
-        .filter(id => !excludeUserIds.has(id)) // 排除已经互动过的
+        .filter(id => !excludeUserIds.has(id))
     );
 
     // 获取已匹配的用户列表
-    const { data: matchedUsers } = await supabase
+    const { data: matchedUsers } = await db
       .from('matches')
       .select('user_1, user_2')
-      .or(`user_1.eq.${user.id},user_2.eq.${user.id}`)
+      .or(`user_1.eq.${authUser.userId},user_2.eq.${authUser.userId}`)
       .is('unmatched_at', null);
 
     matchedUsers?.forEach(m => {
-      excludeUserIds.add(m.user_1 === user.id ? m.user_2 : m.user_1);
+      excludeUserIds.add(m.user_1 === authUser.userId ? m.user_2 : m.user_1);
     });
 
     // 确定目标性别
@@ -246,10 +303,10 @@ export async function POST(request: NextRequest) {
                         userProfile.gender === 'female' ? 'male' : null;
 
     // 获取候选人列表
-    let candidatesQuery = supabase
+    let candidatesQuery = db
       .from('v_active_users')
       .select('*')
-      .neq('id', user.id);
+      .neq('id', authUser.userId);
 
     if (targetGender) {
       candidatesQuery = candidatesQuery.eq('gender', targetGender);
@@ -270,16 +327,6 @@ export async function POST(request: NextRequest) {
       .filter(c => !excludeUserIds.has(c.id))
       .map(c => transformDbUserToMatchProfile(c))
       .filter((c): c is NonNullable<typeof c> => c !== null);
-
-    // 添加调试日志
-    console.log('[Matching] Debug info:', {
-      userId: user.id,
-      candidatesFromDB: candidatesData?.length || 0,
-      afterFilter: candidates.length,
-      excludeUserIds: excludeUserIds.size,
-      likedMeUserIds: likedMeUserIds.size,
-      targetGender
-    });
 
     if (candidates.length === 0) {
       return NextResponse.json({
@@ -304,10 +351,10 @@ export async function POST(request: NextRequest) {
 
     // 如果强制刷新，先清理旧的未查看推荐
     if (forceRefresh) {
-      await supabase
+      await db
         .from('recommendations')
         .delete()
-        .eq('user_id', user.id)
+        .eq('user_id', authUser.userId)
         .eq('algorithm_type', algorithm)
         .eq('status', 'pending')
         .eq('is_viewed', false);
@@ -315,7 +362,7 @@ export async function POST(request: NextRequest) {
 
     // 保存推荐结果到数据库
     const recommendationsToInsert = batchResult.matches.map(match => ({
-      user_id: user.id,
+      user_id: authUser.userId,
       target_user_id: match.targetUserId,
       algorithm_type: algorithm,
       match_score: match.matchScore,
@@ -327,7 +374,7 @@ export async function POST(request: NextRequest) {
     // 插入推荐并获取返回的记录（包含id）
     let insertedRecommendations: Array<{ id: string; target_user_id: string }> = [];
     if (recommendationsToInsert.length > 0) {
-      const { data: insertedData, error: insertError } = await supabase
+      const { data: insertedData, error: insertError } = await db
         .from('recommendations')
         .upsert(recommendationsToInsert, {
           onConflict: 'user_id,target_user_id,algorithm_type',
@@ -337,7 +384,6 @@ export async function POST(request: NextRequest) {
 
       if (insertError) {
         console.error('Error inserting recommendations:', insertError);
-        // 不返回错误，继续返回计算结果
       } else {
         insertedRecommendations = insertedData || [];
       }
@@ -348,7 +394,7 @@ export async function POST(request: NextRequest) {
 
     // 获取被推荐用户的详细信息
     const targetUserIds = batchResult.matches.map(m => m.targetUserId);
-    const { data: targetUsers } = await supabase
+    const { data: targetUsers } = await db
       .from('v_user_full_profile')
       .select('*')
       .in('id', targetUserIds);
@@ -362,10 +408,10 @@ export async function POST(request: NextRequest) {
       matchScore: match.matchScore,
       algorithmType: match.algorithmType,
       scoreDetails: match.scoreDetails,
-      likedMe: likedMeUserIds.has(match.targetUserId) // 标记是否喜欢过我
+      likedMe: likedMeUserIds.has(match.targetUserId)
     }));
 
-    // 把"喜欢我的人"排在最前面，同时保持各组内的分数排序
+    // 把"喜欢我的人"排在最前面
     enrichedRecommendations = [
       ...enrichedRecommendations.filter(r => r.likedMe),
       ...enrichedRecommendations.filter(r => !r.likedMe)
@@ -391,4 +437,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

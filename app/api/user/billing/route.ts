@@ -1,13 +1,22 @@
+/**
+ * 用户账单 API
+ * User Billing API
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { getUserPaymentHistory } from '@/lib/payment/payments';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const db = await getDbClient();
     
     // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await db.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -20,8 +29,11 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = parseInt(searchParams.get('offset') || '0');
 
+    // Use service client for data operations
+    const serviceDb = await getServiceDbClient();
+
     // Get user's current balance
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await serviceDb
       .from('user_profiles')
       .select('credits')
       .eq('user_id', user.id)
@@ -35,7 +47,7 @@ export async function GET(request: NextRequest) {
     const payments = await getUserPaymentHistory(user.id, limit, offset);
 
     // Get transaction history
-    const { data: transactions, error: transactionError } = await supabase
+    const { data: transactions, error: transactionError } = await serviceDb
       .from('transactions')
       .select('*')
       .eq('user_id', user.id)
@@ -73,4 +85,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

@@ -1,30 +1,62 @@
+/**
+ * AI 统计 API (管理员)
+ * AI Stats API (Admin)
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
+import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
 
 // Monthly budget in tokens (configurable)
 const MONTHLY_TOKEN_BUDGET = parseInt(process.env.AI_MONTHLY_TOKEN_BUDGET || '1000000');
 const BUDGET_WARNING_THRESHOLD = 0.8; // 80%
 
+// INTL 环境
+function createSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+}
+
 async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: string }> {
   try {
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-    if (error || !user) return { isAdmin: false };
+    let userId: string | undefined;
 
-    const { data: adminRole } = await supabaseAdmin
+    if (isChinaDeployment()) {
+      try {
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        userId = payload.sub || payload.uid;
+      } catch {
+        const db = await getServiceDbClient();
+        const { data, error } = await db.auth.getUser();
+        if (error || !data?.user) return { isAdmin: false };
+        userId = data.user.id;
+      }
+    } else {
+      const supabase = createSupabaseAdmin();
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) return { isAdmin: false };
+      userId = user.id;
+    }
+
+    if (!userId) return { isAdmin: false };
+
+    const db = await getServiceDbClient();
+    const { data: adminRoles } = await db
       .from('admin_roles')
       .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle();
+      .eq('user_id', userId)
+      .limit(1);
 
-    return adminRole ? { isAdmin: true, userId: user.id } : { isAdmin: false };
+    return adminRoles && adminRoles.length > 0 ? { isAdmin: true, userId } : { isAdmin: false };
   } catch {
     return { isAdmin: false };
   }
@@ -42,8 +74,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
+    const db = await getServiceDbClient();
+
     // Get all AI chat sessions
-    const { data: sessions, error: sessionsError } = await supabaseAdmin
+    const { data: sessions, error: sessionsError } = await db
       .from('ai_chat_sessions')
       .select('id, user_id, session_type, model_used, token_usage, created_at');
 
@@ -61,16 +95,13 @@ export async function GET(request: NextRequest) {
 
     // Budget status
     const budgetUsagePercent = (monthlyTokenUsage / MONTHLY_TOKEN_BUDGET) * 100;
-    const isOverBudget = budgetUsagePercent >= 100;
-    const isWarning = budgetUsagePercent >= BUDGET_WARNING_THRESHOLD * 100;
 
     // Total stats
     const totalTokenUsage = allSessions.reduce((sum, s) => sum + (s.token_usage || 0), 0);
     const totalSessions = allSessions.length;
-    const uniqueUsers = new Set(allSessions.map(s => s.user_id)).size;
 
-    // Get AI usage logs (includes AI Assistant)
-    const { data: usageLogs } = await supabaseAdmin
+    // Get AI usage logs
+    const { data: usageLogs } = await db
       .from('ai_usage_logs')
       .select('user_id, feature, tokens_used, created_at');
 
@@ -80,24 +111,22 @@ export async function GET(request: NextRequest) {
       .filter(l => l.feature === 'assistant')
       .reduce((sum, l) => sum + (l.tokens_used || 0), 0);
 
-    // Count assistant sessions (each usage log is a session)
     const assistantSessions = allUsageLogs.filter(l => l.feature === 'assistant').length;
 
-    // Sessions by type (include assistant usage)
+    // Sessions by type
     const sessionsByType = {
       free_trial: allSessions.filter(s => s.session_type === 'free_trial').length,
       vip_unlimited: allSessions.filter(s => s.session_type === 'vip_unlimited').length,
       assistant: assistantSessions,
     };
 
-    // Daily stats for past 30 days (combine ai_chat_sessions and ai_usage_logs)
+    // Daily stats for past 30 days
     const dailyStats: Array<{ date: string; sessions: number; tokens: number }> = [];
     for (let i = 29; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split('T')[0];
 
-      // Sessions from ai_chat_sessions
       const daySessions = allSessions.filter(s => {
         try {
           const sessionDate = s.created_at?.substring(0, 10) || new Date(s.created_at).toISOString().split('T')[0];
@@ -108,7 +137,6 @@ export async function GET(request: NextRequest) {
       });
       const daySessionTokens = daySessions.reduce((sum, s) => sum + (s.token_usage || 0), 0);
 
-      // Usage from ai_usage_logs
       const dayUsageLogs = allUsageLogs.filter(l => {
         try {
           const logDate = l.created_at?.substring(0, 10) || new Date(l.created_at).toISOString().split('T')[0];
@@ -126,7 +154,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Top users by token usage (combine both tables)
+    // Top users by token usage
     const userTokenMap: Record<string, number> = {};
     allSessions.forEach(s => {
       userTokenMap[s.user_id] = (userTokenMap[s.user_id] || 0) + (s.token_usage || 0);
@@ -142,7 +170,7 @@ export async function GET(request: NextRequest) {
 
     let topUsers: Array<{ user_id: string; username: string; total_tokens: number }> = [];
     if (topUserIds.length > 0) {
-      const { data: users } = await supabaseAdmin
+      const { data: users } = await db
         .from('users')
         .select('id, username, email')
         .in('id', topUserIds);
@@ -158,7 +186,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get AI usage limits stats
-    const { data: usageLimits } = await supabaseAdmin
+    const { data: usageLimits } = await db
       .from('ai_usage_limits')
       .select('daily_analysis_count, total_chat_count');
 

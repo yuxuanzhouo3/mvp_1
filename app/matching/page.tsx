@@ -103,7 +103,7 @@ const algorithmOptions: AlgorithmOption[] = [
 ];
 
 export default function MatchingPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, session, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const { language } = useLanguage();
@@ -159,10 +159,14 @@ export default function MatchingPage() {
     try {
       setGenerating(true);
 
+      // 获取 session token 用于 CN 环境认证
+      const token = session?.access_token;
+
       const response = await fetch('/api/matching/recommendations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify({
           algorithm,
@@ -200,7 +204,7 @@ export default function MatchingPage() {
       setLoading(false);
       setGenerating(false);
     }
-  }, [user?.id, toast, t, getErrorMessage]);
+  }, [user?.id, session?.access_token, toast, t, getErrorMessage]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -229,10 +233,12 @@ export default function MatchingPage() {
     if (!rec.targetUser) return;
 
     try {
+      const token = session?.access_token;
       const response = await fetch('/api/matching/swipes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify({
           targetUserId: rec.targetUser.id,
@@ -272,10 +278,12 @@ export default function MatchingPage() {
     }
 
     try {
+      const token = session?.access_token;
       await fetch('/api/matching/swipes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify({
           targetUserId: rec.targetUser.id,

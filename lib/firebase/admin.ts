@@ -1,30 +1,52 @@
 /**
  * Firebase Admin SDK 初始化和推送通知服务
- * 用于服务端发送 FCM 推送通知
+ * 仅 INTL 环境使用，CN 环境不使用 Firebase
  */
 
 import admin from 'firebase-admin';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Supabase Admin 客户端（用于查询用户 FCM Token）
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
+/**
+ * 检查是否启用 Firebase（仅 INTL 环境）
+ */
+function isFirebaseEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_DEPLOYMENT_REGION !== 'CN';
+}
+
+// Supabase Admin 客户端（用于查询用户 FCM Token）- 延迟初始化
+let supabaseAdmin: SupabaseClient | null = null;
+
+function getSupabaseAdmin(): SupabaseClient | null {
+  if (!isFirebaseEnabled()) {
+    return null;
   }
-);
+  if (!supabaseAdmin) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      return null;
+    }
+    supabaseAdmin = createClient(url, key, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+  }
+  return supabaseAdmin;
+}
 
 // Firebase Admin 单例
 let firebaseAdminInitialized = false;
 
 /**
- * 初始化 Firebase Admin SDK
+ * 初始化 Firebase Admin SDK（仅 INTL 环境）
  */
 function initializeFirebaseAdmin(): boolean {
+  if (!isFirebaseEnabled()) {
+    return false;
+  }
+
   if (firebaseAdminInitialized) {
     return true;
   }
@@ -129,8 +151,14 @@ export async function sendPushNotificationToUser(
   payload: PushNotificationPayload
 ): Promise<boolean> {
   try {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) {
+      console.log('[Push] Supabase not available (CN environment), skipping push');
+      return false;
+    }
+
     // 从数据库获取用户的 FCM Token
-    const { data: user, error } = await supabaseAdmin
+    const { data: user, error } = await supabase
       .from('users')
       .select('fcm_token')
       .eq('id', userId)
@@ -170,7 +198,12 @@ export async function sendPushNotificationToUsers(
  */
 export async function removeInvalidFcmToken(userId: string): Promise<void> {
   try {
-    await supabaseAdmin
+    const supabase = getSupabaseAdmin();
+    if (!supabase) {
+      return;
+    }
+
+    await supabase
       .from('users')
       .update({ fcm_token: null })
       .eq('id', userId);

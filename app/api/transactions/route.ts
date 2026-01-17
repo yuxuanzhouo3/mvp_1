@@ -1,11 +1,14 @@
 /**
- * Transactions API - 交易流水
- * GET /api/transactions - 获取交易流水 (代理到 /api/credits/history)
+ * 交易流水 API
+ * Transactions API
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { getTransactionHistory } from '@/lib/credits/credits';
+import { getDbClient, getServiceDbClient } from '@/lib/db-client';
 
 /**
  * GET /api/transactions
@@ -13,10 +16,10 @@ import { getTransactionHistory } from '@/lib/credits/credits';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const db = await getDbClient();
 
     // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await db.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -32,10 +35,13 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('start_date'); // Optional date range
     const endDate = searchParams.get('end_date');
 
+    // Use service client for data operations
+    const serviceDb = await getServiceDbClient();
+
     // Build query
-    let query = supabase
+    let query = serviceDb
       .from('transactions')
-      .select('*', { count: 'exact' })
+      .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -53,7 +59,7 @@ export async function GET(request: NextRequest) {
     // Apply pagination
     query = query.range(offset, offset + limit - 1);
 
-    const { data: transactions, error, count } = await query;
+    const { data: transactions, error } = await query;
 
     if (error) {
       console.error('Failed to get transactions:', error);
@@ -62,6 +68,14 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Get total count for pagination
+    const { data: allTransactions } = await serviceDb
+      .from('transactions')
+      .select('id')
+      .eq('user_id', user.id);
+    
+    const count = allTransactions?.length || 0;
 
     return NextResponse.json({
       success: true,
@@ -78,10 +92,10 @@ export async function GET(request: NextRequest) {
           createdAt: t.created_at,
         })),
         pagination: {
-          total: count || 0,
+          total: count,
           limit,
           offset,
-          hasMore: (offset + limit) < (count || 0),
+          hasMore: (offset + limit) < count,
         },
       },
     });

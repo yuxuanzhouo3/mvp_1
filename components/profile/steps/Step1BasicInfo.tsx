@@ -114,33 +114,16 @@ export default function Step1BasicInfo({ data, onUpdate, onValidChange }: Step1P
 
         // Try to get city name from coordinates using reverse geocoding
         try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
-            {
-              headers: {
-                'Accept-Language': language === 'zh' ? 'zh-CN' : 'en',
-              },
-            }
-          );
-
+          const response = await fetch(`/api/geo/reverse?lat=${lat}&lng=${lng}`);
           if (response.ok) {
             const data = await response.json();
-            const city = data.address?.city ||
-                        data.address?.town ||
-                        data.address?.municipality ||
-                        data.address?.county ||
-                        data.address?.state ||
-                        '';
-            const country = data.address?.country || '';
-
-            if (city) {
-              const locationString = country ? `${city}, ${country}` : city;
-              setCityName(locationString);
+            if (data.city) {
+              setCityName(data.city);
             }
           }
         } catch (error) {
-          console.error('Reverse geocoding error:', error);
-          // Still have coordinates, just couldn't get city name
+          // 地理编码服务不可用时静默处理，用户可手动输入
+          console.log('Geocoding service unavailable, user can enter city manually');
         }
 
         setIsLocating(false);

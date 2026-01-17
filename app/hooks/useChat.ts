@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 
 export interface Message {
   id: string;
@@ -11,6 +12,8 @@ export interface Message {
   is_ai: boolean;
   attachments: string[];
   created_at: string;
+  message_type?: 'text' | 'image' | 'audio' | 'video' | 'location' | 'file';
+  status?: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 }
 
 export interface Chat {
@@ -26,6 +29,36 @@ interface UseChatOptions {
   onTyping?: (userId: string, isTyping: boolean) => void;
 }
 
+// 环信聊天服务类型
+interface IChatService {
+  initialize(userId: string): Promise<{ success: boolean; error?: string }>;
+  disconnect(): Promise<void>;
+  sendMessage(request: any): Promise<any>;
+  subscribe(roomId: string, callbacks: any): () => void;
+  markAsRead(roomId: string, messageIds: string[]): Promise<void>;
+  sendTypingStatus(roomId: string, isTyping: boolean): Promise<void>;
+  getMessages(roomId: string, options?: any): Promise<any>;
+}
+
+// 获取聊天服务实例
+let chatServiceInstance: IChatService | null = null;
+
+async function getChatServiceInstance(): Promise<IChatService | null> {
+  if (chatServiceInstance) return chatServiceInstance;
+
+  if (isChinaDeployment()) {
+    try {
+      const { CnChatService } = await import('@/lib/services/chat/cn-chat');
+      chatServiceInstance = new CnChatService();
+      return chatServiceInstance;
+    } catch (error) {
+      console.error('Failed to load CnChatService:', error);
+      return null;
+    }
+  }
+  return null;
+}
+
 export function useChat(options: UseChatOptions = {}) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -34,34 +67,104 @@ export function useChat(options: UseChatOptions = {}) {
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const wsRef = useRef<WebSocket | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const chatServiceRef = useRef<IChatService | null>(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
+  const isCN = isChinaDeployment();
 
-  const connect = useCallback(() => {
+  // CN环境：初始化环信服务
+  const initEasemob = useCallback(async () => {
     if (!user || !options.chatId) return;
 
-    const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WS_URL}/chat/${options.chatId}`);
+    try {
+      const service = await getChatServiceInstance();
+      if (!service) {
+        console.error('Chat service not available');
+        return;
+      }
+      chatServiceRef.current = service;
+
+      // 初始化连接
+      const result = await service.initialize(user.id);
+      if (!result.success) {
+        console.error('Easemob init failed:', result.error);
+        return;
+      }
+
+      setIsConnected(true);
+
+      // 订阅消息
+      unsubscribeRef.current = service.subscribe(options.chatId, {
+        onMessageReceived: (msg: any) => {
+          const newMessage: Message = {
+            id: msg.id,
+            content: msg.content || '',
+            sender_id: msg.senderId,
+            chat_id: options.chatId!,
+            is_ai: false,
+            attachments: msg.attachments || [],
+            created_at: msg.createdAt || new Date().toISOString(),
+            message_type: msg.type || 'text',
+            status: 'delivered',
+          };
+          setMessages(prev => [...prev, newMessage]);
+          options.onMessageReceived?.(newMessage);
+        },
+        onTypingStatusChanged: (userId: string, typing: boolean) => {
+          if (typing) {
+            setTypingUsers(prev => new Set(prev).add(userId));
+          } else {
+            setTypingUsers(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(userId);
+              return newSet;
+            });
+          }
+          options.onTyping?.(userId, typing);
+        },
+        onError: (error: Error) => {
+          console.error('Chat error:', error);
+        },
+      });
+    } catch (error) {
+      console.error('Easemob connection error:', error);
+      setIsConnected(false);
+    }
+  }, [user, options.chatId, options.onMessageReceived, options.onTyping]);
+
+  // INTL环境：WebSocket连接
+  const connectWebSocket = useCallback(() => {
+    if (!user || !options.chatId) return;
+
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+    if (!wsUrl) {
+      console.warn('WebSocket URL not configured, using HTTP polling');
+      setIsConnected(true);
+      return;
+    }
+
+    const ws = new WebSocket(`${wsUrl}/chat/${options.chatId}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
       setIsConnected(true);
-      console.log('WebSocket connected');
     };
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        
+
         switch (data.type) {
           case 'message':
             const newMessage: Message = data.message;
             setMessages(prev => [...prev, newMessage]);
             options.onMessageReceived?.(newMessage);
             break;
-          
+
           case 'typing_start':
             setTypingUsers(prev => new Set(prev).add(data.userId));
             options.onTyping?.(data.userId, true);
             break;
-          
+
           case 'typing_stop':
             setTypingUsers(prev => {
               const newSet = new Set(prev);
@@ -70,7 +173,7 @@ export function useChat(options: UseChatOptions = {}) {
             });
             options.onTyping?.(data.userId, false);
             break;
-          
+
           case 'ai_response':
             const aiMessage: Message = data.message;
             setMessages(prev => [...prev, aiMessage]);
@@ -84,71 +187,97 @@ export function useChat(options: UseChatOptions = {}) {
 
     ws.onclose = () => {
       setIsConnected(false);
-      console.log('WebSocket disconnected');
     };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
+    ws.onerror = () => {
       setIsConnected(false);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, options.chatId, options.onMessageReceived, options.onTyping]);
 
   const disconnect = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.close();
+    if (isCN) {
+      unsubscribeRef.current?.();
+      unsubscribeRef.current = null;
+    } else {
+      wsRef.current?.close();
       wsRef.current = null;
     }
-  }, []);
+  }, [isCN]);
 
   const sendMessage = useCallback(async (content: string, attachments: string[] = []) => {
     if (!user || !options.chatId || !isConnected) return;
 
-    const message: Omit<Message, 'id' | 'created_at'> = {
-      content,
-      sender_id: user.id,
-      chat_id: options.chatId,
-      is_ai: false,
-      attachments,
-    };
+    if (isCN && chatServiceRef.current) {
+      // CN环境：使用环信发送
+      try {
+        const result = await chatServiceRef.current.sendMessage({
+          roomId: options.chatId,
+          content,
+          type: 'text',
+          attachments,
+        });
 
-    // Send via WebSocket
-    wsRef.current?.send(JSON.stringify({
-      type: 'message',
-      message,
-    }));
+        if (result.success && result.message) {
+          const newMessage: Message = {
+            id: result.message.id,
+            content,
+            sender_id: user.id,
+            chat_id: options.chatId,
+            is_ai: false,
+            attachments,
+            created_at: new Date().toISOString(),
+            status: 'sent',
+          };
+          setMessages(prev => [...prev, newMessage]);
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
+      }
+    } else {
+      // INTL环境：WebSocket + HTTP API
+      const message: Omit<Message, 'id' | 'created_at'> = {
+        content,
+        sender_id: user.id,
+        chat_id: options.chatId,
+        is_ai: false,
+        attachments,
+      };
 
-    // Also save to database
-    try {
-      await fetch('/api/chat/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(message),
-      });
-    } catch (error) {
-      console.error('Error saving message:', error);
+      wsRef.current?.send(JSON.stringify({ type: 'message', message }));
+
+      try {
+        await fetch(`/api/chat/${options.chatId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(message),
+        });
+      } catch (error) {
+        console.error('Error saving message:', error);
+      }
     }
-  }, [user, options.chatId, isConnected]);
+  }, [user, options.chatId, isConnected, isCN]);
 
-  const sendTyping = useCallback((isTyping: boolean) => {
+  const sendTyping = useCallback((typing: boolean) => {
     if (!user || !options.chatId || !isConnected) return;
 
-    wsRef.current?.send(JSON.stringify({
-      type: 'typing',
-      userId: user.id,
-      isTyping,
-    }));
+    if (isCN && chatServiceRef.current) {
+      chatServiceRef.current.sendTypingStatus(options.chatId, typing);
+    } else if (wsRef.current) {
+      wsRef.current.send(JSON.stringify({
+        type: 'typing',
+        userId: user.id,
+        isTyping: typing,
+      }));
+    }
 
-    setIsTyping(isTyping);
-  }, [user, options.chatId, isConnected]);
+    setIsTyping(typing);
+  }, [user, options.chatId, isConnected, isCN]);
 
   const loadMessages = useCallback(async () => {
     if (!options.chatId) return;
 
     try {
-      const response = await fetch(`/api/chat/messages?chatId=${options.chatId}`, {
+      const response = await fetch(`/api/chat/${options.chatId}/messages`, {
         cache: 'no-store',
       });
       if (response.ok) {
@@ -160,10 +289,19 @@ export function useChat(options: UseChatOptions = {}) {
     }
   }, [options.chatId]);
 
+  const markAsRead = useCallback(async (messageIds: string[]) => {
+    if (!options.chatId || !isCN || !chatServiceRef.current) return;
+
+    try {
+      await chatServiceRef.current.markAsRead(options.chatId, messageIds);
+    } catch (error) {
+      console.error('Error marking as read:', error);
+    }
+  }, [options.chatId, isCN]);
+
   const sendAIMessage = useCallback(async (content: string) => {
     if (!user || !options.chatId) return;
 
-    // Send AI message request
     wsRef.current?.send(JSON.stringify({
       type: 'ai_message',
       content,
@@ -172,13 +310,13 @@ export function useChat(options: UseChatOptions = {}) {
     }));
   }, [user, options.chatId]);
 
-  // Handle typing timeout
+  // 输入状态超时处理
   useEffect(() => {
     if (isTyping) {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
-      
+
       typingTimeoutRef.current = setTimeout(() => {
         sendTyping(false);
       }, 3000);
@@ -191,17 +329,21 @@ export function useChat(options: UseChatOptions = {}) {
     };
   }, [isTyping, sendTyping]);
 
-  // Connect/disconnect on mount/unmount
+  // 连接/断开
   useEffect(() => {
     if (options.chatId) {
-      connect();
+      if (isCN) {
+        initEasemob();
+      } else {
+        connectWebSocket();
+      }
       loadMessages();
     }
 
     return () => {
       disconnect();
     };
-  }, [options.chatId, connect, disconnect, loadMessages]);
+  }, [options.chatId, isCN, initEasemob, connectWebSocket, disconnect, loadMessages]);
 
   return {
     messages,
@@ -212,5 +354,6 @@ export function useChat(options: UseChatOptions = {}) {
     sendTyping,
     sendAIMessage,
     loadMessages,
+    markAsRead,
   };
-} 
+}

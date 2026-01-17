@@ -2,14 +2,71 @@
  * Boost API - 曝光加速
  * GET /api/profile/boost - 获取当前 Boost 状态
  * POST /api/profile/boost - 开启曝光加速 (2积分/30分钟)
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@/lib/supabase/server';
+import { getDbClient, isChinaDeployment } from '@/lib/db-client';
+import { createClient } from '@supabase/supabase-js';
 import { checkAndConsumeCredits, CREDIT_COSTS } from '@/lib/credits/credits';
 
 // Boost duration: 30 minutes
 const BOOST_DURATION_MINUTES = 30;
+
+// 统一认证函数
+async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
+  const authHeader = request.headers.get('authorization');
+
+  if (isChinaDeployment()) {
+    // CN 环境
+    if (!authHeader) return null;
+    const token = authHeader.replace('Bearer ', '');
+    // CN 环境: 支持 cn_ 前缀的用户 ID token
+    if (token.startsWith('cn_')) {
+      const userId = token.substring(3);
+      if (userId) {
+        return { userId };
+      }
+    }
+    // 从 token 中解析用户信息 (JWT)
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      return {
+        userId: payload.sub || payload.uid,
+        email: payload.email,
+      };
+    } catch {
+      return null;
+    }
+  } else {
+    // INTL 环境: 使用 Supabase 验证 token
+    const db = await getDbClient();
+    const { data: { user }, error } = await db.auth.getUser();
+    if (error || !user) {
+      if (authHeader) {
+        try {
+          const token = authHeader.replace('Bearer ', '');
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+          if (url && key) {
+            const anonClient = createClient(url, key, {
+              auth: { autoRefreshToken: false, persistSession: false }
+            });
+            const { data: { user: tokenUser }, error: tokenError } = await anonClient.auth.getUser(token);
+            if (!tokenError && tokenUser) {
+              return { userId: tokenUser.id, email: tokenUser.email };
+            }
+          }
+        } catch {}
+      }
+      return null;
+    }
+    return { userId: user.id, email: user.email };
+  }
+}
 
 /**
  * GET /api/profile/boost
@@ -17,22 +74,22 @@ const BOOST_DURATION_MINUTES = 30;
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient();
-
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    if (!authUser) {
       return NextResponse.json(
         { success: false, error: 'AUTH_REQUIRED', errorCode: 'AUTH_REQUIRED' },
         { status: 401 }
       );
     }
 
+    const db = await getDbClient();
+
     // Check for active boost
-    const { data: activeBoost, error: boostError } = await supabase
+    const { data: activeBoost, error: boostError } = await db
       .from('user_boosts')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', authUser.userId)
       .eq('is_active', true)
       .gt('expires_at', new Date().toISOString())
       .order('expires_at', { ascending: false })
@@ -62,6 +119,7 @@ export async function GET(request: NextRequest) {
         cost: CREDIT_COSTS.BOOST,
         durationMinutes: BOOST_DURATION_MINUTES,
       },
+      region: isChinaDeployment() ? 'CN' : 'INTL',
     });
   } catch (error) {
     console.error('Boost GET API error:', error);
@@ -78,22 +136,22 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient();
-
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    if (!authUser) {
       return NextResponse.json(
         { success: false, error: 'AUTH_REQUIRED', errorCode: 'AUTH_REQUIRED' },
         { status: 401 }
       );
     }
 
+    const db = await getDbClient();
+
     // Check for existing active boost
-    const { data: existingBoost } = await supabase
+    const { data: existingBoost } = await db
       .from('user_boosts')
       .select('id, expires_at')
-      .eq('user_id', user.id)
+      .eq('user_id', authUser.userId)
       .eq('is_active', true)
       .gt('expires_at', new Date().toISOString())
       .limit(1)
@@ -106,7 +164,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: 'BOOST_ALREADY_ACTIVE',
           errorCode: 'BOOST_ALREADY_ACTIVE',
-          message: 'You already have an active boost',
+          message: isChinaDeployment() ? '您已有一个活跃的曝光加速' : 'You already have an active boost',
           remainingMinutes: Math.ceil(remainingTime / 60000),
         },
         { status: 400 }
@@ -114,7 +172,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check and consume credits (2 credits for boost)
-    const creditsResult = await checkAndConsumeCredits(user.id, 'boost');
+    const creditsResult = await checkAndConsumeCredits(authUser.userId, 'boost');
 
     if (!creditsResult.success) {
       return NextResponse.json(
@@ -132,10 +190,10 @@ export async function POST(request: NextRequest) {
     const startedAt = new Date();
     const expiresAt = new Date(startedAt.getTime() + BOOST_DURATION_MINUTES * 60 * 1000);
 
-    const { data: newBoost, error: insertError } = await supabase
+    const { data: newBoost, error: insertError } = await db
       .from('user_boosts')
       .insert({
-        user_id: user.id,
+        user_id: authUser.userId,
         started_at: startedAt.toISOString(),
         expires_at: expiresAt.toISOString(),
         credits_consumed: CREDIT_COSTS.BOOST,
@@ -151,7 +209,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: 'BOOST_CREATION_FAILED',
           errorCode: 'BOOST_CREATION_FAILED',
-          message: 'Failed to create boost',
+          message: isChinaDeployment() ? '创建曝光加速失败' : 'Failed to create boost',
         },
         { status: 500 }
       );
@@ -170,6 +228,7 @@ export async function POST(request: NextRequest) {
         newBalance: creditsResult.newBalance,
       },
       messageCode: 'BOOST_ACTIVATED',
+      region: isChinaDeployment() ? 'CN' : 'INTL',
     });
   } catch (error) {
     console.error('Boost POST API error:', error);

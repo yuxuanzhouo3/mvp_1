@@ -90,28 +90,45 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
 
   if (isProtectedRoute || isAuthRoute) {
-    const supabase = createMiddlewareClient(request, response);
+    // CN 环境：检查 CN session cookie
+    const isCN = deploymentRegion === "CN";
+    const cnSession = request.cookies.get('cn_session')?.value;
 
-    if (supabase) {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
+    if (isCN) {
+      // CN 环境使用 cookie 检查认证状态
+      if (isProtectedRoute && !cnSession) {
+        const loginUrl = new URL('/auth/login', request.url);
+        loginUrl.searchParams.set('redirect', pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+      if (isAuthRoute && cnSession) {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
+    } else {
+      // INTL 环境使用 Supabase session
+      const supabase = createMiddlewareClient(request, response);
 
-        // If accessing protected route without session, redirect to login
-        if (isProtectedRoute && !session) {
-          const loginUrl = new URL('/auth/login', request.url);
-          loginUrl.searchParams.set('redirect', pathname);
-          return NextResponse.redirect(loginUrl);
-        }
+      if (supabase) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
 
-        // If accessing auth routes with active session, redirect to dashboard
-        if (isAuthRoute && session) {
-          return NextResponse.redirect(new URL('/dashboard', request.url));
-        }
-      } catch (error) {
-        console.error('Auth check error:', error);
-        // On error, allow access to auth routes but protect protected routes
-        if (isProtectedRoute) {
-          return NextResponse.redirect(new URL('/auth/login', request.url));
+          // If accessing protected route without session, redirect to login
+          if (isProtectedRoute && !session) {
+            const loginUrl = new URL('/auth/login', request.url);
+            loginUrl.searchParams.set('redirect', pathname);
+            return NextResponse.redirect(loginUrl);
+          }
+
+          // If accessing auth routes with active session, redirect to dashboard
+          if (isAuthRoute && session) {
+            return NextResponse.redirect(new URL('/dashboard', request.url));
+          }
+        } catch (error) {
+          console.error('Auth check error:', error);
+          // On error, allow access to auth routes but protect protected routes
+          if (isProtectedRoute) {
+            return NextResponse.redirect(new URL('/auth/login', request.url));
+          }
         }
       }
     }

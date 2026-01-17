@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 import {
   Heart,
   MessageSquare,
@@ -118,9 +119,17 @@ export default function DashboardPage() {
     try {
       setLoading(true);
 
-      // Get current session token
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      // Get token based on environment
+      let token: string | undefined;
+
+      if (isChinaDeployment()) {
+        // CN 环境：使用用户 ID 作为 token
+        token = `cn_${userId}`;
+      } else {
+        // INTL 环境：从 Supabase 获取 session token
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token;
+      }
 
       if (!token) {
         console.error('No session token available');

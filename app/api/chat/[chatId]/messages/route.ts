@@ -1,27 +1,88 @@
+/**
+ * 聊天消息 API
+ * GET /api/chat/[chatId]/messages - 获取聊天消息
+ * POST /api/chat/[chatId]/messages - 发送消息
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { getDbClient, isChinaDeployment } from '@/lib/db-client';
+import { createClient } from '@supabase/supabase-js';
 import { checkAndConsumeCredits, CREDIT_COSTS } from '@/lib/credits/credits';
+
+// 统一认证函数
+async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
+  const authHeader = request.headers.get('authorization');
+
+  if (isChinaDeployment()) {
+    // CN 环境
+    if (!authHeader) return null;
+    const token = authHeader.replace('Bearer ', '');
+    // CN 环境: 支持 cn_ 前缀的用户 ID token
+    if (token.startsWith('cn_')) {
+      const userId = token.substring(3);
+      if (userId) {
+        return { userId };
+      }
+    }
+    // 从 token 中解析用户信息 (JWT)
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      return {
+        userId: payload.sub || payload.uid,
+        email: payload.email,
+      };
+    } catch {
+      return null;
+    }
+  } else {
+    // INTL 环境: 使用 Supabase 验证 token
+    const db = await getDbClient();
+    const { data: { user }, error } = await db.auth.getUser();
+    if (error || !user) {
+      if (authHeader) {
+        try {
+          const token = authHeader.replace('Bearer ', '');
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+          if (url && key) {
+            const anonClient = createClient(url, key, {
+              auth: { autoRefreshToken: false, persistSession: false }
+            });
+            const { data: { user: tokenUser }, error: tokenError } = await anonClient.auth.getUser(token);
+            if (!tokenError && tokenUser) {
+              return { userId: tokenUser.id, email: tokenUser.email };
+            }
+          }
+        } catch {}
+      }
+      return null;
+    }
+    return { userId: user.id, email: user.email };
+  }
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { chatId: string } }
 ) {
   try {
-    const supabase = createClient();
-    
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    if (!authUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    const db = await getDbClient();
+
     // Get messages for the chat room
-    const { data: messages, error: messagesError } = await supabase
+    const { data: messages, error: messagesError } = await db
       .from('messages')
       .select(`
         id,
@@ -44,12 +105,17 @@ export async function GET(
 
     // Get sender info for all messages
     const senderIds = Array.from(new Set(messages?.map(m => m.sender_id) || []));
-    const { data: senders } = await supabase
-      .from('users')
-      .select('id, username, avatar_url')
-      .in('id', senderIds);
+    let senders: any[] = [];
+    
+    if (senderIds.length > 0) {
+      const { data } = await db
+        .from('users')
+        .select('id, username, avatar_url')
+        .in('id', senderIds);
+      senders = data || [];
+    }
 
-    const senderMap = new Map(senders?.map(s => [s.id, s]) || []);
+    const senderMap = new Map(senders.map(s => [s.id, s]));
 
     // Map messages with sender info
     const messagesWithSenders = messages?.map(m => ({
@@ -79,21 +145,20 @@ export async function POST(
   { params }: { params: { chatId: string } }
 ) {
   try {
-    const supabase = createClient();
-    const { content, messageType = 'text' } = await request.json();
-    
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    if (!authUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
+    const db = await getDbClient();
+    const { content, messageType = 'text' } = await request.json();
+
     // Check and consume credits for sending a message
-    const creditsResult = await checkAndConsumeCredits(user.id, 'message');
+    const creditsResult = await checkAndConsumeCredits(authUser.userId, 'message');
 
     if (!creditsResult.success) {
       return NextResponse.json(
@@ -102,16 +167,16 @@ export async function POST(
           errorCode: creditsResult.errorCode || 'INSUFFICIENT_CREDITS',
           requiredCredits: CREDIT_COSTS.MESSAGE,
         },
-        { status: 402 } // Payment Required
+        { status: 402 }
       );
     }
 
     // Create new message
-    const { data: message, error: messageError } = await supabase
+    const { data: message, error: messageError } = await db
       .from('messages')
       .insert({
         room_id: params.chatId,
-        sender_id: user.id,
+        sender_id: authUser.userId,
         content,
         message_type: messageType,
       })
@@ -133,10 +198,10 @@ export async function POST(
     }
 
     // Get sender info
-    const { data: sender } = await supabase
+    const { data: sender } = await db
       .from('users')
       .select('id, username, avatar_url')
-      .eq('id', user.id)
+      .eq('id', authUser.userId)
       .single();
 
     const messageWithSender = {
@@ -159,4 +224,4 @@ export async function POST(
       { status: 500 }
     );
   }
-} 
+}

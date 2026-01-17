@@ -1,19 +1,17 @@
+/**
+ * 检查用户名可用性 API
+ * Check Username Availability API
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getServiceDbClient } from '@/lib/db-client';
 
 // Force dynamic rendering - no caching
 export const dynamic = 'force-dynamic';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,8 +26,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const db = await getServiceDbClient();
+
     // Check if username exists (excluding current user)
-    let query = supabaseAdmin
+    let query = db
       .from('users')
       .select('id')
       .eq('username', username);
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       query = query.neq('id', userId);
     }
 
-    const { data, error } = await query.maybeSingle();
+    const { data, error } = await query.limit(1);
 
     if (error) {
       console.error('Username check error:', error);
@@ -48,8 +48,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if any results were returned
+    const exists = data && data.length > 0;
+
     return NextResponse.json({
-      available: !data,
+      available: !exists,
       username
     });
 

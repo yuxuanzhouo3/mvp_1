@@ -42,7 +42,7 @@ export function MonitoringDashboard({
 
   if (!isVisible) {
     return (
-      <div className="hidden md:block fixed bottom-4 right-4 z-50">
+      <div className="hidden md:block fixed top-20 right-4 z-50">
         <button
           onClick={handleToggle}
           className="bg-white border border-gray-200 rounded-lg p-2 shadow-lg hover:shadow-xl transition-shadow"

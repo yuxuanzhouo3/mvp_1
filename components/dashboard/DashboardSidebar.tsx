@@ -25,6 +25,7 @@ import {
   X
 } from 'lucide-react'
 import { useState, useEffect } from 'react';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 
 interface UserData {
   id: string;
@@ -73,9 +74,11 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const chatHref = isChinaDeployment() ? '/dashboard/messages/cn-chat' : '/dashboard/messages';
+
   const navigation: NavigationItem[] = [
     { name: t.dashboard.sidebar.home, href: '/dashboard', icon: Home },
-    { name: t.dashboard.sidebar.chat, href: '/dashboard/messages', icon: MessageSquare },
+    { name: t.dashboard.sidebar.chat, href: chatHref, icon: MessageSquare },
     { name: t.dashboard.sidebar.matching, href: '/matching', icon: Heart },
     { name: t.dashboard.sidebar.marketValue, href: '/profile/score-details', icon: TrendingUp },
     { name: t.dashboard.sidebar.recharge, href: '/payment/recharge', icon: CreditCard },
@@ -105,7 +108,7 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
           {[
             { name: language === 'zh' ? '首页' : 'Home', href: '/dashboard', icon: Home },
             { name: language === 'zh' ? '匹配' : 'Match', href: '/matching', icon: Heart },
-            { name: language === 'zh' ? '消息' : 'Messages', href: '/dashboard/messages', icon: MessageSquare },
+            { name: language === 'zh' ? '消息' : 'Messages', href: chatHref, icon: MessageSquare },
             { name: language === 'zh' ? '我的' : 'Me', href: '/dashboard/settings', icon: User },
           ].map((item) => {
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href))

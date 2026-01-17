@@ -1,26 +1,18 @@
+/**
+ * 用户资料 API
+ * User Profile API
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
+import { getDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 
-// Create a Supabase client with service role key for server-side operations
-// This bypasses RLS and allows the API to access data on behalf of authenticated users
-function createServiceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceKey) {
-    throw new Error('Supabase configuration missing');
-  }
-
-  return createClient(url, serviceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
-}
-
-// Create a Supabase client with anon key for token verification only
-function createAnonClient() {
+// INTL 环境: 创建用于 token 验证的 anon 客户端
+function createAnonClientForAuth() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -36,51 +28,99 @@ function createAnonClient() {
   });
 }
 
+// 从请求中验证用户身份
+async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string; metadata?: any } | null> {
+  const authHeader = request.headers.get('authorization');
+
+  if (!authHeader) {
+    return null;
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+
+  if (isChinaDeployment()) {
+    // CN 环境: 支持 cn_ 前缀的用户 ID token
+    if (token.startsWith('cn_')) {
+      const userId = token.substring(3); // 移除 'cn_' 前缀
+      if (userId) {
+        return { userId, metadata: {} };
+      }
+    }
+
+    // 尝试从 Cloudbase 验证 token
+    try {
+      const db = await getDbClient();
+      const { data, error } = await db.auth.getUser();
+      if (error || !data?.user) {
+        // 尝试从 token 中解析用户信息 (JWT)
+        try {
+          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+          return {
+            userId: payload.sub || payload.uid,
+            email: payload.email,
+            metadata: payload
+          };
+        } catch {
+          return null;
+        }
+      }
+      return {
+        userId: data.user.id,
+        email: data.user.email,
+        metadata: {}
+      };
+    } catch {
+      return null;
+    }
+  } else {
+    // INTL 环境: 使用 Supabase 验证 token
+    try {
+      const anonClient = createAnonClientForAuth();
+      const { data: { user }, error } = await anonClient.auth.getUser(token);
+      
+      if (error || !user) {
+        return null;
+      }
+      
+      return {
+        userId: user.id,
+        email: user.email,
+        metadata: user.user_metadata
+      };
+    } catch {
+      return null;
+    }
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // Get the authorization header
-    const authHeader = request.headers.get('authorization');
-
-    if (!authHeader) {
-      return NextResponse.json({ error: 'No authorization header' }, { status: 401 });
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    
+    if (!authUser) {
+      return NextResponse.json({ error: 'No authorization header or invalid token' }, { status: 401 });
     }
 
-    // Extract the token
-    const token = authHeader.replace('Bearer ', '');
+    // 获取服务端数据库客户端 (绕过 RLS)
+    const db = await getServiceDbClient();
 
-    // Create clients
-    let anonClient;
-    let serviceClient;
-    try {
-      anonClient = createAnonClient();
-      serviceClient = createServiceClient();
-    } catch (err) {
-      return NextResponse.json({ error: 'Supabase configuration error', details: String(err) }, { status: 500 });
-    }
-
-    // Verify the token and get user using anon client
-    const { data: { user }, error: authError } = await anonClient.auth.getUser(token);
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    // Step 1: Check if user exists in users table (use serviceClient to bypass RLS)
-    let { data: userData, error: userError } = await serviceClient
+    // Step 1: 检查用户是否存在
+    let { data: userData, error: userError } = await db
       .from('users')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', authUser.userId)
       .single();
 
-    // If user doesn't exist (PGRST116 = not found), create one
+    // 如果用户不存在，创建一个
     if (userError?.code === 'PGRST116' || !userData) {
-      const { data: newUser, error: insertUserError } = await serviceClient
+      const { data: newUser, error: insertUserError } = await db
         .from('users')
         .insert({
-          id: user.id,
-          email: user.email,
-          username: user.email?.split('@')[0],
-          avatar_url: user.user_metadata?.avatar_url,
+          id: authUser.userId,
+          email: authUser.email,
+          username: authUser.email?.split('@')[0],
+          avatar_url: authUser.metadata?.avatar_url,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -88,13 +128,13 @@ export async function GET(request: NextRequest) {
         .single();
 
       if (insertUserError) {
-        // Return a minimal profile if we can't create the user record
+        // 如果无法创建用户记录，返回最小化的 profile
         return NextResponse.json({
           profile: {
-            id: user.id,
-            email: user.email,
-            full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
-            avatar_url: user.user_metadata?.avatar_url,
+            id: authUser.userId,
+            email: authUser.email,
+            full_name: authUser.metadata?.full_name || authUser.metadata?.name || 'User',
+            avatar_url: authUser.metadata?.avatar_url,
             credits: 100,
             interests: [],
             created_at: new Date().toISOString(),
@@ -107,44 +147,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to load user' }, { status: 500 });
     }
 
-    // Step 2: Check if profile exists
-    let { data: profileData, error: profileError } = await serviceClient
+    // Step 2: 检查 profile 是否存在
+    let { data: profileData, error: profileError } = await db
       .from('user_profiles')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', authUser.userId)
       .single();
 
-    // If profile doesn't exist, create one
+    // 如果 profile 不存在，创建一个
     if (profileError?.code === 'PGRST116' || !profileData) {
-      const { data: newProfile, error: insertProfileError } = await serviceClient
+      const { data: newProfile, error: insertProfileError } = await db
         .from('user_profiles')
         .insert({
-          user_id: user.id,
-          real_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+          user_id: authUser.userId,
+          real_name: authUser.metadata?.full_name || authUser.metadata?.name || '',
           updated_at: new Date().toISOString()
         })
         .select()
         .single();
 
-      if (insertProfileError) {
-        // Continue without profile data
-      } else {
+      if (!insertProfileError) {
         profileData = newProfile;
       }
     }
 
-    // Step 3: Get user interests (this won't fail if table is empty)
-    const { data: interestsData } = await serviceClient
+    // Step 3: 获取用户兴趣
+    const { data: interestsData } = await db
       .from('users_interests_map')
       .select('interest_id, interests(id, name, category, icon_url)')
-      .eq('user_id', user.id);
+      .eq('user_id', authUser.userId);
 
-    // Combine data into unified profile response
+    // 组装统一的 profile 响应
     const profile = {
-      id: user.id,
-      email: userData?.email || user.email,
-      full_name: profileData?.real_name || user.user_metadata?.full_name || user.user_metadata?.name || 'User',
-      avatar_url: userData?.avatar_url || user.user_metadata?.avatar_url,
+      id: authUser.userId,
+      email: userData?.email || authUser.email,
+      full_name: profileData?.real_name || authUser.metadata?.full_name || authUser.metadata?.name || 'User',
+      avatar_url: userData?.avatar_url || authUser.metadata?.avatar_url,
       username: userData?.username,
       gender: userData?.gender,
       birth_date: userData?.birth_date,
@@ -161,7 +199,7 @@ export async function GET(request: NextRequest) {
       children_preference: profileData?.children_preference,
       mbti: profileData?.mbti,
       interests: interestsData?.map(i => (i.interests as any)?.name).filter(Boolean) || [],
-      credits: profileData?.credits ?? 0, // Read real credits from database
+      credits: profileData?.credits ?? 0,
       is_profile_complete: profileData?.is_profile_complete || false,
       created_at: userData?.created_at || new Date().toISOString(),
       updated_at: profileData?.updated_at || userData?.updated_at || new Date().toISOString()
@@ -169,38 +207,30 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ profile });
   } catch (error) {
+    console.error('[User Profile GET] Error:', error);
     return NextResponse.json({ error: 'Internal server error', details: String(error) }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    // Get the authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
-      return NextResponse.json({ error: 'No authorization header' }, { status: 401 });
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    
+    if (!authUser) {
+      return NextResponse.json({ error: 'No authorization header or invalid token' }, { status: 401 });
     }
 
-    // Extract the token
-    const token = authHeader.replace('Bearer ', '');
-
-    // Create clients
-    const anonClient = createAnonClient();
-    const serviceClient = createServiceClient();
-
-    // Verify the token and get user
-    const { data: { user }, error: authError } = await anonClient.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    // 获取服务端数据库客户端
+    const db = await getServiceDbClient();
 
     const body = await request.json();
 
-    // Separate user data and profile data
+    // 分离 user 数据和 profile 数据
     const userData: Record<string, any> = {};
     const profileData: Record<string, any> = {};
 
-    // Map fields to appropriate tables
+    // 映射字段到对应的表
     if (body.email !== undefined) userData.email = body.email;
     if (body.username !== undefined) userData.username = body.username;
     if (body.gender !== undefined) userData.gender = body.gender;
@@ -221,44 +251,40 @@ export async function PUT(request: NextRequest) {
     if (body.children_preference !== undefined) profileData.children_preference = body.children_preference;
     if (body.mbti !== undefined) profileData.mbti = body.mbti;
 
-    // Update users table if there's user data
+    // 更新 users 表
     if (Object.keys(userData).length > 0) {
       userData.updated_at = new Date().toISOString();
-      const { error: userUpdateError } = await serviceClient
+      await db
         .from('users')
         .update(userData)
-        .eq('id', user.id);
-
-      if (userUpdateError) {
-        // Log silently, don't fail the request
-      }
+        .eq('id', authUser.userId);
     }
 
-    // Update user_profiles table if there's profile data
+    // 更新 user_profiles 表
     if (Object.keys(profileData).length > 0) {
       profileData.updated_at = new Date().toISOString();
 
-      // Check if profile exists
-      const { data: existingProfile } = await serviceClient
+      // 检查 profile 是否存在
+      const { data: existingProfile } = await db
         .from('user_profiles')
         .select('user_id')
-        .eq('user_id', user.id)
+        .eq('user_id', authUser.userId)
         .single();
 
       if (existingProfile) {
-        const { error: profileUpdateError } = await serviceClient
+        const { error: profileUpdateError } = await db
           .from('user_profiles')
           .update(profileData)
-          .eq('user_id', user.id);
+          .eq('user_id', authUser.userId);
 
         if (profileUpdateError) {
           return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
         }
       } else {
-        const { error: profileInsertError } = await serviceClient
+        const { error: profileInsertError } = await db
           .from('user_profiles')
           .insert({
-            user_id: user.id,
+            user_id: authUser.userId,
             ...profileData
           });
 
@@ -268,22 +294,22 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Return updated profile data
-    const { data: updatedUser } = await serviceClient
+    // 返回更新后的 profile 数据
+    const { data: updatedUser } = await db
       .from('users')
       .select('*')
-      .eq('id', user.id)
+      .eq('id', authUser.userId)
       .single();
 
-    const { data: updatedProfile } = await serviceClient
+    const { data: updatedProfile } = await db
       .from('user_profiles')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', authUser.userId)
       .single();
 
     const profile = {
-      id: user.id,
-      email: updatedUser?.email || user.email,
+      id: authUser.userId,
+      email: updatedUser?.email || authUser.email,
       full_name: updatedProfile?.real_name || '',
       avatar_url: updatedUser?.avatar_url,
       username: updatedUser?.username,
@@ -301,13 +327,14 @@ export async function PUT(request: NextRequest) {
       relationship_history_count: updatedProfile?.relationship_history_count,
       children_preference: updatedProfile?.children_preference,
       mbti: updatedProfile?.mbti,
-      credits: updatedProfile?.credits ?? 0, // Read real credits from database
+      credits: updatedProfile?.credits ?? 0,
       created_at: updatedUser?.created_at,
       updated_at: updatedProfile?.updated_at || updatedUser?.updated_at
     };
 
     return NextResponse.json({ profile });
   } catch (error) {
+    console.error('[User Profile PUT] Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

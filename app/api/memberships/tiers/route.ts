@@ -1,10 +1,14 @@
 /**
  * Membership Tiers API - 会员等级列表
  * GET /api/memberships/tiers - 获取所有会员等级及权益
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 
 interface MembershipTier {
   id: string;
@@ -113,15 +117,16 @@ const FALLBACK_TIERS_DATA: FallbackTier[] = [
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const db = await getDbClient();
+    const isCN = isChinaDeployment();
 
     // Get query params
     const { searchParams } = new URL(request.url);
-    const currency = searchParams.get('currency') || 'USD';
+    const currency = searchParams.get('currency') || (isCN ? 'CNY' : 'USD');
     const isChineseLocale = currency === 'CNY';
 
     // Try to get tiers from database
-    const { data: tiers, error } = await supabase
+    const { data: tiers, error } = await db
       .from('membership_tiers')
       .select('*')
       .eq('is_active', true)
@@ -195,6 +200,7 @@ export async function GET(request: NextRequest) {
         tiers: formattedTiers,
         currency: currency,
         total: formattedTiers.length,
+        region: isCN ? 'CN' : 'INTL',
       },
     });
   } catch (error) {

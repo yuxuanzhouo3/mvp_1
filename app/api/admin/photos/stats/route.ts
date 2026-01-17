@@ -1,45 +1,65 @@
+/**
+ * 照片统计 API (管理员)
+ * Photo Stats API (Admin)
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
+import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 
 // Force dynamic rendering to avoid caching issues
 export const dynamic = 'force-dynamic';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
+// INTL 环境
+function createSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
     }
-  }
-);
+  );
+}
 
 async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: string }> {
   try {
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    let userId: string | undefined;
 
-    if (error || !user) {
-      return { isAdmin: false };
+    if (isChinaDeployment()) {
+      try {
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        userId = payload.sub || payload.uid;
+      } catch {
+        const db = await getServiceDbClient();
+        const { data, error } = await db.auth.getUser();
+        if (error || !data?.user) return { isAdmin: false };
+        userId = data.user.id;
+      }
+    } else {
+      const supabase = createSupabaseAdmin();
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) return { isAdmin: false };
+      userId = user.id;
     }
 
-    // Check if user is in admin_roles table - use maybeSingle() to avoid errors
-    const { data: adminRole, error: adminError } = await supabaseAdmin
+    if (!userId) return { isAdmin: false };
+
+    const db = await getServiceDbClient();
+    const { data: adminRoles } = await db
       .from('admin_roles')
       .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle();
+      .eq('user_id', userId)
+      .limit(1);
 
-    if (adminError) {
-      return { isAdmin: false };
-    }
-
-    if (!adminRole) {
-      return { isAdmin: false };
-    }
-
-    return { isAdmin: true, userId: user.id };
-  } catch (err) {
+    return adminRoles && adminRoles.length > 0 ? { isAdmin: true, userId } : { isAdmin: false };
+  } catch {
     return { isAdmin: false };
   }
 }
@@ -58,8 +78,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
+    const db = await getServiceDbClient();
+
     // Get basic counts
-    const { data: photos } = await supabaseAdmin
+    const { data: photos } = await db
       .from('user_photos')
       .select('id, audit_status, created_at, reviewed_at, rejected_reason, reviewed_by');
 
@@ -123,13 +145,17 @@ export async function GET(request: NextRequest) {
 
     // Get reviewer names
     const reviewerIds = Object.keys(reviewerMap);
-    const { data: reviewers } = await supabaseAdmin
-      .from('users')
-      .select('id, username, email')
-      .in('id', reviewerIds);
+    let reviewers: any[] = [];
+    if (reviewerIds.length > 0) {
+      const { data: reviewersData } = await db
+        .from('users')
+        .select('id, username, email')
+        .in('id', reviewerIds);
+      reviewers = reviewersData || [];
+    }
 
     const reviewerStats = Object.entries(reviewerMap).map(([id, stats]) => {
-      const reviewer = reviewers?.find(r => r.id === id);
+      const reviewer = reviewers.find(r => r.id === id);
       const avgTime = stats.times.length > 0
         ? stats.times.reduce((a, b) => a + b, 0) / stats.times.length
         : 0;
@@ -177,6 +203,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
+    console.error('Photo stats error:', error);
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }

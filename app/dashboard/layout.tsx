@@ -69,11 +69,17 @@ export default function DashboardLayout({
     }
   }, [user, loading, router]);
 
-  // Initialize Firebase Cloud Messaging for push notifications
+  // Initialize Firebase Cloud Messaging for push notifications (INTL only)
   useEffect(() => {
     const initializeFCM = async () => {
       // Skip if already initialized or no user
       if (fcmInitializedRef.current || !user?.id) return;
+
+      // Skip FCM in CN environment
+      if (process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN') {
+        console.log('[FCM] Skipped - CN environment does not use Firebase');
+        return;
+      }
 
       try {
         // Dynamically import Firebase notifications to avoid SSR issues

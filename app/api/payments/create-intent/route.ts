@@ -10,6 +10,7 @@ import {
 import { createUSDTPaymentRequest, createAlipayPaymentRequest } from '@/lib/payment/payment-receivers';
 import { createPayPalOrder, convertCNYtoUSD } from '@/lib/payment/paypal';
 import { getDefaultCurrency } from '@/config/payment-config';
+import { getPaymentService } from '@/lib/services/payment';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-12-18.acacia' as any,
@@ -17,7 +18,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 interface CreateIntentRequest {
   packageId: string;
-  paymentMethod: 'stripe' | 'usdt' | 'alipay' | 'paypal';
+  paymentMethod: 'stripe' | 'usdt' | 'alipay' | 'paypal' | 'wechat';
   amount: number;
   credits: number;
 }
@@ -94,15 +95,18 @@ export async function POST(request: NextRequest) {
     switch (paymentMethod) {
       case 'stripe':
         return await handleStripePayment(payment, amount, credits);
-      
+
       case 'usdt':
         return await handleUSDTPayment(payment, amount, user.id);
-      
+
       case 'alipay':
         return await handleAlipayPayment(payment, amount, user.id);
 
       case 'paypal':
         return await handlePayPalPayment(payment, amount, credits, user.id);
+
+      case 'wechat':
+        return await handleWeChatPayment(payment, amount, credits, user.id);
 
       default:
         return NextResponse.json(
@@ -262,6 +266,58 @@ async function handlePayPalPayment(payment: any, amount: number, credits: number
     console.error('PayPal payment error:', error);
     return NextResponse.json(
       { error: 'Failed to create PayPal order' },
+      { status: 500 }
+    );
+  }
+}
+
+async function handleWeChatPayment(payment: any, amount: number, credits: number, userId: string) {
+  try {
+    const paymentService = getPaymentService();
+
+    const result = await paymentService.createPayment({
+      userId,
+      amount,
+      currency: 'CNY',
+      credits,
+      method: 'wechat',
+      packageId: payment.package_id,
+      returnUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/success`,
+      cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/payment/cancel`,
+      metadata: {
+        payment_id: payment.id,
+      },
+    });
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error || 'Failed to create WeChat payment' },
+        { status: 500 }
+      );
+    }
+
+    // Update payment record with WeChat payment info
+    const supabase = createClient();
+    await supabase
+      .from('payments')
+      .update({
+        metadata: {
+          ...payment.metadata,
+          wechat_payment_id: result.paymentId,
+        }
+      })
+      .eq('id', payment.id);
+
+    return NextResponse.json({
+      paymentId: payment.id,
+      qrCodeUrl: result.qrCodeUrl || result.qrCodeBase64,
+      amount,
+      credits,
+    });
+  } catch (error) {
+    console.error('WeChat payment error:', error);
+    return NextResponse.json(
+      { error: 'Failed to create WeChat payment' },
       { status: 500 }
     );
   }

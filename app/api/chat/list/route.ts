@@ -1,5 +1,67 @@
+/**
+ * 聊天列表 API
+ * GET /api/chat/list - 获取用户的聊天列表
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@/lib/supabase/server';
+import { getDbClient, isChinaDeployment } from '@/lib/db-client';
+import { createClient } from '@supabase/supabase-js';
+
+// 统一认证函数
+async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
+  const authHeader = request.headers.get('authorization');
+
+  if (isChinaDeployment()) {
+    // CN 环境
+    if (!authHeader) return null;
+    const token = authHeader.replace('Bearer ', '');
+    // CN 环境: 支持 cn_ 前缀的用户 ID token
+    if (token.startsWith('cn_')) {
+      const userId = token.substring(3);
+      if (userId) {
+        return { userId };
+      }
+    }
+    // 从 token 中解析用户信息 (JWT)
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      return {
+        userId: payload.sub || payload.uid,
+        email: payload.email,
+      };
+    } catch {
+      return null;
+    }
+  } else {
+    // INTL 环境: 使用 Supabase 验证 token
+    const db = await getDbClient();
+    const { data: { user }, error } = await db.auth.getUser();
+    if (error || !user) {
+      if (authHeader) {
+        try {
+          const token = authHeader.replace('Bearer ', '');
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+          if (url && key) {
+            const anonClient = createClient(url, key, {
+              auth: { autoRefreshToken: false, persistSession: false }
+            });
+            const { data: { user: tokenUser }, error: tokenError } = await anonClient.auth.getUser(token);
+            if (!tokenError && tokenUser) {
+              return { userId: tokenUser.id, email: tokenUser.email };
+            }
+          }
+        } catch {}
+      }
+      return null;
+    }
+    return { userId: user.id, email: user.email };
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -7,7 +69,7 @@ export async function GET(request: NextRequest) {
     const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
 
     if (isMockMode) {
-      // In mock mode, return mock chat data matching the frontend's expected structure
+      // In mock mode, return mock chat data
       const mockChats = [
         {
           id: 'mock-chat-1',
@@ -55,26 +117,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Create Supabase client for this request
-    const supabase = createRouteHandlerClient();
-
-    // Get the authorization header
-    const authHeader = request.headers.get('authorization');
-    if (!authHeader) {
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    if (!authUser) {
       return NextResponse.json({ error: 'No authorization header' }, { status: 401 });
     }
 
-    // Extract the token
-    const token = authHeader.replace('Bearer ', '');
-    
-    // Verify the token and get user
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    const db = await getDbClient();
 
     // Get user's chats
-    const { data: chats, error: chatsError } = await supabase
+    const { data: chats, error: chatsError } = await db
       .from('chats')
       .select(`
         id,
@@ -89,7 +141,7 @@ export async function GET(request: NextRequest) {
           bio
         )
       `)
-      .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+      .or(`user1_id.eq.${authUser.userId},user2_id.eq.${authUser.userId}`)
       .order('updated_at', { ascending: false });
 
     if (chatsError) {
@@ -100,10 +152,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Transform data for frontend (should match ChatPreview interface)
+    // Transform data for frontend
     const transformedChats = chats?.map(chat => ({
       id: chat.id,
-      matched_user: chat.user1_id === user.id ? chat.other_user : {
+      matched_user: chat.user1_id === authUser.userId ? chat.other_user : {
         id: chat.user1_id,
         full_name: 'Unknown User',
         avatar_url: null,
@@ -123,7 +175,8 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ 
       chats: transformedChats,
-      mode: 'real'
+      mode: 'real',
+      region: isChinaDeployment() ? 'CN' : 'INTL'
     });
   } catch (error) {
     console.error('Error in chat list API:', error);
@@ -132,4 +185,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}

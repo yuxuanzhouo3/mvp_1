@@ -8,6 +8,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { chatClient, Message, MessageType } from '@/lib/realtime/chat-client';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { getChatService } from '@/lib/services/chat';
 
 interface UseRealtimeMessagesOptions {
   roomId: string;
@@ -48,23 +50,45 @@ export function useRealtimeMessages({
 
   // 加载初始消息
   const loadInitialMessages = useCallback(async () => {
-    if (!roomId) return;
+    if (!roomId || !user?.id) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      const data = await chatClient.getMessages(roomId, pageSize);
-      
+      let data: Message[];
+
+      // CN 环境使用环信 IM，INTL 环境使用 Supabase
+      if (isChinaDeployment()) {
+        const cnChatService = getChatService();
+        // 确保服务已初始化
+        await cnChatService.initialize(user.id);
+        const cnMessages = await cnChatService.getMessages(roomId, { limit: pageSize });
+        // 转换为 Message 格式
+        data = cnMessages.map(msg => ({
+          id: msg.id,
+          room_id: msg.roomId,
+          sender_id: msg.senderId,
+          content: msg.content,
+          type: msg.type as MessageType,
+          metadata: msg.metadata || {},
+          status: msg.status || 'sent',
+          sent_at: msg.createdAt,
+          reply_to: null,
+        }));
+      } else {
+        data = await chatClient.getMessages(roomId, pageSize);
+      }
+
       // 消息按时间倒序返回，需要反转以正序显示
       const sortedMessages = [...data].reverse();
       setMessages(sortedMessages);
-      
+
       // 记录最早消息的时间戳
       if (data.length > 0) {
         oldestTimestampRef.current = data[data.length - 1].sent_at;
       }
-      
+
       setHasMore(data.length >= pageSize);
     } catch (err) {
       setError(err as Error);
@@ -72,7 +96,7 @@ export function useRealtimeMessages({
     } finally {
       setLoading(false);
     }
-  }, [roomId, pageSize]);
+  }, [roomId, pageSize, user?.id]);
 
   // 加载更多历史消息
   const loadMore = useCallback(async () => {
@@ -136,21 +160,51 @@ export function useRealtimeMessages({
       // 乐观更新
       setMessages(prev => [...prev, tempMessage]);
 
-      // 实际发送
-      const sentMessage = await chatClient.sendMessage(
-        roomId,
-        user.id,
-        content,
-        type,
-        metadata,
-        replyTo
-      );
+      // CN 环境使用环信 IM，INTL 环境使用 Supabase
+      if (isChinaDeployment()) {
+        const cnChatService = getChatService();
+        const result = await cnChatService.sendMessage({
+          roomId,
+          content,
+          type: type as any,
+          metadata,
+        });
 
-      // 替换临时消息为真实消息
-      if (sentMessage) {
-        setMessages(prev => 
-          prev.map(msg => msg.id === tempId ? sentMessage : msg)
+        if (result.success && result.message) {
+          const sentMessage: Message = {
+            id: result.message.id,
+            room_id: roomId,
+            sender_id: user.id,
+            content: result.message.content,
+            type: result.message.type as MessageType,
+            metadata: result.message.metadata || {},
+            status: 'sent',
+            sent_at: result.message.createdAt,
+            reply_to: null,
+          };
+          setMessages(prev =>
+            prev.map(msg => msg.id === tempId ? sentMessage : msg)
+          );
+        } else {
+          throw new Error(result.error || '发送失败');
+        }
+      } else {
+        // 实际发送
+        const sentMessage = await chatClient.sendMessage(
+          roomId,
+          user.id,
+          content,
+          type,
+          metadata,
+          replyTo
         );
+
+        // 替换临时消息为真实消息
+        if (sentMessage) {
+          setMessages(prev =>
+            prev.map(msg => msg.id === tempId ? sentMessage : msg)
+          );
+        }
       }
     } catch (err) {
       // 发送失败，移除临时消息
@@ -168,36 +222,55 @@ export function useRealtimeMessages({
     if (!roomId || !user?.id) return;
 
     try {
-      await chatClient.markAsRead(roomId, user.id);
+      // CN 环境使用环信 IM，INTL 环境使用 Supabase
+      if (isChinaDeployment()) {
+        const cnChatService = getChatService();
+        // 环信的已读标记通过 SDK 处理，这里可以留空或调用 markAsRead
+        const messageIds = messages.filter(m => m.sender_id !== user.id).map(m => m.id);
+        if (messageIds.length > 0) {
+          await cnChatService.markAsRead(roomId, messageIds);
+        }
+      } else {
+        await chatClient.markAsRead(roomId, user.id);
+      }
     } catch (err) {
       console.error('标记已读失败:', err);
     }
-  }, [roomId, user?.id]);
+  }, [roomId, user?.id, messages]);
 
   // 撤回消息
   const recallMessage = useCallback(async (messageId: string): Promise<boolean> => {
     if (!user?.id) return false;
 
     try {
-      const success = await chatClient.recallMessage(messageId, user.id);
-      
+      let success = false;
+
+      // CN 环境使用环信 IM，INTL 环境使用 Supabase
+      if (isChinaDeployment()) {
+        const cnChatService = getChatService();
+        const result = await cnChatService.recallMessage(messageId, roomId);
+        success = result.success;
+      } else {
+        success = await chatClient.recallMessage(messageId, user.id);
+      }
+
       if (success) {
         // 更新本地状态
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === messageId 
+        setMessages(prev =>
+          prev.map(msg =>
+            msg.id === messageId
               ? { ...msg, deleted_at: new Date().toISOString(), content: null }
               : msg
           )
         );
       }
-      
+
       return success;
     } catch (err) {
       console.error('撤回消息失败:', err);
       throw err;
     }
-  }, [user?.id]);
+  }, [user?.id, roomId]);
 
   // 处理实时消息事件
   const handleMessageEvent = useCallback((payload: { new?: Message; old?: Message }, eventType: string) => {

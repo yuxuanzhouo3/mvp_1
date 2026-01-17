@@ -13,6 +13,8 @@ import { usePresence } from '@/hooks/usePresence';
 import { useToast } from '@/hooks/use-toast';
 import { chatClient, Message, MessageType } from '@/lib/realtime/chat-client';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { getChatService } from '@/lib/services/chat';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -132,17 +134,35 @@ export default function ChatRoomPage() {
 
     try {
       setLoadingUser(true);
-      const rooms = await chatClient.getChatRooms(user?.id || '');
-      const currentRoom = rooms.find(r => r.id === roomId);
 
-      if (currentRoom) {
-        setChatUser({
-          id: currentRoom.other_user_id,
-          username: currentRoom.other_user_username,
-          avatar_url: currentRoom.other_user_avatar_url,
-          gender: currentRoom.other_user_gender,
-          last_active_at: currentRoom.other_user_last_active,
-        });
+      // CN 环境使用环信 IM，INTL 环境使用 Supabase
+      if (isChinaDeployment()) {
+        const cnChatService = getChatService();
+        const rooms = await cnChatService.getChatRooms(user?.id || '');
+        const currentRoom = rooms.find(r => r.id === roomId || r.otherUser?.id === roomId);
+
+        if (currentRoom && currentRoom.otherUser) {
+          setChatUser({
+            id: currentRoom.otherUser.id,
+            username: currentRoom.otherUser.username || currentRoom.otherUser.id,
+            avatar_url: currentRoom.otherUser.avatarUrl || null,
+            gender: null,
+            last_active_at: null,
+          });
+        }
+      } else {
+        const rooms = await chatClient.getChatRooms(user?.id || '');
+        const currentRoom = rooms.find(r => r.id === roomId);
+
+        if (currentRoom) {
+          setChatUser({
+            id: currentRoom.other_user_id,
+            username: currentRoom.other_user_username,
+            avatar_url: currentRoom.other_user_avatar_url,
+            gender: currentRoom.other_user_gender,
+            last_active_at: currentRoom.other_user_last_active,
+          });
+        }
       }
     } catch (err) {
       console.error('加载聊天用户失败:', err);

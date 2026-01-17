@@ -8,6 +8,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 import {
   calculateMarketValue,
   transformUserToScoringData,
@@ -86,8 +87,53 @@ interface UserDataForScoring {
 
 /**
  * 从Supabase获取用户评分相关数据
+ * CN 环境使用 API 路由
  */
-async function fetchUserDataForScoring(userId: string): Promise<UserDataForScoring | null> {
+async function fetchUserDataForScoring(userId: string, token?: string): Promise<UserDataForScoring | null> {
+  // CN 环境使用 API 路由
+  if (isChinaDeployment()) {
+    try {
+      const authToken = token || `cn_${userId}`;
+      const response = await fetch('/api/user/market-value', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        cache: 'no-store'
+      });
+
+      if (!response.ok) {
+        console.error('Failed to fetch market value from API:', response.status);
+        return null;
+      }
+
+      const data = await response.json();
+      if (data.success && data.data?.score) {
+        // 返回一个包含评分的模拟数据结构
+        return {
+          user: { id: userId, gender: null, birth_date: null },
+          profile: {
+            bmi: null,
+            education_level: null,
+            company_type: null,
+            annual_income_range: null,
+            marital_status: 'single',
+            relationship_history_count: 0,
+            children_preference: null,
+            mbti: null,
+            location: null,
+            market_value_score: data.data.score
+          },
+          photos: []
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching market value from API:', error);
+      return null;
+    }
+  }
+
   const supabase = getSupabaseClient();
   
   // 并行获取用户基本信息、资料和照片
@@ -150,6 +196,11 @@ async function calculatePercentile(
   gender: GenderEnum,
   totalScore: number
 ): Promise<number> {
+  // CN 环境跳过
+  if (isChinaDeployment()) {
+    return 50;
+  }
+
   const supabase = getSupabaseClient();
   
   // 查询同性别用户的分数，计算有多少人分数低于当前用户
@@ -197,6 +248,11 @@ async function saveMarketValueScore(
   userId: string,
   score: MarketValueScore
 ): Promise<void> {
+  // CN 环境跳过
+  if (isChinaDeployment()) {
+    return;
+  }
+
   const supabase = getSupabaseClient();
   
   const { error } = await supabase
@@ -246,6 +302,31 @@ export function useMarketValue({
   // 重新计算评分的mutation
   const recalculateMutation = useMutation({
     mutationFn: async (): Promise<MarketValueScore | null> => {
+      // CN 环境使用 API 路由
+      if (isChinaDeployment()) {
+        const authToken = `cn_${userId}`;
+        const response = await fetch('/api/user/market-value', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+          cache: 'no-store'
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to recalculate score');
+        }
+
+        const data = await response.json();
+        if (data.success && data.data?.score) {
+          return data.data.score;
+        }
+        throw new Error('Failed to recalculate score');
+      }
+
+      // INTL 环境使用本地计算
       if (!userData) {
         throw new Error('User data not available');
       }
@@ -329,6 +410,11 @@ export function useUserScore(userId: string) {
   return useQuery({
     queryKey: ['userScore', userId],
     queryFn: async () => {
+      // CN 环境跳过
+      if (isChinaDeployment()) {
+        return null;
+      }
+
       const supabase = getSupabaseClient();
       
       const { data, error } = await supabase

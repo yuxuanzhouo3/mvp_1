@@ -1,0 +1,52 @@
+{"id":1,"category":"Sports & Fitness","name":"Running","icon_url":"🏃"}
+{"id":2,"category":"Sports & Fitness","name":"Gym","icon_url":"💪"}
+{"id":3,"category":"Sports & Fitness","name":"Yoga","icon_url":"🧘"}
+{"id":4,"category":"Sports & Fitness","name":"Swimming","icon_url":"🏊"}
+{"id":5,"category":"Sports & Fitness","name":"Hiking","icon_url":"🥾"}
+{"id":6,"category":"Sports & Fitness","name":"Cycling","icon_url":"🚴"}
+{"id":7,"category":"Sports & Fitness","name":"Tennis","icon_url":"🎾"}
+{"id":8,"category":"Sports & Fitness","name":"Basketball","icon_url":"🏀"}
+{"id":9,"category":"Arts & Culture","name":"Photography","icon_url":"📸"}
+{"id":10,"category":"Arts & Culture","name":"Painting","icon_url":"🎨"}
+{"id":11,"category":"Arts & Culture","name":"Music","icon_url":"🎵"}
+{"id":12,"category":"Arts & Culture","name":"Movies","icon_url":"🎬"}
+{"id":13,"category":"Arts & Culture","name":"Theater","icon_url":"🎭"}
+{"id":14,"category":"Arts & Culture","name":"Museums","icon_url":"🏛️"}
+{"id":15,"category":"Arts & Culture","name":"Dancing","icon_url":"💃"}
+{"id":16,"category":"Arts & Culture","name":"Writing","icon_url":"✍️"}
+{"id":17,"category":"Food & Drinks","name":"Cooking","icon_url":"👨‍🍳"}
+{"id":18,"category":"Food & Drinks","name":"Wine","icon_url":"🍷"}
+{"id":19,"category":"Food & Drinks","name":"Coffee","icon_url":"☕"}
+{"id":20,"category":"Food & Drinks","name":"Foodie","icon_url":"🍽️"}
+{"id":21,"category":"Food & Drinks","name":"Baking","icon_url":"🧁"}
+{"id":22,"category":"Food & Drinks","name":"Brunch","icon_url":"🥞"}
+{"id":23,"category":"Food & Drinks","name":"Cocktails","icon_url":"🍸"}
+{"id":24,"category":"Food & Drinks","name":"BBQ","icon_url":"🍖"}
+{"id":25,"category":"Travel & Adventure","name":"Travel","icon_url":"✈️"}
+{"id":26,"category":"Travel & Adventure","name":"Camping","icon_url":"⛺"}
+{"id":27,"category":"Travel & Adventure","name":"Road Trips","icon_url":"🚗"}
+{"id":28,"category":"Travel & Adventure","name":"Beach","icon_url":"🏖️"}
+{"id":29,"category":"Travel & Adventure","name":"Mountains","icon_url":"⛰️"}
+{"id":30,"category":"Travel & Adventure","name":"City Explorer","icon_url":"🌆"}
+{"id":31,"category":"Travel & Adventure","name":"Backpacking","icon_url":"🎒"}
+{"id":32,"category":"Entertainment","name":"Gaming","icon_url":"🎮"}
+{"id":33,"category":"Entertainment","name":"Netflix","icon_url":"📺"}
+{"id":34,"category":"Entertainment","name":"Anime","icon_url":"🎌"}
+{"id":35,"category":"Entertainment","name":"Board Games","icon_url":"🎲"}
+{"id":36,"category":"Entertainment","name":"Karaoke","icon_url":"🎤"}
+{"id":37,"category":"Entertainment","name":"Concerts","icon_url":"🎸"}
+{"id":38,"category":"Entertainment","name":"Comedy","icon_url":"😂"}
+{"id":39,"category":"Lifestyle","name":"Reading","icon_url":"📚"}
+{"id":40,"category":"Lifestyle","name":"Meditation","icon_url":"🧘‍♂️"}
+{"id":41,"category":"Lifestyle","name":"Pets","icon_url":"🐕"}
+{"id":42,"category":"Lifestyle","name":"Gardening","icon_url":"🌱"}
+{"id":43,"category":"Lifestyle","name":"Fashion","icon_url":"👗"}
+{"id":44,"category":"Lifestyle","name":"DIY","icon_url":"🔨"}
+{"id":45,"category":"Lifestyle","name":"Volunteering","icon_url":"🤝"}
+{"id":46,"category":"Tech & Science","name":"Programming","icon_url":"💻"}
+{"id":47,"category":"Tech & Science","name":"Startups","icon_url":"🚀"}
+{"id":48,"category":"Tech & Science","name":"Crypto","icon_url":"₿"}
+{"id":49,"category":"Tech & Science","name":"AI","icon_url":"🤖"}
+{"id":50,"category":"Tech & Science","name":"Science","icon_url":"🔬"}
+{"id":51,"category":"Tech & Science","name":"Space","icon_url":"🌌"}
+{"id":52,"category":"Tech & Science","name":"Gadgets","icon_url":"📱"}

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 import {
   Coins,
   TrendingUp,
@@ -71,6 +72,7 @@ export default function CreditsAnalyticsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { language } = useLanguage();
+  const t = useTranslations(language);
 
   const [stats, setStats] = useState<CreditsStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,8 +113,8 @@ export default function CreditsAnalyticsPage() {
     } catch (error) {
       console.error('Load stats error:', error);
       toast({
-        title: language === 'zh' ? '错误' : 'Error',
-        description: language === 'zh' ? '加载统计失败' : 'Failed to load statistics',
+        title: t.admin.creditsAnalytics.error,
+        description: t.admin.creditsAnalytics.loadFailed,
         variant: 'destructive',
       });
     } finally {
@@ -134,7 +136,7 @@ export default function CreditsAnalyticsPage() {
   }
 
   const distributionLabels: Record<string, string> = {
-    zero: language === 'zh' ? '0 积分' : '0 credits',
+    zero: t.admin.creditsAnalytics.zeroCredits,
     '1-50': '1-50',
     '51-100': '51-100',
     '101-200': '101-200',
@@ -148,22 +150,22 @@ export default function CreditsAnalyticsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            {language === 'zh' ? '积分统计' : 'Credits Analytics'}
+            {t.admin.creditsAnalytics.title}
           </h1>
           <p className="text-gray-600 mt-1">
-            {language === 'zh' ? '积分发行和消费数据概览' : 'Overview of credits issuance and consumption'}
+            {t.admin.creditsAnalytics.subtitle}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={loadStats}>
             <RefreshCw className="h-4 w-4 mr-2" />
-            {language === 'zh' ? '刷新' : 'Refresh'}
+            {t.admin.creditsAnalytics.refresh}
           </Button>
           <Link href="/admin">
             <Button>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              {language === 'zh' ? '返回' : 'Back'}
+              {t.admin.creditsAnalytics.back}
             </Button>
           </Link>
         </div>
@@ -175,7 +177,7 @@ export default function CreditsAnalyticsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '总发行积分' : 'Total Issued'}
+              {t.admin.creditsAnalytics.totalIssued}
             </CardTitle>
             <ArrowUpRight className="h-5 w-5 text-green-500" />
           </CardHeader>
@@ -184,7 +186,7 @@ export default function CreditsAnalyticsPage() {
               {stats?.overview.total_credits_issued?.toLocaleString() || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '累计发放积分' : 'total credits issued'}
+              {t.admin.creditsAnalytics.totalCreditsIssued}
             </p>
           </CardContent>
         </Card>
@@ -193,7 +195,7 @@ export default function CreditsAnalyticsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '总消费积分' : 'Total Consumed'}
+              {t.admin.creditsAnalytics.totalConsumed}
             </CardTitle>
             <ArrowDownRight className="h-5 w-5 text-red-500" />
           </CardHeader>
@@ -202,7 +204,7 @@ export default function CreditsAnalyticsPage() {
               {stats?.overview.total_credits_consumed?.toLocaleString() || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '累计消费积分' : 'total credits consumed'}
+              {t.admin.creditsAnalytics.totalCreditsConsumed}
             </p>
           </CardContent>
         </Card>
@@ -211,7 +213,7 @@ export default function CreditsAnalyticsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '流通中积分' : 'In Circulation'}
+              {t.admin.creditsAnalytics.inCirculation}
             </CardTitle>
             <Wallet className="h-5 w-5 text-blue-500" />
           </CardHeader>
@@ -220,7 +222,7 @@ export default function CreditsAnalyticsPage() {
               {stats?.overview.total_current_credits?.toLocaleString() || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '用户持有总积分' : 'held by users'}
+              {t.admin.creditsAnalytics.heldByUsers}
             </p>
           </CardContent>
         </Card>
@@ -229,7 +231,7 @@ export default function CreditsAnalyticsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '持有积分用户' : 'Users with Credits'}
+              {t.admin.creditsAnalytics.usersWithCredits}
             </CardTitle>
             <Users className="h-5 w-5 text-purple-500" />
           </CardHeader>
@@ -241,7 +243,7 @@ export default function CreditsAnalyticsPage() {
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '平均' : 'avg'}: {stats?.overview.average_credits_per_user || 0} {language === 'zh' ? '积分/人' : 'per user'}
+              {t.common.age}: {stats?.overview.average_credits_per_user || 0} {t.admin.creditsAnalytics.avgPerUser}
             </p>
           </CardContent>
         </Card>
@@ -254,10 +256,10 @@ export default function CreditsAnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PieChart className="h-5 w-5 text-orange-500" />
-              {language === 'zh' ? '各功能消费占比' : 'Consumption by Feature'}
+              {t.admin.creditsAnalytics.consumptionByFeature}
             </CardTitle>
             <CardDescription>
-              {language === 'zh' ? '积分消费去向分布' : 'Where credits are being spent'}
+              {t.admin.creditsAnalytics.whereCreditsSpent}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -279,14 +281,14 @@ export default function CreditsAnalyticsPage() {
                       />
                     </div>
                     <p className="text-xs text-gray-500 text-right">
-                      {item.count} {language === 'zh' ? '次' : 'transactions'}
+                      {item.count} {t.admin.creditsAnalytics.transactions}
                     </p>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                {language === 'zh' ? '暂无消费数据' : 'No consumption data available'}
+                {t.admin.creditsAnalytics.noConsumptionData}
               </div>
             )}
           </CardContent>
@@ -297,10 +299,10 @@ export default function CreditsAnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-indigo-500" />
-              {language === 'zh' ? '用户积分分布' : 'User Credits Distribution'}
+              {t.admin.creditsAnalytics.userDistribution}
             </CardTitle>
             <CardDescription>
-              {language === 'zh' ? '按积分区间统计用户数' : 'Users grouped by credit balance'}
+              {t.admin.creditsAnalytics.usersByBalance}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -331,7 +333,7 @@ export default function CreditsAnalyticsPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                {language === 'zh' ? '暂无分布数据' : 'No distribution data available'}
+                {t.admin.creditsAnalytics.noDistributionData}
               </div>
             )}
           </CardContent>
@@ -345,10 +347,10 @@ export default function CreditsAnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-green-500" />
-              {language === 'zh' ? '积分发行来源' : 'Credits Issuance Source'}
+              {t.admin.creditsAnalytics.issuanceSource}
             </CardTitle>
             <CardDescription>
-              {language === 'zh' ? '积分从哪里发放' : 'Where credits come from'}
+              {t.admin.creditsAnalytics.whereCreditsFrom}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -362,7 +364,7 @@ export default function CreditsAnalyticsPage() {
                     <div>
                       <p className="font-medium">{item.label}</p>
                       <p className="text-xs text-gray-500">
-                        {item.count} {language === 'zh' ? '次发放' : 'times'}
+                        {item.count} {t.admin.creditsAnalytics.timesIssued}
                       </p>
                     </div>
                     <Badge className="bg-green-100 text-green-800 text-lg">
@@ -373,7 +375,7 @@ export default function CreditsAnalyticsPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                {language === 'zh' ? '暂无发行数据' : 'No issuance data available'}
+                {t.admin.creditsAnalytics.noIssuanceData}
               </div>
             )}
           </CardContent>
@@ -384,10 +386,10 @@ export default function CreditsAnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-rose-500" />
-              {language === 'zh' ? '消费排行榜' : 'Top Consumers'}
+              {t.admin.creditsAnalytics.topConsumers}
             </CardTitle>
             <CardDescription>
-              {language === 'zh' ? '积分消费最多的用户' : 'Users who spend the most credits'}
+              {t.admin.creditsAnalytics.topConsumersDesc}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -417,7 +419,7 @@ export default function CreditsAnalyticsPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                {language === 'zh' ? '暂无消费数据' : 'No consumer data available'}
+                {t.admin.creditsAnalytics.noConsumerData}
               </div>
             )}
           </CardContent>
@@ -429,10 +431,10 @@ export default function CreditsAnalyticsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Coins className="h-5 w-5 text-amber-500" />
-            {language === 'zh' ? '每日积分变动' : 'Daily Credits Flow'}
+            {t.admin.creditsAnalytics.dailyFlow}
           </CardTitle>
           <CardDescription>
-            {language === 'zh' ? '过去30天的积分发行和消费' : 'Credits issued and consumed in the past 30 days'}
+            {t.admin.creditsAnalytics.dailyFlowDesc}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -441,15 +443,15 @@ export default function CreditsAnalyticsPage() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-white">
                   <tr className="border-b">
-                    <th className="text-left py-2 px-4">{language === 'zh' ? '日期' : 'Date'}</th>
+                    <th className="text-left py-2 px-4">{t.admin.creditsAnalytics.date}</th>
                     <th className="text-right py-2 px-4 text-green-600">
-                      {language === 'zh' ? '发行' : 'Issued'}
+                      {t.admin.creditsAnalytics.issued}
                     </th>
                     <th className="text-right py-2 px-4 text-red-600">
-                      {language === 'zh' ? '消费' : 'Consumed'}
+                      {t.admin.creditsAnalytics.consumed}
                     </th>
                     <th className="text-right py-2 px-4">
-                      {language === 'zh' ? '净变动' : 'Net Change'}
+                      {t.admin.creditsAnalytics.netChange}
                     </th>
                   </tr>
                 </thead>
@@ -473,7 +475,7 @@ export default function CreditsAnalyticsPage() {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              {language === 'zh' ? '暂无每日数据' : 'No daily data available'}
+              {t.admin.creditsAnalytics.noDailyData}
             </div>
           )}
         </CardContent>

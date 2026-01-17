@@ -4,9 +4,7 @@ import './globals.css'
 import { Providers } from '@/components/providers'
 import { Toaster } from '@/components/ui/toaster'
 import { ErrorBoundary } from '@/components/ui/error-boundary'
-import { MonitoringDashboard } from '@/components/ui/monitoring-dashboard'
 import { ConditionalHeader } from '@/components/ui/conditional-header'
-import { memo } from 'react'
 
 // Get deployment region from environment
 const isChinaRegion = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN';
@@ -43,16 +41,11 @@ export const metadata: Metadata = {
   },
 }
 
-// Memoize monitoring dashboard to prevent unnecessary re-renders
-const MemoizedMonitoringDashboard = memo(MonitoringDashboard);
-
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const isDevelopment = process.env.NODE_ENV === 'development';
-
   return (
     <html lang={locale} suppressHydrationWarning>
       <body className={inter.className}>
@@ -62,11 +55,6 @@ export default function RootLayout({
               <ConditionalHeader />
               {children}
               <Toaster />
-
-              {/* Only render monitoring dashboard in development */}
-              {isDevelopment && (
-                <MemoizedMonitoringDashboard />
-              )}
             </div>
           </Providers>
         </ErrorBoundary>

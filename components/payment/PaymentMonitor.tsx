@@ -39,6 +39,7 @@ const TRANSLATIONS = {
     addPaymentIdNote: (paymentId: string) => `建议在备注中填写支付ID: ${paymentId}`,
     confirmTime: '支付确认可能需要 1-3 分钟',
     alipayQrCode: '支付宝收款码',
+    wechatQrCode: '微信支付二维码',
     receiveAccount: '收款账户',
     paymentTips: '支付说明：',
     scanQrCode: '使用支付宝扫描上方二维码',
@@ -85,6 +86,7 @@ const TRANSLATIONS = {
     addPaymentIdNote: (paymentId: string) => `Recommended to add Payment ID in memo: ${paymentId}`,
     confirmTime: 'Payment confirmation may take 1-3 minutes',
     alipayQrCode: 'Alipay QR Code',
+    wechatQrCode: 'WeChat Pay QR Code',
     receiveAccount: 'Receiving Account',
     paymentTips: 'Payment Tips:',
     scanQrCode: 'Scan the QR code above with Alipay',
@@ -106,7 +108,7 @@ const TRANSLATIONS = {
 
 interface PaymentMonitorProps {
   paymentId: string;
-  paymentMethod: 'usdt' | 'alipay';
+  paymentMethod: 'usdt' | 'alipay' | 'wechat';
   amount: number;
   paymentAddress?: string;
   qrCodeUrl?: string;
@@ -350,45 +352,49 @@ export default function PaymentMonitor({
             </div>
           )}
 
-          {paymentMethod === 'alipay' && qrCodeUrl && (
+          {(paymentMethod === 'alipay' || paymentMethod === 'wechat') && qrCodeUrl && (
             <div className="space-y-4">
               <div>
-                <Label className="text-sm font-medium">{t.alipayQrCode}</Label>
+                <Label className="text-sm font-medium">
+                  {paymentMethod === 'wechat' ? t.wechatQrCode : t.alipayQrCode}
+                </Label>
                 <div className="mt-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={qrCodeUrl}
-                    alt="Alipay QR Code"
+                    alt={paymentMethod === 'wechat' ? 'WeChat Pay QR Code' : 'Alipay QR Code'}
                     className="border rounded-lg"
                     style={{ maxWidth: '200px' }}
                   />
                 </div>
               </div>
 
-              <div>
-                <Label className="text-sm font-medium">{t.receiveAccount}</Label>
-                <div className="flex items-center space-x-2 mt-1">
-                  <Input
-                    value={account || ''}
-                    readOnly
-                    className="font-mono text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyToClipboard(account || '', t.receiveAccount)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
+              {account && (
+                <div>
+                  <Label className="text-sm font-medium">{t.receiveAccount}</Label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <Input
+                      value={account || ''}
+                      readOnly
+                      className="font-mono text-sm"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(account || '', t.receiveAccount)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+              <div className={`${paymentMethod === 'wechat' ? 'bg-green-50 dark:bg-green-900/20' : 'bg-blue-50 dark:bg-blue-900/20'} rounded-lg p-4`}>
+                <h4 className={`font-medium ${paymentMethod === 'wechat' ? 'text-green-800 dark:text-green-200' : 'text-blue-800 dark:text-blue-200'} mb-2`}>
                   {t.paymentTips}
                 </h4>
-                <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-                  <li>• {t.scanQrCode}</li>
+                <ul className={`text-sm ${paymentMethod === 'wechat' ? 'text-green-700 dark:text-green-300' : 'text-blue-700 dark:text-blue-300'} space-y-1`}>
+                  <li>• {paymentMethod === 'wechat' ? (language === 'zh' ? '使用微信扫描上方二维码' : 'Scan the QR code above with WeChat') : t.scanQrCode}</li>
                   <li>• {t.payAmount(amount)}</li>
                   <li>• {t.addNotePaymentId(paymentId)}</li>
                   <li>• {t.autoCredit}</li>
@@ -433,14 +439,14 @@ export default function PaymentMonitor({
             </>
           )}
 
-          {paymentMethod === 'alipay' && (
+          {(paymentMethod === 'alipay' || paymentMethod === 'wechat') && (
             <div>
               <Label htmlFor="transactionId">{t.transactionId}</Label>
               <Input
                 id="transactionId"
                 value={transactionId}
                 onChange={(e) => setTransactionId(e.target.value)}
-                placeholder={t.enterAlipayId}
+                placeholder={paymentMethod === 'wechat' ? (language === 'zh' ? '输入微信支付交易ID' : 'Enter WeChat Pay transaction ID') : t.enterAlipayId}
                 className="mt-1"
               />
             </div>

@@ -9,6 +9,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { chatClient, ChatRoomWithUser, ChatRoom } from '@/lib/realtime/chat-client';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { getChatService } from '@/lib/services/chat';
 
 interface UseRealtimeRoomsReturn {
   rooms: ChatRoomWithUser[];
@@ -34,8 +36,34 @@ export function useRealtimeRooms(): UseRealtimeRoomsReturn {
       setLoading(true);
       setError(null);
 
-      const data = await chatClient.getChatRooms(user.id);
-      setRooms(data);
+      // CN 环境使用环信 IM，INTL 环境使用 Supabase
+      if (isChinaDeployment()) {
+        const cnChatService = getChatService();
+        const data = await cnChatService.getChatRooms(user.id);
+        // 转换为 ChatRoomWithUser 格式
+        setRooms(data.map(room => ({
+          ...room,
+          id: room.id,
+          match_id: room.matchId || room.id,
+          last_message_content: room.lastMessage?.content || null,
+          last_message_type: (room.lastMessage?.type || 'text') as any,
+          last_message_at: room.lastMessage?.createdAt || null,
+          unread_counts: room.unreadCounts || {},
+          typing_status: {},
+          is_active: room.isActive,
+          created_at: room.createdAt,
+          updated_at: room.updatedAt,
+          other_user_id: room.otherUser?.id || '',
+          other_user_username: room.otherUser?.username || '',
+          other_user_avatar_url: room.otherUser?.avatarUrl || null,
+          other_user_gender: null,
+          other_user_last_active: null,
+          unread_count: room.myUnreadCount || 0,
+        })));
+      } else {
+        const data = await chatClient.getChatRooms(user.id);
+        setRooms(data);
+      }
     } catch (err) {
       setError(err as Error);
       console.error('加载聊天室列表失败:', err);
@@ -94,6 +122,19 @@ export function useRealtimeRooms(): UseRealtimeRoomsReturn {
   useEffect(() => {
     if (!user?.id) return;
 
+    // CN 环境使用环信的订阅机制
+    if (isChinaDeployment()) {
+      const cnChatService = getChatService();
+      const unsubscribe = cnChatService.subscribeAll(user.id, {
+        onMessageReceived: () => {
+          // 收到新消息时刷新聊天室列表
+          loadRooms();
+        },
+      });
+      return unsubscribe;
+    }
+
+    // INTL 环境使用 Supabase Realtime
     const unsubscribe = chatClient.subscribeToRooms(user.id, (payload) => {
       handleRoomUpdate(payload as { new?: ChatRoom; old?: ChatRoom });
     });
@@ -101,7 +142,7 @@ export function useRealtimeRooms(): UseRealtimeRoomsReturn {
     return () => {
       unsubscribe();
     };
-  }, [user?.id, handleRoomUpdate]);
+  }, [user?.id, handleRoomUpdate, loadRooms]);
 
   return {
     rooms,

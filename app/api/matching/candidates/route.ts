@@ -1,22 +1,84 @@
+/**
+ * Candidates API - 获取匹配候选人
+ * GET /api/matching/candidates - 获取候选人列表
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@/lib/supabase/server';
+import { getDbClient, isChinaDeployment } from '@/lib/db-client';
+import { createClient } from '@supabase/supabase-js';
+
+// 统一认证函数
+async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
+  const authHeader = request.headers.get('authorization');
+
+  if (isChinaDeployment()) {
+    // CN 环境
+    if (!authHeader) return null;
+    const token = authHeader.replace('Bearer ', '');
+    // CN 环境: 支持 cn_ 前缀的用户 ID token
+    if (token.startsWith('cn_')) {
+      const userId = token.substring(3);
+      if (userId) {
+        return { userId };
+      }
+    }
+    // 从 token 中解析用户信息 (JWT)
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      return {
+        userId: payload.sub || payload.uid,
+        email: payload.email,
+      };
+    } catch {
+      return null;
+    }
+  } else {
+    // INTL 环境: 使用 Supabase 验证 token
+    const db = await getDbClient();
+    const { data: { user }, error } = await db.auth.getUser();
+    if (error || !user) {
+      // 尝试从 header 验证
+      if (authHeader) {
+        try {
+          const token = authHeader.replace('Bearer ', '');
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+          if (url && key) {
+            const anonClient = createClient(url, key, {
+              auth: { autoRefreshToken: false, persistSession: false }
+            });
+            const { data: { user: tokenUser }, error: tokenError } = await anonClient.auth.getUser(token);
+            if (!tokenError && tokenUser) {
+              return { userId: tokenUser.id, email: tokenUser.email };
+            }
+          }
+        } catch {}
+      }
+      return null;
+    }
+    return { userId: user.id, email: user.email };
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
     console.log('🔍 Starting candidates API...');
 
-    const supabase = createRouteHandlerClient();
-
-    // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    if (!authUser) {
       return NextResponse.json(
         { error: 'Unauthorized', errorCode: 'AUTH_REQUIRED' },
         { status: 401 }
       );
     }
 
-    const userId = user.id;
+    const userId = authUser.userId;
+    const db = await getDbClient();
 
     // Get query parameters
     const { searchParams } = new URL(request.url);
@@ -26,7 +88,7 @@ export async function GET(request: NextRequest) {
     console.log('🔍 Finding matches for user:', userId, 'refresh:', refresh, 'limit:', limit);
 
     // Get all users with their profiles except the current user
-    const { data: candidates, error: candidatesError } = await supabase
+    const { data: candidates, error: candidatesError } = await db
       .from('users')
       .select(`
         id,
@@ -67,7 +129,7 @@ export async function GET(request: NextRequest) {
 
     // Get user interests for all candidates
     const candidateIds = candidates.map(c => c.id);
-    const { data: interestsData } = await supabase
+    const { data: interestsData } = await db
       .from('users_interests_map')
       .select(`
         user_id,
@@ -216,7 +278,8 @@ export async function GET(request: NextRequest) {
       refresh_token: refresh || Date.now().toString(),
       total_found: limitedCandidates.length,
       user_id: userId,
-      total_available: candidates.length
+      total_available: candidates.length,
+      region: isChinaDeployment() ? 'CN' : 'INTL'
     });
   } catch (error) {
     console.error('❌ Candidates API error:', error);
@@ -230,26 +293,29 @@ function generateMatchReasons(
   isOnline: boolean,
   isVerified: boolean
 ): string[] {
+  const isCN = isChinaDeployment();
   const reasons = [];
 
   if (commonInterests.length > 0) {
-    reasons.push(`Shared interests: ${commonInterests.slice(0, 2).join(', ')}`);
+    reasons.push(isCN 
+      ? `共同兴趣: ${commonInterests.slice(0, 2).join(', ')}`
+      : `Shared interests: ${commonInterests.slice(0, 2).join(', ')}`);
   }
 
   if (isOnline) {
-    reasons.push('Currently online and active');
+    reasons.push(isCN ? '当前在线' : 'Currently online and active');
   }
 
   if (isVerified) {
-    reasons.push('Verified profile');
+    reasons.push(isCN ? '已认证用户' : 'Verified profile');
   }
 
   if (profile.bio && profile.bio.length > 20) {
-    reasons.push('Detailed profile');
+    reasons.push(isCN ? '资料详尽' : 'Detailed profile');
   }
 
   if (reasons.length === 0) {
-    reasons.push('AI-powered compatibility match');
+    reasons.push(isCN ? 'AI智能匹配推荐' : 'AI-powered compatibility match');
   }
 
   return reasons.slice(0, 3);
@@ -259,22 +325,29 @@ function generateConversationStarters(
   profile: { bio: string | null; city_name: string | null },
   commonInterests: string[]
 ): string[] {
+  const isCN = isChinaDeployment();
   const starters = [];
 
   if (commonInterests.length > 0) {
-    starters.push(`I see you're interested in ${commonInterests[0]}! What got you into that?`);
+    starters.push(isCN 
+      ? `我看到你也喜欢${commonInterests[0]}！是什么让你对它产生兴趣的？`
+      : `I see you're interested in ${commonInterests[0]}! What got you into that?`);
   }
 
   if (profile.bio) {
-    starters.push(`Your bio caught my attention. I'd love to hear more about your journey!`);
+    starters.push(isCN 
+      ? '你的个人简介很有趣，能多分享一些吗？'
+      : `Your bio caught my attention. I'd love to hear more about your journey!`);
   }
 
   if (profile.city_name) {
-    starters.push(`I'm curious about ${profile.city_name}. What's the best thing about living there?`);
+    starters.push(isCN 
+      ? `${profile.city_name}是什么样的地方？最喜欢那里的什么？`
+      : `I'm curious about ${profile.city_name}. What's the best thing about living there?`);
   }
 
-  starters.push('What brings you to PersonaLink?');
-  starters.push("I'd love to connect and learn more about you!");
+  starters.push(isCN ? '是什么让你来到这个平台的？' : 'What brings you to PersonaLink?');
+  starters.push(isCN ? '很高兴认识你，想了解更多关于你的事！' : "I'd love to connect and learn more about you!");
 
   return starters.slice(0, 3);
 }

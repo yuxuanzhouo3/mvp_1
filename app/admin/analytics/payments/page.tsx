@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 import {
   DollarSign,
   CreditCard,
@@ -71,6 +72,7 @@ export default function PaymentAnalyticsPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { language } = useLanguage();
+  const t = useTranslations(language);
 
   const [stats, setStats] = useState<PaymentStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,8 +113,8 @@ export default function PaymentAnalyticsPage() {
     } catch (error) {
       console.error('Load stats error:', error);
       toast({
-        title: language === 'zh' ? '错误' : 'Error',
-        description: language === 'zh' ? '加载统计失败' : 'Failed to load statistics',
+        title: t.admin.paymentsAnalytics.error,
+        description: t.admin.paymentsAnalytics.loadFailed,
         variant: 'destructive',
       });
     } finally {
@@ -133,35 +135,28 @@ export default function PaymentAnalyticsPage() {
     );
   }
 
-  const formatCurrency = (amount: number, currency: 'CNY' | 'USD') => {
-    if (currency === 'USD') {
-      return `$${amount.toFixed(2)}`;
-    }
-    return `¥${amount.toFixed(2)}`;
-  };
-
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            {language === 'zh' ? '支付统计' : 'Payment Analytics'}
+            {t.admin.paymentsAnalytics.title}
           </h1>
           <p className="text-gray-600 mt-1">
-            {language === 'zh' ? '收入和支付数据概览' : 'Overview of revenue and payment data'}
+            {t.admin.paymentsAnalytics.subtitle}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={loadStats}>
             <RefreshCw className="h-4 w-4 mr-2" />
-            {language === 'zh' ? '刷新' : 'Refresh'}
+            {t.admin.paymentsAnalytics.refresh}
           </Button>
           <Link href="/admin">
             <Button>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              {language === 'zh' ? '返回' : 'Back'}
+              {t.admin.paymentsAnalytics.back}
             </Button>
           </Link>
         </div>
@@ -173,7 +168,7 @@ export default function PaymentAnalyticsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '总收入 (CNY)' : 'Total Revenue (CNY)'}
+              {t.admin.paymentsAnalytics.totalRevenueCNY}
             </CardTitle>
             <DollarSign className="h-5 w-5 text-green-500" />
           </CardHeader>
@@ -182,7 +177,7 @@ export default function PaymentAnalyticsPage() {
               ¥{stats?.overview.total_revenue_cny?.toFixed(2) || '0.00'}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {stats?.overview.total_payments || 0} {language === 'zh' ? '笔支付' : 'payments'}
+              {stats?.overview.total_payments || 0} {t.admin.paymentsAnalytics.payments}
             </p>
           </CardContent>
         </Card>
@@ -191,7 +186,7 @@ export default function PaymentAnalyticsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '总收入 (USD)' : 'Total Revenue (USD)'}
+              {t.admin.paymentsAnalytics.totalRevenueUSD}
             </CardTitle>
             <DollarSign className="h-5 w-5 text-blue-500" />
           </CardHeader>
@@ -200,7 +195,7 @@ export default function PaymentAnalyticsPage() {
               ${stats?.overview.total_revenue_usd?.toFixed(2) || '0.00'}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '美元收入' : 'USD revenue'}
+              {t.admin.paymentsAnalytics.usdRevenue}
             </p>
           </CardContent>
         </Card>
@@ -209,7 +204,7 @@ export default function PaymentAnalyticsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '已发放积分' : 'Credits Issued'}
+              {t.admin.paymentsAnalytics.creditsIssued}
             </CardTitle>
             <Coins className="h-5 w-5 text-purple-500" />
           </CardHeader>
@@ -218,7 +213,7 @@ export default function PaymentAnalyticsPage() {
               {stats?.overview.total_credits_issued?.toLocaleString() || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '通过购买发放' : 'issued via purchases'}
+              {t.admin.paymentsAnalytics.issuedViaPurchases}
             </p>
           </CardContent>
         </Card>
@@ -227,7 +222,7 @@ export default function PaymentAnalyticsPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '支付成功率' : 'Success Rate'}
+              {t.admin.paymentsAnalytics.successRate}
             </CardTitle>
             <TrendingUp className="h-5 w-5 text-orange-500" />
           </CardHeader>
@@ -256,10 +251,10 @@ export default function PaymentAnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Package className="h-5 w-5 text-indigo-500" />
-              {language === 'zh' ? '套餐销量' : 'Package Sales'}
+              {t.admin.paymentsAnalytics.packageSales}
             </CardTitle>
             <CardDescription>
-              {language === 'zh' ? '各套餐的销售情况' : 'Sales breakdown by package'}
+              {t.admin.paymentsAnalytics.packageSalesDesc}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -274,10 +269,10 @@ export default function PaymentAnalyticsPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <span className="text-sm font-medium">{pkg.package_name}</span>
-                          <span className="text-xs text-gray-500 ml-2">({pkg.credits} {language === 'zh' ? '积分' : 'credits'})</span>
+                          <span className="text-xs text-gray-500 ml-2">({pkg.credits} {t.admin.paymentsAnalytics.credits})</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-sm font-medium">{pkg.count} {language === 'zh' ? '笔' : 'sales'}</span>
+                          <span className="text-sm font-medium">{pkg.count} {t.admin.paymentsAnalytics.sales}</span>
                           <span className="text-xs text-gray-500 ml-2">({percentage.toFixed(1)}%)</span>
                         </div>
                       </div>
@@ -296,7 +291,7 @@ export default function PaymentAnalyticsPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                {language === 'zh' ? '暂无销售数据' : 'No sales data available'}
+                {t.admin.paymentsAnalytics.noSalesData}
               </div>
             )}
           </CardContent>
@@ -307,10 +302,10 @@ export default function PaymentAnalyticsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-teal-500" />
-              {language === 'zh' ? '支付方式分布' : 'Payment Methods'}
+              {t.admin.paymentsAnalytics.paymentMethods}
             </CardTitle>
             <CardDescription>
-              {language === 'zh' ? '各支付方式的使用情况' : 'Usage breakdown by payment method'}
+              {t.admin.paymentsAnalytics.paymentMethodsDesc}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -334,7 +329,7 @@ export default function PaymentAnalyticsPage() {
                             {paymentMethodLabels[method.method] || method.method}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {method.count} {language === 'zh' ? '笔' : 'payments'} ({percentage.toFixed(1)}%)
+                            {method.count} {t.admin.paymentsAnalytics.payments} ({percentage.toFixed(1)}%)
                           </p>
                         </div>
                       </div>
@@ -348,7 +343,7 @@ export default function PaymentAnalyticsPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                {language === 'zh' ? '暂无支付数据' : 'No payment data available'}
+                {t.admin.paymentsAnalytics.noPaymentData}
               </div>
             )}
           </CardContent>
@@ -360,10 +355,10 @@ export default function PaymentAnalyticsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-cyan-500" />
-            {language === 'zh' ? '月度收入趋势' : 'Monthly Revenue Trend'}
+            {t.admin.paymentsAnalytics.monthlyTrend}
           </CardTitle>
           <CardDescription>
-            {language === 'zh' ? '过去12个月的收入数据' : 'Revenue data for the past 12 months'}
+            {t.admin.paymentsAnalytics.monthlyTrendDesc}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -372,11 +367,11 @@ export default function PaymentAnalyticsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left py-2 px-4">{language === 'zh' ? '月份' : 'Month'}</th>
-                    <th className="text-right py-2 px-4">{language === 'zh' ? '订单数' : 'Orders'}</th>
+                    <th className="text-left py-2 px-4">{t.admin.paymentsAnalytics.month}</th>
+                    <th className="text-right py-2 px-4">{t.admin.paymentsAnalytics.orders}</th>
                     <th className="text-right py-2 px-4 text-green-600">CNY</th>
                     <th className="text-right py-2 px-4 text-blue-600">USD</th>
-                    <th className="text-right py-2 px-4">{language === 'zh' ? '合计' : 'Total'}</th>
+                    <th className="text-right py-2 px-4">{t.admin.paymentsAnalytics.total}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -396,7 +391,7 @@ export default function PaymentAnalyticsPage() {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              {language === 'zh' ? '暂无月度数据' : 'No monthly data available'}
+              {t.admin.paymentsAnalytics.noMonthlyData}
             </div>
           )}
         </CardContent>
@@ -407,10 +402,10 @@ export default function PaymentAnalyticsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-emerald-500" />
-            {language === 'zh' ? '每日收入趋势' : 'Daily Revenue Trend'}
+            {t.admin.paymentsAnalytics.dailyTrend}
           </CardTitle>
           <CardDescription>
-            {language === 'zh' ? '过去30天的收入数据' : 'Revenue data for the past 30 days'}
+            {t.admin.paymentsAnalytics.dailyTrendDesc}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -419,8 +414,8 @@ export default function PaymentAnalyticsPage() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-white">
                   <tr className="border-b">
-                    <th className="text-left py-2 px-4">{language === 'zh' ? '日期' : 'Date'}</th>
-                    <th className="text-right py-2 px-4">{language === 'zh' ? '订单数' : 'Orders'}</th>
+                    <th className="text-left py-2 px-4">{t.admin.creditsAnalytics.date}</th>
+                    <th className="text-right py-2 px-4">{t.admin.paymentsAnalytics.orders}</th>
                     <th className="text-right py-2 px-4 text-green-600">CNY</th>
                     <th className="text-right py-2 px-4 text-blue-600">USD</th>
                   </tr>
@@ -439,7 +434,7 @@ export default function PaymentAnalyticsPage() {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              {language === 'zh' ? '暂无每日数据' : 'No daily data available'}
+              {t.admin.paymentsAnalytics.noDailyData}
             </div>
           )}
         </CardContent>

@@ -1,40 +1,65 @@
+/**
+ * 积分统计 API (管理员)
+ * Credits Stats API (Admin)
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
+import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 
 // Force dynamic rendering to avoid caching issues
 export const dynamic = 'force-dynamic';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
+// INTL 环境
+function createSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
     }
-  }
-);
+  );
+}
 
 async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: string }> {
   try {
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    let userId: string | undefined;
 
-    if (error || !user) {
-      return { isAdmin: false };
+    if (isChinaDeployment()) {
+      try {
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        userId = payload.sub || payload.uid;
+      } catch {
+        const db = await getServiceDbClient();
+        const { data, error } = await db.auth.getUser();
+        if (error || !data?.user) return { isAdmin: false };
+        userId = data.user.id;
+      }
+    } else {
+      const supabase = createSupabaseAdmin();
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) return { isAdmin: false };
+      userId = user.id;
     }
 
-    const { data: adminRole, error: adminError } = await supabaseAdmin
+    if (!userId) return { isAdmin: false };
+
+    const db = await getServiceDbClient();
+    const { data: adminRoles } = await db
       .from('admin_roles')
       .select('role')
-      .eq('user_id', user.id)
-      .maybeSingle();
+      .eq('user_id', userId)
+      .limit(1);
 
-    if (adminError || !adminRole) {
-      return { isAdmin: false };
-    }
-
-    return { isAdmin: true, userId: user.id };
-  } catch (err) {
+    return adminRoles && adminRoles.length > 0 ? { isAdmin: true, userId } : { isAdmin: false };
+  } catch {
     return { isAdmin: false };
   }
 }
@@ -69,8 +94,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
+    const db = await getServiceDbClient();
+
     // Get all transactions
-    const { data: transactions, error: transactionsError } = await supabaseAdmin
+    const { data: transactions, error: transactionsError } = await db
       .from('transactions')
       .select('id, user_id, type, amount, balance_before, balance_after, created_at');
 
@@ -121,7 +148,7 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.total - a.total);
 
     // Get user credits distribution
-    const { data: userProfiles, error: profilesError } = await supabaseAdmin
+    const { data: userProfiles, error: profilesError } = await db
       .from('user_profiles')
       .select('user_id, credits');
 
@@ -185,7 +212,7 @@ export async function GET(request: NextRequest) {
 
     let topConsumers: Array<{ user_id: string; username: string; total_consumed: number }> = [];
     if (topConsumerIds.length > 0) {
-      const { data: users } = await supabaseAdmin
+      const { data: users } = await db
         .from('users')
         .select('id, username, email')
         .in('id', topConsumerIds);

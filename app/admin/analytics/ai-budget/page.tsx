@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
+import { useTranslations } from '@/lib/i18n';
 import {
   Brain,
   TrendingUp,
@@ -16,7 +17,6 @@ import {
   Loader2,
   ArrowLeft,
   AlertTriangle,
-  CheckCircle,
   Zap,
   MessageSquare,
   BarChart3,
@@ -63,6 +63,7 @@ export default function AIBudgetPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { language } = useLanguage();
+  const t = useTranslations(language);
 
   const [stats, setStats] = useState<AIStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -104,8 +105,8 @@ export default function AIBudgetPage() {
     } catch (error) {
       console.error('Load stats error:', error);
       toast({
-        title: language === 'zh' ? '错误' : 'Error',
-        description: language === 'zh' ? '加载统计失败' : 'Failed to load statistics',
+        title: t.admin.aiBudget.error,
+        description: t.admin.aiBudget.loadFailed,
         variant: 'destructive',
       });
     } finally {
@@ -148,30 +149,28 @@ export default function AIBudgetPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            {language === 'zh' ? 'AI预算控制' : 'AI Budget Control'}
+            {t.admin.aiBudget.title}
           </h1>
           <p className="text-gray-600 mt-1">
-            {language === 'zh' ? 'AI功能Token使用和预算监控' : 'AI feature token usage and budget monitoring'}
+            {t.admin.aiBudget.subtitle}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => loadStats()}>
             <RefreshCw className="h-4 w-4 mr-2" />
-            {language === 'zh' ? '刷新' : 'Refresh'}
+            {t.admin.aiBudget.refresh}
           </Button>
           <Button
             variant={autoRefresh ? 'default' : 'outline'}
             onClick={() => setAutoRefresh(!autoRefresh)}
             className={autoRefresh ? 'bg-green-600 hover:bg-green-700' : ''}
           >
-            {autoRefresh
-              ? (language === 'zh' ? '自动刷新: 开' : 'Auto: ON')
-              : (language === 'zh' ? '自动刷新: 关' : 'Auto: OFF')}
+            {autoRefresh ? t.admin.aiBudget.autoOn : t.admin.aiBudget.autoOff}
           </Button>
           <Link href="/admin">
             <Button>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              {language === 'zh' ? '返回' : 'Back'}
+              {t.admin.aiBudget.back}
             </Button>
           </Link>
         </div>
@@ -180,11 +179,11 @@ export default function AIBudgetPage() {
       {/* Last Updated */}
       {lastUpdated && (
         <div className="text-sm text-gray-500 mb-4">
-          {language === 'zh' ? '最后更新: ' : 'Last updated: '}
+          {t.admin.aiBudget.lastUpdated}
           {lastUpdated.toLocaleTimeString()}
           {autoRefresh && (
             <span className="ml-2 text-green-600">
-              ({language === 'zh' ? '每30秒自动刷新' : 'auto-refresh every 30s'})
+              ({t.admin.aiBudget.autoRefreshNote})
             </span>
           )}
         </div>
@@ -199,13 +198,11 @@ export default function AIBudgetPage() {
               <div>
                 <h3 className={`font-semibold ${stats.budget.is_over_budget ? 'text-red-800' : 'text-yellow-800'}`}>
                   {stats.budget.is_over_budget
-                    ? (language === 'zh' ? '⚠️ 预算已超支！AI功能可能已暂停' : '⚠️ Budget exceeded! AI features may be suspended')
-                    : (language === 'zh' ? '⚠️ 预算预警：已使用超过80%' : '⚠️ Budget warning: Over 80% used')}
+                    ? t.admin.aiBudget.budgetExceeded
+                    : t.admin.aiBudget.budgetWarning}
                 </h3>
                 <p className={`text-sm ${stats.budget.is_over_budget ? 'text-red-700' : 'text-yellow-700'}`}>
-                  {language === 'zh'
-                    ? `本月已使用 ${formatTokens(stats.budget.monthly_usage)} / ${formatTokens(stats.budget.monthly_limit)} tokens (${stats.budget.usage_percent.toFixed(1)}%)`
-                    : `Used ${formatTokens(stats.budget.monthly_usage)} / ${formatTokens(stats.budget.monthly_limit)} tokens this month (${stats.budget.usage_percent.toFixed(1)}%)`}
+                  {t.admin.aiBudget.used}: {formatTokens(stats.budget.monthly_usage)} / {formatTokens(stats.budget.monthly_limit)} tokens ({stats.budget.usage_percent.toFixed(1)}%)
                 </p>
               </div>
             </div>
@@ -218,14 +215,14 @@ export default function AIBudgetPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Zap className="h-5 w-5 text-purple-500" />
-            {language === 'zh' ? '月度预算使用情况' : 'Monthly Budget Usage'}
+            {t.admin.aiBudget.monthlyBudget}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="flex justify-between text-sm">
-              <span>{language === 'zh' ? '已使用' : 'Used'}: {formatTokens(stats?.budget.monthly_usage || 0)}</span>
-              <span>{language === 'zh' ? '预算' : 'Budget'}: {formatTokens(stats?.budget.monthly_limit || 0)}</span>
+              <span>{t.admin.aiBudget.used}: {formatTokens(stats?.budget.monthly_usage || 0)}</span>
+              <span>{t.admin.aiBudget.budget}: {formatTokens(stats?.budget.monthly_limit || 0)}</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-4">
               <div
@@ -242,10 +239,10 @@ export default function AIBudgetPage() {
                 stats?.budget.is_warning ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
               }>
                 {stats?.budget.is_over_budget
-                  ? (language === 'zh' ? '超预算' : 'Over Budget')
+                  ? t.admin.aiBudget.overBudget
                   : stats?.budget.is_warning
-                    ? (language === 'zh' ? '预警' : 'Warning')
-                    : (language === 'zh' ? '正常' : 'Normal')}
+                    ? t.admin.aiBudget.warning
+                    : t.admin.aiBudget.normal}
               </Badge>
               <span className="text-2xl font-bold">{stats?.budget.usage_percent.toFixed(1)}%</span>
             </div>
@@ -258,7 +255,7 @@ export default function AIBudgetPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '总Token使用' : 'Total Tokens'}
+              {t.admin.aiBudget.totalTokens}
             </CardTitle>
             <Brain className="h-5 w-5 text-purple-500" />
           </CardHeader>
@@ -267,7 +264,7 @@ export default function AIBudgetPage() {
               {formatTokens(stats?.overview.total_tokens || 0)}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '累计消耗' : 'total consumed'}
+              {t.admin.aiBudget.totalConsumed}
             </p>
           </CardContent>
         </Card>
@@ -275,7 +272,7 @@ export default function AIBudgetPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '对话会话数' : 'Chat Sessions'}
+              {t.admin.aiBudget.chatSessions}
             </CardTitle>
             <MessageSquare className="h-5 w-5 text-blue-500" />
           </CardHeader>
@@ -284,7 +281,7 @@ export default function AIBudgetPage() {
               {stats?.overview.total_sessions || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '总会话数' : 'total sessions'}
+              {t.admin.aiBudget.totalSessions}
             </p>
           </CardContent>
         </Card>
@@ -292,7 +289,7 @@ export default function AIBudgetPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '聊天消息数' : 'Chat Messages'}
+              {t.admin.aiBudget.chatMessages}
             </CardTitle>
             <MessageSquare className="h-5 w-5 text-indigo-500" />
           </CardHeader>
@@ -301,7 +298,7 @@ export default function AIBudgetPage() {
               {stats?.overview.total_chat_count || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '总消息次数' : 'total messages'}
+              {t.admin.aiBudget.totalMessages}
             </p>
           </CardContent>
         </Card>
@@ -309,7 +306,7 @@ export default function AIBudgetPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '活跃用户' : 'Active Users'}
+              {t.admin.aiBudget.activeUsers}
             </CardTitle>
             <Users className="h-5 w-5 text-green-500" />
           </CardHeader>
@@ -318,7 +315,7 @@ export default function AIBudgetPage() {
               {stats?.overview.unique_users || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '使用AI功能的用户' : 'users using AI'}
+              {t.admin.aiBudget.usersUsingAI}
             </p>
           </CardContent>
         </Card>
@@ -326,7 +323,7 @@ export default function AIBudgetPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? '性格分析次数' : 'Analysis Count'}
+              {t.admin.aiBudget.analysisCount}
             </CardTitle>
             <TrendingUp className="h-5 w-5 text-orange-500" />
           </CardHeader>
@@ -335,7 +332,7 @@ export default function AIBudgetPage() {
               {stats?.overview.total_analysis_count || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '累计分析次数' : 'total analyses'}
+              {t.admin.aiBudget.totalAnalyses}
             </p>
           </CardContent>
         </Card>
@@ -343,7 +340,7 @@ export default function AIBudgetPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {language === 'zh' ? 'AI助手Token' : 'Assistant Tokens'}
+              {t.admin.aiBudget.assistantTokens}
             </CardTitle>
             <Bot className="h-5 w-5 text-cyan-500" />
           </CardHeader>
@@ -352,7 +349,7 @@ export default function AIBudgetPage() {
               {formatTokens(stats?.overview.assistant_tokens || 0)}
             </div>
             <p className="text-xs text-gray-500 mt-1">
-              {language === 'zh' ? '本月AI助手消耗' : 'assistant this month'}
+              {t.admin.aiBudget.assistantThisMonth}
             </p>
           </CardContent>
         </Card>
@@ -365,19 +362,19 @@ export default function AIBudgetPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-indigo-500" />
-              {language === 'zh' ? '会话类型分布' : 'Sessions by Type'}
+              {t.admin.aiBudget.sessionsByType}
             </CardTitle>
             <CardDescription>
-              {language === 'zh' ? '各类型AI功能使用分布' : 'AI feature usage distribution'}
+              {t.admin.aiBudget.sessionsByTypeDesc}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {stats?.sessions_by_type ? (
               <div className="space-y-4">
                 {[
-                  { key: 'assistant', label: language === 'zh' ? 'AI助手' : 'AI Assistant', color: 'bg-cyan-500' },
-                  { key: 'free_trial', label: language === 'zh' ? '免费试用' : 'Free Trial', color: 'bg-blue-500' },
-                  { key: 'vip_unlimited', label: language === 'zh' ? 'VIP无限' : 'VIP Unlimited', color: 'bg-purple-500' },
+                  { key: 'assistant', label: t.admin.aiBudget.aiAssistant, color: 'bg-cyan-500' },
+                  { key: 'free_trial', label: t.admin.aiBudget.freeTrial, color: 'bg-blue-500' },
+                  { key: 'vip_unlimited', label: t.admin.aiBudget.vipUnlimited, color: 'bg-purple-500' },
                 ].map(item => {
                   const count = stats.sessions_by_type[item.key as keyof typeof stats.sessions_by_type] || 0;
                   const total = (stats.sessions_by_type.free_trial || 0) + (stats.sessions_by_type.vip_unlimited || 0) + (stats.sessions_by_type.assistant || 0);
@@ -398,7 +395,7 @@ export default function AIBudgetPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                {language === 'zh' ? '暂无数据' : 'No data available'}
+                {t.admin.aiBudget.noData}
               </div>
             )}
           </CardContent>
@@ -409,10 +406,10 @@ export default function AIBudgetPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-rose-500" />
-              {language === 'zh' ? 'Token使用排行' : 'Top Token Users'}
+              {t.admin.aiBudget.topTokenUsers}
             </CardTitle>
             <CardDescription>
-              {language === 'zh' ? 'Token消耗最多的用户' : 'Users consuming the most tokens'}
+              {t.admin.aiBudget.topTokenUsersDesc}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -437,7 +434,7 @@ export default function AIBudgetPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
-                {language === 'zh' ? '暂无数据' : 'No data available'}
+                {t.admin.aiBudget.noData}
               </div>
             )}
           </CardContent>
@@ -449,10 +446,10 @@ export default function AIBudgetPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-emerald-500" />
-            {language === 'zh' ? '每日趋势' : 'Daily Trend'}
+            {t.admin.aiBudget.dailyTrend}
           </CardTitle>
           <CardDescription>
-            {language === 'zh' ? '过去30天Token和会话趋势图' : 'Token and session trend for the past 30 days'}
+            {t.admin.aiBudget.dailyTrendDesc}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -461,7 +458,7 @@ export default function AIBudgetPage() {
             if (!hasData) {
               return (
                 <div className="text-center py-8 text-gray-500">
-                  {language === 'zh' ? '暂无趋势数据' : 'No trend data available'}
+                  {t.admin.aiBudget.noTrendData}
                 </div>
               );
             }
@@ -475,10 +472,10 @@ export default function AIBudgetPage() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 bg-emerald-500 rounded" />
-                      <span className="text-sm font-medium">{language === 'zh' ? 'Token消耗' : 'Token Usage'}</span>
+                      <span className="text-sm font-medium">{t.admin.aiBudget.tokenUsage}</span>
                     </div>
                     <span className="text-xs text-gray-500">
-                      {language === 'zh' ? '总计: ' : 'Total: '}{formatTokens(stats.daily_stats.reduce((sum, d) => sum + d.tokens, 0))}
+                      {t.admin.paymentsAnalytics.total}: {formatTokens(stats.daily_stats.reduce((sum, d) => sum + d.tokens, 0))}
                     </span>
                   </div>
                   <div className="flex items-end gap-2 h-32 overflow-x-auto pb-6">
@@ -507,10 +504,10 @@ export default function AIBudgetPage() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 bg-blue-500 rounded" />
-                      <span className="text-sm font-medium">{language === 'zh' ? '会话数' : 'Sessions'}</span>
+                      <span className="text-sm font-medium">{t.admin.aiBudget.sessions}</span>
                     </div>
                     <span className="text-xs text-gray-500">
-                      {language === 'zh' ? '总计: ' : 'Total: '}{stats.daily_stats.reduce((sum, d) => sum + d.sessions, 0)}
+                      {t.admin.paymentsAnalytics.total}: {stats.daily_stats.reduce((sum, d) => sum + d.sessions, 0)}
                     </span>
                   </div>
                   <div className="flex items-end gap-2 h-32 overflow-x-auto pb-6">
@@ -527,7 +524,7 @@ export default function AIBudgetPage() {
                           </div>
                           <div className="text-xs text-gray-400 mt-1 whitespace-nowrap">{day.date.slice(5)}</div>
                           <div className="absolute bottom-full mb-1 hidden group-hover:block bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-                            {day.date}: {day.sessions} {language === 'zh' ? '会话' : 'sessions'}
+                            {day.date}: {day.sessions} {t.admin.aiBudget.sessions}
                           </div>
                         </div>
                       );
@@ -538,7 +535,7 @@ export default function AIBudgetPage() {
             );
           })() : (
             <div className="text-center py-8 text-gray-500">
-              {language === 'zh' ? '暂无趋势数据' : 'No trend data available'}
+              {t.admin.aiBudget.noTrendData}
             </div>
           )}
         </CardContent>
@@ -549,10 +546,10 @@ export default function AIBudgetPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-amber-500" />
-            {language === 'zh' ? '每日使用统计' : 'Daily Usage Stats'}
+            {t.admin.aiBudget.dailyUsage}
           </CardTitle>
           <CardDescription>
-            {language === 'zh' ? '过去30天的AI使用情况' : 'AI usage in the past 30 days'}
+            {t.admin.aiBudget.dailyUsageDesc}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -561,9 +558,9 @@ export default function AIBudgetPage() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-white">
                   <tr className="border-b">
-                    <th className="text-left py-2 px-4">{language === 'zh' ? '日期' : 'Date'}</th>
-                    <th className="text-right py-2 px-4">{language === 'zh' ? '会话数' : 'Sessions'}</th>
-                    <th className="text-right py-2 px-4">{language === 'zh' ? 'Token消耗' : 'Tokens'}</th>
+                    <th className="text-left py-2 px-4">{t.admin.creditsAnalytics.date}</th>
+                    <th className="text-right py-2 px-4">{t.admin.aiBudget.sessions}</th>
+                    <th className="text-right py-2 px-4">{t.admin.aiBudget.tokens}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -579,7 +576,7 @@ export default function AIBudgetPage() {
             </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
-              {language === 'zh' ? '暂无每日数据' : 'No daily data available'}
+              {t.admin.aiBudget.noDailyData}
             </div>
           )}
         </CardContent>

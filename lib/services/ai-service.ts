@@ -38,6 +38,19 @@ export interface ChatMessage {
 
 // 获取AI使用限额
 export async function getAIUsageLimits(): Promise<AIUsageLimits | null> {
+  const isCN = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN';
+
+  // CN 环境返回默认值
+  if (isCN) {
+    return {
+      daily_analysis_count: 0,
+      daily_analysis_limit: 3,
+      total_chat_count: 0,
+      total_chat_limit: null,
+      is_vip: false,
+    };
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
@@ -71,19 +84,45 @@ export async function analyzePersonality(targetUserId: string): Promise<{
   tokens_used?: number;
 }> {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Not authenticated');
 
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-personality-analysis`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ target_user_id: targetUserId }),
+  // CN 环境使用本地 token，INTL 环境使用 Supabase session
+  const isCN = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN';
+  let authToken = '';
+
+  if (isCN) {
+    // CN 环境：从 localStorage 获取用户数据
+    let cnUserId: string | null = null;
+    if (typeof window !== 'undefined') {
+      const cnUserData = localStorage.getItem('cn_user');
+      if (cnUserData) {
+        try {
+          const cnUser = JSON.parse(cnUserData);
+          cnUserId = cnUser.id;
+        } catch {
+          // ignore parse error
+        }
+      }
     }
-  );
+    if (cnUserId) {
+      authToken = `cn_${cnUserId}`;
+    } else if (session?.access_token) {
+      authToken = session.access_token;
+    }
+  } else {
+    if (!session) throw new Error('Not authenticated');
+    authToken = session.access_token;
+  }
+
+  if (!authToken) throw new Error('Not authenticated');
+
+  const response = await fetch('/api/ai/personality-analysis', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`,
+    },
+    body: JSON.stringify({ target_user_id: targetUserId }),
+  });
 
   if (!response.ok) {
     const error = await response.json();
@@ -96,19 +135,43 @@ export async function analyzePersonality(targetUserId: string): Promise<{
 // 开始AI对话会话
 export async function startChatSession(targetUserId: string): Promise<ChatSession> {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Not authenticated');
 
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-chat-simulation/start`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ target_user_id: targetUserId }),
+  const isCN = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN';
+  let authToken = '';
+
+  if (isCN) {
+    let cnUserId: string | null = null;
+    if (typeof window !== 'undefined') {
+      const cnUserData = localStorage.getItem('cn_user');
+      if (cnUserData) {
+        try {
+          const cnUser = JSON.parse(cnUserData);
+          cnUserId = cnUser.id;
+        } catch {
+          // ignore parse error
+        }
+      }
     }
-  );
+    if (cnUserId) {
+      authToken = `cn_${cnUserId}`;
+    } else if (session?.access_token) {
+      authToken = session.access_token;
+    }
+  } else {
+    if (!session) throw new Error('Not authenticated');
+    authToken = session.access_token;
+  }
+
+  if (!authToken) throw new Error('Not authenticated');
+
+  const response = await fetch('/api/ai/chat/start', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`,
+    },
+    body: JSON.stringify({ target_user_id: targetUserId }),
+  });
 
   if (!response.ok) {
     const error = await response.json();
@@ -121,19 +184,43 @@ export async function startChatSession(targetUserId: string): Promise<ChatSessio
 // 发送AI对话消息
 export async function sendChatMessage(sessionId: string, message: string): Promise<ChatMessage> {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) throw new Error('Not authenticated');
 
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ai-chat-simulation/message`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ session_id: sessionId, message }),
+  const isCN = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN';
+  let authToken = '';
+
+  if (isCN) {
+    let cnUserId: string | null = null;
+    if (typeof window !== 'undefined') {
+      const cnUserData = localStorage.getItem('cn_user');
+      if (cnUserData) {
+        try {
+          const cnUser = JSON.parse(cnUserData);
+          cnUserId = cnUser.id;
+        } catch {
+          // ignore parse error
+        }
+      }
     }
-  );
+    if (cnUserId) {
+      authToken = `cn_${cnUserId}`;
+    } else if (session?.access_token) {
+      authToken = session.access_token;
+    }
+  } else {
+    if (!session) throw new Error('Not authenticated');
+    authToken = session.access_token;
+  }
+
+  if (!authToken) throw new Error('Not authenticated');
+
+  const response = await fetch('/api/ai/chat/message', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`,
+    },
+    body: JSON.stringify({ session_id: sessionId, message }),
+  });
 
   if (!response.ok) {
     const error = await response.json();

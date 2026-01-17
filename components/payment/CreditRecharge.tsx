@@ -12,7 +12,6 @@ import { getSupabaseClient } from '@/lib/supabase/client';
 import {
   CreditCard,
   DollarSign,
-  Bitcoin,
   Gift,
   Check,
   Zap,
@@ -23,11 +22,11 @@ import {
   TrendingUp,
   Gem,
   Rocket,
-  Lock,
   Wallet,
   Coins,
   Star
 } from 'lucide-react';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 import PaymentMonitor from './PaymentMonitor';
 import { PayPalCheckout } from './PayPalButton';
 import MembershipSubscription from './MembershipSubscription';
@@ -197,13 +196,34 @@ const getPackages = (t: any, language: string): CreditPackage[] => {
   });
 };
 
-const getPaymentMethods = (t: any): PaymentMethod[] => [
+// CN环境支付方式
+const getCNPaymentMethods = (t: any): PaymentMethod[] => [
+  {
+    id: 'wechat',
+    name: t.payment.recharge.paymentMethods.wechat?.name || '微信支付',
+    icon: Wallet,
+    description: t.payment.recharge.paymentMethods.wechat?.description || '微信扫码支付',
+    processingTime: t.payment.recharge.paymentMethods.wechat?.processingTime || '即时到账',
+    gradient: 'from-green-500 to-green-600',
+  },
+  {
+    id: 'alipay',
+    name: t.payment.recharge.paymentMethods.alipay?.name || '支付宝',
+    icon: DollarSign,
+    description: t.payment.recharge.paymentMethods.alipay?.description || '支付宝扫码支付',
+    processingTime: t.payment.recharge.paymentMethods.alipay?.processingTime || '即时到账',
+    gradient: 'from-blue-500 to-blue-600',
+  },
+];
+
+// INTL环境支付方式
+const getINTLPaymentMethods = (t: any): PaymentMethod[] => [
   {
     id: 'stripe',
-    name: t.payment.recharge.paymentMethods.stripe.name,
+    name: t.payment.recharge.paymentMethods.stripe?.name || 'Credit Card',
     icon: CreditCard,
-    description: t.payment.recharge.paymentMethods.stripe.description,
-    processingTime: t.payment.recharge.paymentMethods.stripe.processingTime,
+    description: t.payment.recharge.paymentMethods.stripe?.description || 'Visa, Mastercard, etc.',
+    processingTime: t.payment.recharge.paymentMethods.stripe?.processingTime || 'Instant',
     gradient: 'from-indigo-500 to-purple-500',
   },
   {
@@ -214,23 +234,12 @@ const getPaymentMethods = (t: any): PaymentMethod[] => [
     processingTime: t.payment.recharge.paymentMethods.paypal?.processingTime || 'Instant',
     gradient: 'from-blue-600 to-blue-800',
   },
-  {
-    id: 'usdt',
-    name: t.payment.recharge.paymentMethods.usdt.name,
-    icon: Bitcoin,
-    description: t.payment.recharge.paymentMethods.usdt.description,
-    processingTime: t.payment.recharge.paymentMethods.usdt.processingTime,
-    gradient: 'from-green-500 to-emerald-500',
-  },
-  {
-    id: 'alipay',
-    name: t.payment.recharge.paymentMethods.alipay.name,
-    icon: DollarSign,
-    description: t.payment.recharge.paymentMethods.alipay.description,
-    processingTime: t.payment.recharge.paymentMethods.alipay.processingTime,
-    gradient: 'from-blue-500 to-blue-600',
-  },
 ];
+
+// 根据区域获取支付方式
+const getPaymentMethods = (t: any, isCN: boolean): PaymentMethod[] => {
+  return isCN ? getCNPaymentMethods(t) : getINTLPaymentMethods(t);
+};
 
 export default function CreditRecharge() {
   const { toast } = useToast();
@@ -238,12 +247,15 @@ export default function CreditRecharge() {
   const { language } = useLanguage();
   const t = useTranslations(language);
 
+  // 检测部署区域
+  const isCN = isChinaDeployment();
+
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>('credits');
 
   // Get localized data
   const creditPackages = getPackages(t, language);
-  const paymentMethods = getPaymentMethods(t);
+  const paymentMethods = getPaymentMethods(t, isCN);
 
   // Currency symbol
   const currencySymbol = t.currency.symbol;
@@ -333,13 +345,12 @@ export default function CreditRecharge() {
             paymentMethod: 'paypal',
           });
           setShowPaymentMonitor(true);
-        } else if (selectedPaymentMethod.id === 'usdt') {
+        } else if (selectedPaymentMethod.id === 'wechat') {
           setPaymentData({
             paymentId: data.paymentId,
-            paymentAddress: data.paymentAddress,
+            qrCodeUrl: data.qrCodeUrl,
             amount: data.amount,
-            network: data.network,
-            paymentMethod: 'usdt',
+            paymentMethod: 'wechat',
           });
           setShowPaymentMonitor(true);
         } else if (selectedPaymentMethod.id === 'alipay') {

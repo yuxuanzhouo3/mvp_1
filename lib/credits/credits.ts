@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 
 // Credit consumption costs based on PRD v2.0
 export const CREDIT_COSTS = {
@@ -47,13 +47,14 @@ interface CreditsResult {
   success: boolean;
   newBalance?: number;
   error?: string;
+  errorCode?: string;
 }
 
 /**
  * Get user's current credits balance
  */
 export async function getCreditsBalance(userId: string): Promise<number> {
-  const supabase = createClient();
+  const supabase = await getDbClient();
 
   const { data, error } = await supabase
     .from('user_profiles')
@@ -128,12 +129,66 @@ export async function consumeCredits(
   referenceId?: string,
   description?: string
 ): Promise<CreditsResult> {
-  const supabase = createClient();
+  const supabase = await getDbClient();
 
   // Determine the transaction type
   const transactionType = CREDIT_TRANSACTION_TYPES[type] || 'credit_consume_match';
   const defaultDescription = CREDIT_ACTION_DESCRIPTIONS[type]?.zh || '积分消费';
 
+  // CN 环境：直接操作数据库（不使用 RPC）
+  if (isChinaDeployment()) {
+    try {
+      // 1. 获取当前积分余额
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('credits')
+        .eq('user_id', userId)
+        .single();
+
+      if (profileError || !profile) {
+        return { success: false, error: '获取用户积分失败' };
+      }
+
+      const currentCredits = profile.credits || 0;
+      if (currentCredits < amount) {
+        return { success: false, error: '积分不足', errorCode: 'INSUFFICIENT_CREDITS' };
+      }
+
+      // 2. 扣除积分
+      const newBalance = currentCredits - amount;
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .update({ credits: newBalance })
+        .eq('user_id', userId);
+
+      if (updateError) {
+        return { success: false, error: '扣除积分失败' };
+      }
+
+      // 3. 记录交易（可选，如果有 credit_transactions 表）
+      try {
+        await supabase
+          .from('credit_transactions')
+          .insert({
+            user_id: userId,
+            amount: -amount,
+            type: transactionType,
+            reference_id: referenceId || null,
+            description: description || defaultDescription,
+            balance_after: newBalance,
+          });
+      } catch {
+        // 忽略交易记录错误，不影响主流程
+      }
+
+      return { success: true, newBalance };
+    } catch (error: any) {
+      console.error('CN consumeCredits error:', error);
+      return { success: false, error: error.message || '积分扣除失败' };
+    }
+  }
+
+  // INTL 环境：使用 RPC
   // Use the database function to consume credits atomically
   const { data, error } = await supabase.rpc('consume_user_credits_v2', {
     p_user_id: userId,
@@ -268,7 +323,7 @@ export async function addCredits(
   amount: number,
   paymentId: string
 ): Promise<CreditsResult> {
-  const supabase = createClient();
+  const supabase = await getDbClient();
 
   // Use the database function to add credits atomically
   const { data, error } = await supabase.rpc('add_user_credits', {
@@ -320,7 +375,7 @@ export async function getTransactionHistory(
   }>;
   total: number;
 }> {
-  const supabase = createClient();
+  const supabase = await getDbClient();
 
   // Get transactions
   const { data, error, count } = await supabase

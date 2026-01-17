@@ -1,90 +1,154 @@
+/**
+ * AI 助手 API - 统一入口
+ * AI Assistant API - Unified Endpoint
+ * 
+ * 支持双环境:
+ * - CN 环境: 通义千问 (qwen-turbo)
+ * - INTL 环境: Mistral AI
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { chatWithMistral, MistralMessage } from '@/lib/ai/mistral-client';
+import { getDbClient, isChinaDeployment } from '@/lib/db-client';
+import { createClient } from '@supabase/supabase-js';
+import { getAIService, getSystemPrompt } from '@/lib/ai';
+import type { ChatMessage, AIChatSessionConfig } from '@/lib/ai/types';
+
+// 统一认证函数
+async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
+  const authHeader = request.headers.get('authorization');
+  
+  if (isChinaDeployment()) {
+    // CN 环境: 从 token 中解析用户信息 (JWT)
+    if (!authHeader) return null;
+    const token = authHeader.replace('Bearer ', '');
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      return {
+        userId: payload.sub || payload.uid,
+        email: payload.email,
+      };
+    } catch {
+      return null;
+    }
+  } else {
+    // INTL 环境: 使用 Supabase 验证 token
+    const db = await getDbClient();
+    const { data: { user }, error } = await db.auth.getUser();
+    if (error || !user) {
+      if (authHeader) {
+        try {
+          const token = authHeader.replace('Bearer ', '');
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+          if (url && key) {
+            const anonClient = createClient(url, key, {
+              auth: { autoRefreshToken: false, persistSession: false }
+            });
+            const { data: { user: tokenUser }, error: tokenError } = await anonClient.auth.getUser(token);
+            if (!tokenError && tokenUser) {
+              return { userId: tokenUser.id, email: tokenUser.email };
+            }
+          }
+        } catch {}
+      }
+      return null;
+    }
+    return { userId: user.id, email: user.email };
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    if (!authUser) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const { message, chatHistory, targetUserName, language = 'en' } = await request.json();
+    const body = await request.json();
+    const { 
+      messages, 
+      type = 'general_assistant',
+      context,
+      options,
+    } = body as {
+      messages: ChatMessage[];
+      type?: 'chat_simulation' | 'personality_analysis' | 'general_assistant';
+      context?: AIChatSessionConfig['targetUserProfile'];
+      options?: {
+        model?: string;
+        temperature?: number;
+        maxTokens?: number;
+      };
+    };
 
-    if (!message) {
-      return NextResponse.json({ error: 'message required' }, { status: 400 });
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json(
+        { error: 'Messages are required' },
+        { status: 400 }
+      );
     }
 
-    // 构建系统提示
-    const systemPrompt = language === 'zh'
-      ? `你是一个约会聊天助手。用户正在与${targetUserName || '某人'}聊天，需要你帮助分析对方发来的消息并建议合适的��复。
+    // 获取当前环境的 AI 服务
+    const aiService = getAIService();
+    const isCN = isChinaDeployment();
 
-请分析这条消息的含义、情感和意图，然后提供2-3个建议回复。回复应该自然、友好、有趣。
+    console.log(`[AI Assistant] Using ${isCN ? 'Qwen' : 'Mistral'} AI service`);
 
-输出格式：
-**消息分析：**
-[简短分析对方消息的含义和情感]
+    // 获取系统提示词
+    const systemPrompt = getSystemPrompt(type, context);
 
-**建议回复：**
-1. [第一个建议回复]
-2. [第二个建议回复]
-3. [第三个建议回复（可选）]`
-      : `You are a dating chat assistant. The user is chatting with ${targetUserName || 'someone'} and needs help analyzing the received message and suggesting appropriate replies.
-
-Please analyze the meaning, emotion, and intent of this message, then provide 2-3 suggested replies. Replies should be natural, friendly, and engaging.
-
-Output format:
-**Message Analysis:**
-[Brief analysis of the message's meaning and emotion]
-
-**Suggested Replies:**
-1. [First suggested reply]
-2. [Second suggested reply]
-3. [Third suggested reply (optional)]`;
-
-    const messages: MistralMessage[] = [
+    // 构建完整的消息列表
+    const fullMessages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
+      ...messages,
     ];
 
-    // 添加聊天历史上下文（最近5条）
-    if (chatHistory && Array.isArray(chatHistory)) {
-      const recentHistory = chatHistory.slice(-5);
-      for (const msg of recentHistory) {
-        messages.push({
-          role: msg.isOwn ? 'user' : 'assistant',
-          content: msg.isOwn ? `[我发送]: ${msg.content}` : `[对方发送]: ${msg.content}`,
-        });
-      }
-    }
-
-    // 添加当前需要分析的消息
-    messages.push({
-      role: 'user',
-      content: language === 'zh'
-        ? `请分析对方发来的这条消息并给出回复建议：\n\n"${message}"`
-        : `Please analyze this message from them and suggest replies:\n\n"${message}"`,
+    // 调用 AI 服务
+    const response = await aiService.chat(fullMessages, {
+      model: options?.model,
+      temperature: options?.temperature ?? 0.7,
+      maxTokens: options?.maxTokens ?? 1500,
     });
 
-    const result = await chatWithMistral(messages, {
-      temperature: 0.8,
-      maxTokens: 512,
-    });
+    // 记录使用情况
+    console.log(`[AI Assistant] Response generated, tokens used: ${response.tokensUsed}`);
 
-    // 记录使用量
-    await supabase.from('ai_usage_logs').insert({
-      user_id: user.id,
-      feature: 'assistant',
-      tokens_used: result.tokensUsed,
-    });
+    // TODO: 记录 AI 使用量到数据库用于限额控制
 
     return NextResponse.json({
-      analysis: result.content,
-      tokens_used: result.tokensUsed,
+      success: true,
+      content: response.content,
+      tokensUsed: response.tokensUsed,
+      model: response.model || aiService.getDefaultModel(),
+      region: isCN ? 'CN' : 'INTL',
     });
   } catch (error: any) {
-    console.error('AI Assistant error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[AI Assistant] Error:', error);
+    
+    return NextResponse.json(
+      { 
+        error: error.message || 'AI service error',
+        errorCode: 'AI_SERVICE_ERROR',
+      },
+      { status: 500 }
+    );
   }
+}
+
+export async function GET(request: NextRequest) {
+  // 返回当前 AI 服务信息
+  const aiService = getAIService();
+  const isCN = isChinaDeployment();
+
+  return NextResponse.json({
+    region: isCN ? 'CN' : 'INTL',
+    provider: isCN ? 'Qwen (通义千问)' : 'Mistral AI',
+    defaultModel: aiService.getDefaultModel(),
+    availableModels: aiService.getAvailableModels(),
+    defaultLanguage: isCN ? 'zh-CN' : 'en-US',
+  });
 }

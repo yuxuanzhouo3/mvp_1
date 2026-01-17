@@ -1,11 +1,22 @@
 /**
  * Notification Service
  * Handles creating and managing user notifications
- * Includes Firebase Push Notification integration
+ * Includes Firebase Push Notification integration (INTL only)
+ *
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { sendPushNotificationToUser, type PushNotificationPayload } from '@/lib/firebase/admin';
+
+/**
+ * 检查是否启用 Firebase 推送（仅 INTL 环境）
+ */
+function isFirebasePushEnabled(): boolean {
+  return !isChinaDeployment();
+}
 
 // Notification types
 export type NotificationType =
@@ -29,29 +40,15 @@ export interface NotificationData {
   pushPayload?: Partial<PushNotificationPayload>;
 }
 
-// Create Supabase admin client (for server-side use only)
-function getSupabaseAdmin() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
-}
-
 /**
  * Create a notification for a user
  * Automatically sends push notification if enabled
  */
 export async function createNotification(data: NotificationData): Promise<{ success: boolean; error?: string; pushSent?: boolean }> {
   try {
-    const supabase = getSupabaseAdmin();
+    const db = await getServiceDbClient();
 
-    const { error } = await supabase.from('notifications').insert({
+    const { error } = await db.from('notifications').insert({
       user_id: data.userId,
       type: data.type,
       title: data.title,
@@ -66,9 +63,9 @@ export async function createNotification(data: NotificationData): Promise<{ succ
       return { success: false, error: error.message };
     }
 
-    // Send push notification (default: enabled)
+    // Send push notification (only in INTL environment)
     let pushSent = false;
-    if (data.sendPush !== false) {
+    if (data.sendPush !== false && isFirebasePushEnabled()) {
       try {
         const pushPayload: PushNotificationPayload = {
           title: data.pushPayload?.title || data.title,
@@ -141,9 +138,9 @@ export async function notifyPhotoRejected(
  */
 export async function getUnreadCount(userId: string): Promise<number> {
   try {
-    const supabase = getSupabaseAdmin();
+    const db = await getServiceDbClient();
 
-    const { count, error } = await supabase
+    const { count, error } = await db
       .from('notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
@@ -184,10 +181,10 @@ export async function getUserNotifications(
   total: number;
 }> {
   try {
-    const supabase = getSupabaseAdmin();
+    const db = await getServiceDbClient();
     const { limit = 20, offset = 0, unreadOnly = false } = options;
 
-    let query = supabase
+    let query = db
       .from('notifications')
       .select('*', { count: 'exact' })
       .eq('user_id', userId)
@@ -222,9 +219,9 @@ export async function markAsRead(
   userId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = getSupabaseAdmin();
+    const db = await getServiceDbClient();
 
-    const { error } = await supabase
+    const { error } = await db
       .from('notifications')
       .update({ is_read: true })
       .eq('id', notificationId)
@@ -247,9 +244,9 @@ export async function markAsRead(
  */
 export async function markAllAsRead(userId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = getSupabaseAdmin();
+    const db = await getServiceDbClient();
 
-    const { error } = await supabase
+    const { error } = await db
       .from('notifications')
       .update({ is_read: true })
       .eq('user_id', userId)
@@ -273,11 +270,11 @@ export async function markAllAsRead(userId: string): Promise<{ success: boolean;
  */
 export async function cleanupOldNotifications(): Promise<{ success: boolean; deletedCount: number }> {
   try {
-    const supabase = getSupabaseAdmin();
+    const db = await getServiceDbClient();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 90);
 
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from('notifications')
       .delete()
       .lt('created_at', cutoffDate.toISOString())

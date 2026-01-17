@@ -1,42 +1,65 @@
+/**
+ * 照片审核 API (管理员)
+ * Photo Review API (Admin)
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
+import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 
 // Force dynamic rendering to avoid caching issues
 export const dynamic = 'force-dynamic';
 
-// Create Supabase admin client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
+// INTL 环境
+function createSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
     }
-  }
-);
+  );
+}
 
 // Helper function to verify admin status
 async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: string }> {
   try {
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    let userId: string | undefined;
 
-    if (error || !user) {
-      return { isAdmin: false };
+    if (isChinaDeployment()) {
+      try {
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        userId = payload.sub || payload.uid;
+      } catch {
+        const db = await getServiceDbClient();
+        const { data, error } = await db.auth.getUser();
+        if (error || !data?.user) return { isAdmin: false };
+        userId = data.user.id;
+      }
+    } else {
+      const supabase = createSupabaseAdmin();
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) return { isAdmin: false };
+      userId = user.id;
     }
 
-    // Check if user is in admin_roles table
-    const { data: adminRole, error: adminError } = await supabaseAdmin
+    if (!userId) return { isAdmin: false };
+
+    const db = await getServiceDbClient();
+    const { data: adminRoles } = await db
       .from('admin_roles')
       .select('role')
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', userId)
+      .limit(1);
 
-    if (adminError || !adminRole) {
-      return { isAdmin: false };
-    }
-
-    return { isAdmin: true, userId: user.id };
+    return adminRoles && adminRoles.length > 0 ? { isAdmin: true, userId } : { isAdmin: false };
   } catch {
     return { isAdmin: false };
   }
@@ -86,6 +109,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error) {
+    console.error('Photo review error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
@@ -102,8 +126,10 @@ async function handleApprove(photoId: string, adminId: string) {
     );
   }
 
+  const db = await getServiceDbClient();
+
   // Update photo status
-  const { error: updateError } = await supabaseAdmin
+  const { error: updateError } = await db
     .from('user_photos')
     .update({
       audit_status: 'approved',
@@ -121,7 +147,7 @@ async function handleApprove(photoId: string, adminId: string) {
   }
 
   // Log the action
-  await supabaseAdmin.from('photo_audit_logs').insert({
+  await db.from('photo_audit_logs').insert({
     photo_id: photoId,
     action: 'approved',
     reviewed_by: adminId,
@@ -150,8 +176,10 @@ async function handleReject(photoId: string, reason: string, adminId: string) {
     );
   }
 
+  const db = await getServiceDbClient();
+
   // Update photo status
-  const { error: updateError } = await supabaseAdmin
+  const { error: updateError } = await db
     .from('user_photos')
     .update({
       audit_status: 'rejected',
@@ -170,7 +198,7 @@ async function handleReject(photoId: string, reason: string, adminId: string) {
   }
 
   // Log the action
-  await supabaseAdmin.from('photo_audit_logs').insert({
+  await db.from('photo_audit_logs').insert({
     photo_id: photoId,
     action: 'rejected',
     reason: reason.trim(),
@@ -201,10 +229,11 @@ async function handleBatchApprove(photoIds: string[], adminId: string) {
     );
   }
 
+  const db = await getServiceDbClient();
   const now = new Date().toISOString();
 
   // Update all photos
-  const { error: updateError } = await supabaseAdmin
+  const { error: updateError } = await db
     .from('user_photos')
     .update({
       audit_status: 'approved',
@@ -229,7 +258,7 @@ async function handleBatchApprove(photoIds: string[], adminId: string) {
     reviewed_at: now,
   }));
 
-  await supabaseAdmin.from('photo_audit_logs').insert(auditLogs);
+  await db.from('photo_audit_logs').insert(auditLogs);
 
   return NextResponse.json({
     success: true,
@@ -262,10 +291,11 @@ async function handleBatchReject(photoIds: string[], reason: string, adminId: st
     );
   }
 
+  const db = await getServiceDbClient();
   const now = new Date().toISOString();
 
   // Update all photos
-  const { error: updateError } = await supabaseAdmin
+  const { error: updateError } = await db
     .from('user_photos')
     .update({
       audit_status: 'rejected',
@@ -292,7 +322,7 @@ async function handleBatchReject(photoIds: string[], reason: string, adminId: st
     reviewed_at: now,
   }));
 
-  await supabaseAdmin.from('photo_audit_logs').insert(auditLogs);
+  await db.from('photo_audit_logs').insert(auditLogs);
 
   return NextResponse.json({
     success: true,
@@ -319,8 +349,10 @@ async function handleRate(photoId: string, rating: number, adminId: string) {
     );
   }
 
+  const db = await getServiceDbClient();
+
   // Check if the photo is primary
-  const { data: photo, error: fetchError } = await supabaseAdmin
+  const { data: photo, error: fetchError } = await db
     .from('user_photos')
     .select('is_primary, audit_status')
     .eq('id', photoId)
@@ -341,7 +373,7 @@ async function handleRate(photoId: string, rating: number, adminId: string) {
   }
 
   // Update the rating
-  const { error: updateError } = await supabaseAdmin
+  const { error: updateError } = await db
     .from('user_photos')
     .update({
       admin_rating: rating,
@@ -357,9 +389,9 @@ async function handleRate(photoId: string, rating: number, adminId: string) {
     );
   }
 
-  // Log the action (non-blocking, ignore errors)
+  // Log the action (non-blocking)
   try {
-    await supabaseAdmin.from('photo_audit_logs').insert({
+    await db.from('photo_audit_logs').insert({
       photo_id: photoId,
       action: 'approved',
       reason: `Appearance rating: ${rating}/100`,

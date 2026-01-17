@@ -40,7 +40,7 @@ interface MatchHistory {
 
 export default function MatchingHistoryPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const { language } = useLanguage();
@@ -77,7 +77,15 @@ export default function MatchingHistoryPage() {
     try {
       setIsLoading(true);
 
-      const response = await fetch('/api/user/matches', { cache: 'no-store' });
+      const headers: HeadersInit = {};
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await fetch('/api/user/matches', {
+        cache: 'no-store',
+        headers,
+      });
       if (response.ok) {
         const data = await response.json();
         setMatches(data.matches);

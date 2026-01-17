@@ -1,10 +1,14 @@
 /**
+ * 积分套餐 API
  * Credit Packages API
- * GET /api/credits/packages - Get available credit packages
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 
 interface CreditPackage {
   id: string;
@@ -102,14 +106,15 @@ const FALLBACK_PACKAGES: CreditPackage[] = [
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const db = await getDbClient();
+    const isCN = isChinaDeployment();
 
     // Get query params
     const { searchParams } = new URL(request.url);
-    const currency = searchParams.get('currency') || 'USD';
+    const currency = searchParams.get('currency') || (isCN ? 'CNY' : 'USD');
 
     // Try to get packages from database
-    const { data: packages, error } = await supabase
+    const { data: packages, error } = await db
       .from('credit_packages')
       .select('*')
       .eq('is_active', true)
@@ -150,6 +155,7 @@ export async function GET(request: NextRequest) {
         packages: formattedPackages,
         currency: currency,
         total: formattedPackages.length,
+        region: isCN ? 'CN' : 'INTL',
       },
     });
   } catch (error) {

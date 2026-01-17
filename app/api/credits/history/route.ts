@@ -1,5 +1,14 @@
+/**
+ * 积分历史 API
+ * Credits History API
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { getDbClient } from '@/lib/db-client';
 import { getTransactionHistory } from '@/lib/credits/credits';
 
 /**
@@ -8,10 +17,10 @@ import { getTransactionHistory } from '@/lib/credits/credits';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const db = await getDbClient();
 
     // Get current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await db.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(
         { error: 'Unauthorized' },

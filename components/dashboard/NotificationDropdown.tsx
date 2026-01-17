@@ -110,13 +110,13 @@ export function NotificationDropdown({ className }: NotificationDropdownProps) {
     }
 
     setIsOpen(false);
-    // 根据通知类型跳转到对应页面
-    if (notification.type === 'payment') {
+    // 优先使用通知中的 action_url
+    if (notification.action_url) {
+      router.push(notification.action_url);
+    } else if (notification.type === 'payment') {
       router.push('/dashboard/orders');
     } else if (notification.type === 'match') {
-      router.push('/matching/history');
-    } else if (notification.action_url) {
-      router.push(notification.action_url);
+      router.push('/matching');
     }
   };
 

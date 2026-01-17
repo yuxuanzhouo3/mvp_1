@@ -1,17 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+/**
+ * 兴趣爱好 API
+ * Interests API
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
+ */
 
-// Create Supabase admin client
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+import { NextRequest, NextResponse } from 'next/server';
+import { getServiceDbClient } from '@/lib/db-client';
 
 // Default interests data
 const DEFAULT_INTERESTS = [
@@ -85,7 +82,9 @@ const DEFAULT_INTERESTS = [
 // GET - Fetch all interests
 export async function GET(request: NextRequest) {
   try {
-    const { data: interests, error } = await supabaseAdmin
+    const db = await getServiceDbClient();
+
+    const { data: interests, error } = await db
       .from('interests')
       .select('*')
       .order('category', { ascending: true })
@@ -101,7 +100,7 @@ export async function GET(request: NextRequest) {
 
     // If no interests exist, seed the default data
     if (!interests || interests.length === 0) {
-      const { data: seededInterests, error: seedError } = await supabaseAdmin
+      const { data: seededInterests, error: seedError } = await db
         .from('interests')
         .insert(DEFAULT_INTERESTS)
         .select();
@@ -153,11 +152,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const db = await getServiceDbClient();
+
     // Clear existing interests
-    await supabaseAdmin.from('interests').delete().neq('id', 0);
+    await db.from('interests').delete().neq('id', 0);
 
     // Insert default interests
-    const { data: interests, error } = await supabaseAdmin
+    const { data: interests, error } = await db
       .from('interests')
       .insert(DEFAULT_INTERESTS)
       .select();
@@ -195,4 +196,3 @@ function groupByCategory(interests: any[]) {
     return acc;
   }, {} as Record<string, any[]>);
 }
-

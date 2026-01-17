@@ -2,10 +2,68 @@
  * Matches API - 匹配成功记录接口
  * GET /api/matching/matches - 获取匹配成功的列表
  * DELETE /api/matching/matches/:id - 解除匹配
+ * 
+ * 支持双环境:
+ * - CN 环境: 腾讯云 Cloudbase
+ * - INTL 环境: Supabase
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@/lib/supabase/server';
+import { getDbClient, isChinaDeployment } from '@/lib/db-client';
+import { createClient } from '@supabase/supabase-js';
+
+// 统一认证函数
+async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
+  const authHeader = request.headers.get('authorization');
+
+  if (isChinaDeployment()) {
+    // CN 环境
+    if (!authHeader) return null;
+    const token = authHeader.replace('Bearer ', '');
+    // CN 环境: 支持 cn_ 前缀的用户 ID token
+    if (token.startsWith('cn_')) {
+      const userId = token.substring(3);
+      if (userId) {
+        return { userId };
+      }
+    }
+    // 从 token 中解析用户信息 (JWT)
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+      return {
+        userId: payload.sub || payload.uid,
+        email: payload.email,
+      };
+    } catch {
+      return null;
+    }
+  } else {
+    // INTL 环境: 使用 Supabase 验证 token
+    const db = await getDbClient();
+    const { data: { user }, error } = await db.auth.getUser();
+    if (error || !user) {
+      // 尝试从 header 验证
+      if (authHeader) {
+        try {
+          const token = authHeader.replace('Bearer ', '');
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+          if (url && key) {
+            const anonClient = createClient(url, key, {
+              auth: { autoRefreshToken: false, persistSession: false }
+            });
+            const { data: { user: tokenUser }, error: tokenError } = await anonClient.auth.getUser(token);
+            if (!tokenError && tokenUser) {
+              return { userId: tokenUser.id, email: tokenUser.email };
+            }
+          }
+        } catch {}
+      }
+      return null;
+    }
+    return { userId: user.id, email: user.email };
+  }
+}
 
 /**
  * GET /api/matching/matches
@@ -13,16 +71,16 @@ import { createRouteHandlerClient } from '@/lib/supabase/server';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient();
-    
-    // 获取当前用户
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    if (!authUser) {
       return NextResponse.json(
-        { success: false, error: '请先登录' },
+        { success: false, error: isChinaDeployment() ? '请先登录' : 'Please login first' },
         { status: 401 }
       );
     }
+
+    const db = await getDbClient();
 
     // 获取查询参数
     const { searchParams } = new URL(request.url);
@@ -31,7 +89,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
 
     // 构建查询
-    let query = supabase
+    let query = db
       .from('matches')
       .select(`
         id,
@@ -43,7 +101,7 @@ export async function GET(request: NextRequest) {
         matched_at,
         unmatched_at
       `)
-      .or(`user_1.eq.${user.id},user_2.eq.${user.id}`)
+      .or(`user_1.eq.${authUser.userId},user_2.eq.${authUser.userId}`)
       .order('matched_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -56,19 +114,19 @@ export async function GET(request: NextRequest) {
     if (matchesError) {
       console.error('Error fetching matches:', matchesError);
       return NextResponse.json(
-        { success: false, error: '获取匹配列表失败' },
+        { success: false, error: isChinaDeployment() ? '获取匹配列表失败' : 'Failed to fetch matches' },
         { status: 500 }
       );
     }
 
     // 获取匹配对象的用户信息
     const otherUserIds = (matches || []).map(m => 
-      m.user_1 === user.id ? m.user_2 : m.user_1
+      m.user_1 === authUser.userId ? m.user_2 : m.user_1
     );
 
     let otherUsers: Record<string, unknown>[] = [];
     if (otherUserIds.length > 0) {
-      const { data: users } = await supabase
+      const { data: users } = await db
         .from('v_user_full_profile')
         .select(`
           id, username, avatar_url, gender, age, city_name, 
@@ -86,7 +144,7 @@ export async function GET(request: NextRequest) {
     let chatRooms: { match_id: string; id: string; last_message_content: string | null; last_message_at: string | null }[] = [];
     
     if (matchIds.length > 0) {
-      const { data: rooms } = await supabase
+      const { data: rooms } = await db
         .from('chat_rooms')
         .select('id, match_id, last_message_content, last_message_at')
         .in('match_id', matchIds);
@@ -98,7 +156,7 @@ export async function GET(request: NextRequest) {
 
     // 组装响应数据
     const enrichedMatches = (matches || []).map(match => {
-      const otherUserId = match.user_1 === user.id ? match.user_2 : match.user_1;
+      const otherUserId = match.user_1 === authUser.userId ? match.user_2 : match.user_1;
       const chatRoom = chatRoomMap.get(match.id);
       
       return {
@@ -131,7 +189,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Matches GET API error:', error);
     return NextResponse.json(
-      { success: false, error: '服务器内部错误' },
+      { success: false, error: isChinaDeployment() ? '服务器内部错误' : 'Internal server error' },
       { status: 500 }
     );
   }
@@ -143,16 +201,16 @@ export async function GET(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient();
-    
-    // 获取当前用户
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // 验证用户身份
+    const authUser = await authenticateUser(request);
+    if (!authUser) {
       return NextResponse.json(
-        { success: false, error: '请先登录' },
+        { success: false, error: isChinaDeployment() ? '请先登录' : 'Please login first' },
         { status: 401 }
       );
     }
+
+    const db = await getDbClient();
 
     // 获取匹配ID
     const { searchParams } = new URL(request.url);
@@ -160,13 +218,13 @@ export async function DELETE(request: NextRequest) {
 
     if (!matchId) {
       return NextResponse.json(
-        { success: false, error: '缺少匹配ID' },
+        { success: false, error: isChinaDeployment() ? '缺少匹配ID' : 'Missing match ID' },
         { status: 400 }
       );
     }
 
     // 检查匹配是否存在且当前用户是参与者
-    const { data: match, error: matchError } = await supabase
+    const { data: match, error: matchError } = await db
       .from('matches')
       .select('id, user_1, user_2, unmatched_at')
       .eq('id', matchId)
@@ -174,27 +232,27 @@ export async function DELETE(request: NextRequest) {
 
     if (matchError || !match) {
       return NextResponse.json(
-        { success: false, error: '匹配记录不存在' },
+        { success: false, error: isChinaDeployment() ? '匹配记录不存在' : 'Match record not found' },
         { status: 404 }
       );
     }
 
-    if (match.user_1 !== user.id && match.user_2 !== user.id) {
+    if (match.user_1 !== authUser.userId && match.user_2 !== authUser.userId) {
       return NextResponse.json(
-        { success: false, error: '无权操作此匹配' },
+        { success: false, error: isChinaDeployment() ? '无权操作此匹配' : 'No permission to modify this match' },
         { status: 403 }
       );
     }
 
     if (match.unmatched_at) {
       return NextResponse.json(
-        { success: false, error: '该匹配已解除' },
+        { success: false, error: isChinaDeployment() ? '该匹配已解除' : 'Match already unmatched' },
         { status: 409 }
       );
     }
 
     // 解除匹配
-    const { error: updateError } = await supabase
+    const { error: updateError } = await db
       .from('matches')
       .update({ unmatched_at: new Date().toISOString() })
       .eq('id', matchId);
@@ -202,13 +260,13 @@ export async function DELETE(request: NextRequest) {
     if (updateError) {
       console.error('Error unmatching:', updateError);
       return NextResponse.json(
-        { success: false, error: '解除匹配失败' },
+        { success: false, error: isChinaDeployment() ? '解除匹配失败' : 'Failed to unmatch' },
         { status: 500 }
       );
     }
 
-    // 可选：关闭相关聊天室
-    await supabase
+    // 关闭相关聊天室
+    await db
       .from('chat_rooms')
       .update({ is_active: false })
       .eq('match_id', matchId);
@@ -218,16 +276,15 @@ export async function DELETE(request: NextRequest) {
       data: {
         matchId,
         unmatchedAt: new Date().toISOString(),
-        message: '已解除匹配'
+        message: isChinaDeployment() ? '已解除匹配' : 'Successfully unmatched'
       }
     });
 
   } catch (error) {
     console.error('Matches DELETE API error:', error);
     return NextResponse.json(
-      { success: false, error: '服务器内部错误' },
+      { success: false, error: isChinaDeployment() ? '服务器内部错误' : 'Internal server error' },
       { status: 500 }
     );
   }
 }
-
