@@ -43,6 +43,9 @@ ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 # 设置 Next.js 输出模式为 standalone（Docker 部署必需）
 ENV NEXT_OUTPUT_MODE=standalone
 
+# 跳过 Google Fonts 优化（避免网络问题）
+ENV NEXT_FONT_GOOGLE_MOCKED_RESPONSES='[{"url":"https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap","content":"","contentType":"text/css"}]'
+
 # 构建应用
 RUN npm run build
 
