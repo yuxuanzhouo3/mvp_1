@@ -95,11 +95,11 @@
     --ring: 220 84% 60%;
   }
 
-  /* Language Support */
-  .lang-zh { font-family: 'Noto Sans SC', sans-serif; }
-  .lang-ja { font-family: 'Noto Sans JP', sans-serif; }
-  .lang-ko { font-family: 'Noto Sans KR', sans-serif; }
-  .lang-en { font-family: 'Inter', sans-serif; }
+  /* Language Support - Using system fonts to avoid external font dependencies */
+  .lang-zh { font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif; }
+  .lang-ja { font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
+  .lang-ko { font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; }
+  .lang-en { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
 }
 
 @layer base {

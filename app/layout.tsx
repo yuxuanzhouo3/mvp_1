@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
 import { Toaster } from '@/components/ui/toaster'
@@ -11,7 +10,8 @@ const isChinaRegion = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN';
 const locale = isChinaRegion ? 'zh-CN' : 'en-US';
 const defaultLanguage = isChinaRegion ? 'zh' : 'en';
 
-const inter = Inter({ subsets: ['latin'] })
+// 使用系统字体栈，避免在中国区构建时无法访问 Google Fonts 的问题
+const systemFontClass = 'font-sans';
 
 export const metadata: Metadata = {
   title: isChinaRegion ? 'PersonaLink - AI社交匹配' : 'PersonaLink - AI Friend Matcher',
@@ -48,7 +48,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang={locale} suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={systemFontClass}>
         <ErrorBoundary>
           <Providers>
             <div className="bg-background">
