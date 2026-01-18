@@ -129,7 +129,7 @@ export function useChat(options: UseChatOptions = {}) {
       console.error('Easemob connection error:', error);
       setIsConnected(false);
     }
-  }, [user, options.chatId, options.onMessageReceived, options.onTyping]);
+  }, [user, options]);
 
   // INTL环境：WebSocket连接
   const connectWebSocket = useCallback(() => {
@@ -192,7 +192,7 @@ export function useChat(options: UseChatOptions = {}) {
     ws.onerror = () => {
       setIsConnected(false);
     };
-  }, [user, options.chatId, options.onMessageReceived, options.onTyping]);
+  }, [user, options]);
 
   const disconnect = useCallback(() => {
     if (isCN) {

@@ -242,6 +242,7 @@ export default function CnChatPage() {
         }
         return (
           <div className="max-w-xs cursor-pointer" onClick={() => window.open(imgUrl, '_blank')}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imgUrl}
               alt="Image"
