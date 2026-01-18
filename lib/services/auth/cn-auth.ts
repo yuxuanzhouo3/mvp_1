@@ -114,6 +114,7 @@ export class CnAuthService implements IAuthService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        credentials: 'include', // 确保 cookie 能够被正确设置
       });
 
       const result = await response.json();
@@ -151,6 +152,7 @@ export class CnAuthService implements IAuthService {
           displayName: data.displayName,
           phone: data.phone,
         }),
+        credentials: 'include', // 确保 cookie 能够被正确设置
       });
 
       const result = await response.json();

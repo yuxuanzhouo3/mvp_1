@@ -113,9 +113,32 @@ export default function DashboardLayout({
     
     // 额外检查 localStorage 中是否有 CN 用户数据（不依赖 isChinaDeployment）
     // 这是一个防护措施，防止环境变量构建问题导致的误重定向
-    if (cnUserData || cnSessionCookie) {
-      console.log('🔄 DashboardLayout: CN user data exists, waiting for AuthProvider to restore...');
-      // 不重定向，等待 AuthProvider 恢复状态
+    if (cnUserData) {
+      // 如果 localStorage 中有 CN 用户数据，说明用户确实登录过
+      // 可能是 AuthProvider 还没有完成状态恢复，或者页面刚刚加载
+      // 不要重定向，而是给 AuthProvider 更多时间
+      console.log('🔄 DashboardLayout: CN user data exists in localStorage, not redirecting');
+      
+      // 尝试验证并确保 cookie 存在
+      if (!cnSessionCookie) {
+        try {
+          const userData = JSON.parse(cnUserData);
+          if (userData && userData.id) {
+            console.log('🔧 DashboardLayout: Restoring cn_session cookie from localStorage');
+            const isSecure = window.location.protocol === 'https:';
+            const secureFlag = isSecure ? '; Secure' : '';
+            document.cookie = `cn_session=${userData.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
+          }
+        } catch (e) {
+          console.error('Failed to parse CN user data:', e);
+        }
+      }
+      return;
+    }
+    
+    // 如果只有 cookie 没有 localStorage 数据，也等待一下
+    if (cnSessionCookie) {
+      console.log('🔄 DashboardLayout: CN session cookie exists, waiting for AuthProvider...');
       return;
     }
     

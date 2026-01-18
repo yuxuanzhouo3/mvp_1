@@ -69,24 +69,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               } as Session);
               
               // 检查 cn_session cookie 是否存在，如果不存在则恢复
-              // 这是一个备份机制，主要的 cookie 应该由 API 响应头设置
+              // 这是一个备份机制，确保 cookie 始终存在
               if (!cnSessionCookie) {
                 console.log('🔄 CN session cookie missing, restoring from localStorage...');
                 const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
                 const secureFlag = isSecure ? '; Secure' : '';
-                const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-                const domainAttr = hostname ? `; Domain=${hostname}` : '';
-                document.cookie = `cn_session=${cnUser.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}${domainAttr}`;
-                console.log(`✅ CN session cookie set with domain: ${hostname}`);
+                // 不设置 Domain 属性，让浏览器自动使用当前域名（更可靠，避免无痕模式问题）
+                document.cookie = `cn_session=${cnUser.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
+                console.log('✅ CN session cookie restored from localStorage');
               }
               
               console.log('✅ CN user restored from localStorage:', cnUser.email);
             } catch (e) {
               console.error('Failed to parse CN user data:', e);
               localStorage.removeItem('cn_user');
-              const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-              const domainAttr = hostname ? `; Domain=${hostname}` : '';
-              document.cookie = `cn_session=; path=/; max-age=0${domainAttr}`;
+              // 不设置 Domain 属性，确保与设置时一致
+              document.cookie = 'cn_session=; path=/; max-age=0; SameSite=Lax';
             }
           } else {
             console.log('📋 CN environment: No saved user data in localStorage');
@@ -197,11 +195,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } as Session);
 
         // 保存用户数据到 localStorage（供页面刷新后恢复）
-        // 注意：cn_session cookie 已经由 API 通过响应头设置，不需要在客户端设置
         localStorage.setItem('cn_user', JSON.stringify(cnUser));
 
+        // 重要：在客户端也设置 cn_session cookie 作为备份
+        // 即使 API 响应头已经设置了 cookie，在某些情况下（如无痕模式）可能失败
+        // 客户端设置确保 cookie 一定存在
+        if (typeof window !== 'undefined') {
+          const isSecure = window.location.protocol === 'https:';
+          const secureFlag = isSecure ? '; Secure' : '';
+          // 不设置 Domain 属性，让浏览器使用当前域名（更可靠）
+          document.cookie = `cn_session=${result.user.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
+          console.log('✅ CN session cookie set on client side');
+        }
+
         console.log('✅ CN user state updated:', cnUser.email);
-        console.log('✅ CN session cookie set by API response header');
       }
 
       return { error: null };
@@ -321,15 +328,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (isChinaDeployment()) {
         try {
           // 调用登出 API 来清除服务端 cookie
-          await fetch('/api/auth/cn-logout', { method: 'POST' });
+          await fetch('/api/auth/cn-logout', { method: 'POST', credentials: 'include' });
           console.log('✅ CN logout API called');
         } catch (e) {
           console.error('CN logout API error:', e);
         }
         // 同时也在客户端清除（作为备份）
-        const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-        const domainAttr = hostname ? `; Domain=${hostname}` : '';
-        document.cookie = `cn_session=; path=/; max-age=0${domainAttr}`;
+        // 不设置 Domain 属性，确保与设置时一致
+        document.cookie = 'cn_session=; path=/; max-age=0; SameSite=Lax';
         localStorage.removeItem('cn_user');
       }
 

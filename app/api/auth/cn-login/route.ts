@@ -113,17 +113,20 @@ export async function POST(request: NextRequest) {
     });
 
     // 重要：通过响应头设置 cn_session cookie
-    // 这比客户端 document.cookie 更可靠，尤其在云环境下
-    const isProduction = process.env.NODE_ENV === 'production';
+    // 根据请求协议决定是否设置 secure 属性（而不是依赖 NODE_ENV）
+    const requestUrl = request.url;
+    const isSecureRequest = requestUrl.startsWith('https://');
+    
+    // 设置 cookie，确保在无痕模式下也能正常工作
     response.cookies.set('cn_session', userId, {
       httpOnly: false, // 允许客户端读取（用于状态检查）
-      secure: isProduction, // 生产环境强制 HTTPS
+      secure: isSecureRequest, // 根据请求协议决定
       sameSite: 'lax',
       path: '/',
       maxAge: 7 * 24 * 60 * 60, // 7 天
     });
 
-    console.log('[CN Login] Cookie set via response header for user:', userId);
+    console.log(`[CN Login] Cookie set via response header for user: ${userId}, secure: ${isSecureRequest}`);
 
     return response;
   } catch (error: any) {

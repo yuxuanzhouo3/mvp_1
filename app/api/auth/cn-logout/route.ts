@@ -25,10 +25,13 @@ export async function POST(request: NextRequest) {
     });
 
     // 通过设置 maxAge 为 0 来删除 cookie
-    const isProduction = process.env.NODE_ENV === 'production';
+    // 根据请求协议决定是否设置 secure 属性
+    const requestUrl = request.url;
+    const isSecureRequest = requestUrl.startsWith('https://');
+    
     response.cookies.set('cn_session', '', {
       httpOnly: false,
-      secure: isProduction,
+      secure: isSecureRequest,
       sameSite: 'lax',
       path: '/',
       maxAge: 0, // 立即过期，删除 cookie

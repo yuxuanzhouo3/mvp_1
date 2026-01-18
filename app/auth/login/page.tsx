@@ -41,7 +41,13 @@ export default function LoginPage() {
   useEffect(() => {
     if (user && user.id && !hasRedirectedRef.current) {
       hasRedirectedRef.current = true;
-      router.push('/dashboard');
+      // CN 环境：使用 window.location.href 进行硬刷新，确保中间件能读取 cookie
+      // INTL 环境：使用 router.push 进行客户端导航
+      if (isChinaDeployment()) {
+        window.location.href = '/dashboard';
+      } else {
+        router.push('/dashboard');
+      }
     }
   }, [user, router]);
 
@@ -107,16 +113,10 @@ export default function LoginPage() {
           description: t.auth.login.welcomeBack,
         });
 
-        // CN 环境：使用 window.location.href 强制刷新，确保中间件能读取新设置的 cookie
-        // 延迟 500ms 确保 cookie 已经被浏览器保存
-        if (isChinaDeployment()) {
-          console.log('🔄 CN Login: Redirecting to dashboard with full page reload...');
-          setTimeout(() => {
-            window.location.href = '/dashboard';
-          }, 500);
-        }
-        // INTL 环境：user 状态变化会自动触发 useEffect 中的 router.push
-        // 不需要额外的重定向逻辑
+        // 登录成功后，user 状态变化会自动触发 useEffect 中的重定向逻辑
+        // CN 环境使用 window.location.href（确保中间件能读取 cookie）
+        // INTL 环境使用 router.push（客户端导航）
+        // 不需要在这里额外处理重定向
         
         setIsLoading(false);
       }
