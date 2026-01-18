@@ -220,6 +220,17 @@ export default function DashboardPage() {
     console.log('🔄 Dashboard useEffect - user:', !!user, 'user id:', user?.id, 'authLoading:', authLoading);
 
     if (!user || !user.id) {
+      // CN 环境：检查 cookie 和用户状态是否一致，避免重定向循环
+      if (isChinaDeployment()) {
+        const cnSessionCookie = document.cookie.split(';').find(c => c.trim().startsWith('cn_session='));
+        if (cnSessionCookie) {
+          // Cookie 存在但用户状态丢失，清理 cookie 避免循环
+          console.log('⚠️ CN session cookie exists but user state missing, clearing cookie');
+          document.cookie = 'cn_session=; path=/; max-age=0';
+          localStorage.removeItem('cn_user');
+        }
+      }
+
       console.log('❌ No user found in dashboard, redirecting to login');
       isRedirectingRef.current = true;
       setProfile(null);
