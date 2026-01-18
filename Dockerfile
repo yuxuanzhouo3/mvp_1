@@ -1,104 +1,67 @@
-# ==========================================
-# 多阶段构建 Dockerfile
-# 使用 npm 进行依赖管理
-# ==========================================
-
-# ========== 构建阶段 ==========
+# 使用多阶段构建减小镜像大小
 FROM node:20-alpine AS base
 
 # 设置工作目录
 WORKDIR /app
 
-# 复制包管理文件
-COPY package.json package-lock.json* ./
+# ========== 构建时环境变量声明 ==========
+ARG NODE_ENV=production
+ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
 
-# 安装所有依赖（包括 devDependencies，构建时需要）
+ENV NODE_ENV=$NODE_ENV
+ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
+
+# 复制包管理文件
+COPY package.json package-lock.json ./
+
+# 安装依赖（使用 npm ci 保证锁一致）
 RUN npm ci
 
 # 复制源代码
 COPY . .
 
-# ========== 构建时环境变量 ==========
-# 这些是构建时的占位符，真实值在运行时通过环境变量注入
-ARG NODE_ENV=production
-ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
-
-# Supabase 构建占位符（Next.js 构建时需要）
+# 1. 构建参数提供默认占位符
 ARG NEXT_PUBLIC_SUPABASE_URL=https://build-placeholder.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=build-placeholder-key
 
-# 其他公开环境变量的构建占位符
-ARG NEXT_PUBLIC_APP_URL=https://build-placeholder.com
-ARG NEXT_PUBLIC_APP_NAME=PersonaLink
-ARG NEXT_PUBLIC_CLOUDBASE_ENV_ID=build-placeholder
-ARG NEXT_PUBLIC_FIREBASE_API_KEY=build-placeholder
-ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=build-placeholder
-ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID=build-placeholder
-ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=build-placeholder
-ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=build-placeholder
-ARG NEXT_PUBLIC_FIREBASE_APP_ID=build-placeholder
-ARG NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=build-placeholder
-ARG NEXT_PUBLIC_FIREBASE_VAPID_KEY=build-placeholder
-ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=build-placeholder
-ARG NEXT_PUBLIC_PAYPAL_CLIENT_ID=build-placeholder
-ARG NEXT_PUBLIC_EASEMOB_APP_KEY=build-placeholder
-
-# 转换为环境变量
-ENV NODE_ENV=$NODE_ENV
-ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
+# 2. ARG 转 ENV（给 Next.js 构建用）
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
-ENV NEXT_PUBLIC_CLOUDBASE_ENV_ID=$NEXT_PUBLIC_CLOUDBASE_ENV_ID
-ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY
-ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID
-ENV NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
-ENV NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=$NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
-ENV NEXT_PUBLIC_FIREBASE_VAPID_KEY=$NEXT_PUBLIC_FIREBASE_VAPID_KEY
-ENV NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-ENV NEXT_PUBLIC_PAYPAL_CLIENT_ID=$NEXT_PUBLIC_PAYPAL_CLIENT_ID
-ENV NEXT_PUBLIC_EASEMOB_APP_KEY=$NEXT_PUBLIC_EASEMOB_APP_KEY
 
-# 构建应用
+# 构建 Next.js 应用
 RUN npm run build
 
-# ========== 生产阶段 ==========
+# ============================
+# 生产镜像
+# ============================
 FROM node:20-alpine AS production
 
-# 设置工作目录
 WORKDIR /app
 
-# 设置环境变量
+# ========== 运行时环境变量（真正的配置在容器启动时注入） ==========
 ARG PORT=3000
-ARG NODE_ENV=production
-ENV PORT=$PORT
-ENV NODE_ENV=$NODE_ENV
+ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
 
-# 从构建阶段复制必要文件
-COPY --from=base /app/package.json /app/package-lock.json* ./
+ENV PORT=$PORT
+ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
+
+# 复制构建产物
+COPY --from=base /app/package.json /app/package-lock.json ./
 COPY --from=base /app/.next ./.next
 COPY --from=base /app/public ./public
-COPY --from=base /app/next.config.mjs ./
+COPY --from=base /app/next.config.mjs ./next.config.mjs
 
-# 仅安装生产依赖
+# 安装生产依赖
 RUN npm ci --omit=dev
 
 # 创建非 root 用户
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+RUN addgroup -g 1001 -S nodejs \
+    && adduser -S nextjs -u 1001
 
-# 更改文件所有权
+# 修改权限
 RUN chown -R nextjs:nodejs /app
-
-# 切换到非 root 用户
 USER nextjs
 
-# 暴露端口
 EXPOSE 3000
 
-# 启动应用
 CMD ["npm", "start"]
