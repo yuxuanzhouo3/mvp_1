@@ -11,8 +11,10 @@ ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
 ENV NODE_ENV=$NODE_ENV
 ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
 
-# 复制包管理文件
+# 复制包管理文件和配置文件
 COPY package.json package-lock.json ./
+COPY tsconfig.json ./
+COPY next.config.js ./
 
 # 安装依赖
 RUN npm ci

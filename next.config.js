@@ -40,6 +40,17 @@ const nextConfig = {
   
   // Bundle optimization
   webpack: (config, { dev, isServer }) => {
+    // Add path aliases resolution
+    const path = require('path');
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname),
+      '@/components': path.resolve(__dirname, 'components'),
+      '@/lib': path.resolve(__dirname, 'lib'),
+      '@/types': path.resolve(__dirname, 'types'),
+      '@/app': path.resolve(__dirname, 'app'),
+    };
+
     // Optimize bundle size in production
     if (!dev && !isServer) {
       config.optimization.splitChunks = {
@@ -53,7 +64,7 @@ const nextConfig = {
         },
       };
     }
-    
+
     return config;
   },
   
