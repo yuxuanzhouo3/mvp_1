@@ -74,14 +74,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 console.log('🔄 CN session cookie missing, restoring from localStorage...');
                 const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
                 const secureFlag = isSecure ? '; Secure' : '';
-                document.cookie = `cn_session=${cnUser.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
+                const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+                const domainAttr = hostname ? `; Domain=${hostname}` : '';
+                document.cookie = `cn_session=${cnUser.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}${domainAttr}`;
+                console.log(`✅ CN session cookie set with domain: ${hostname}`);
               }
               
               console.log('✅ CN user restored from localStorage:', cnUser.email);
             } catch (e) {
               console.error('Failed to parse CN user data:', e);
               localStorage.removeItem('cn_user');
-              document.cookie = 'cn_session=; path=/; max-age=0';
+              const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+              const domainAttr = hostname ? `; Domain=${hostname}` : '';
+              document.cookie = `cn_session=; path=/; max-age=0${domainAttr}`;
             }
           } else {
             console.log('📋 CN environment: No saved user data in localStorage');
@@ -322,7 +327,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error('CN logout API error:', e);
         }
         // 同时也在客户端清除（作为备份）
-        document.cookie = 'cn_session=; path=/; max-age=0';
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+        const domainAttr = hostname ? `; Domain=${hostname}` : '';
+        document.cookie = `cn_session=; path=/; max-age=0${domainAttr}`;
         localStorage.removeItem('cn_user');
       }
 

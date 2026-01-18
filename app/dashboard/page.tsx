@@ -226,7 +226,9 @@ export default function DashboardPage() {
         if (cnSessionCookie) {
           // Cookie 存在但用户状态丢失，清理 cookie 避免循环
           console.log('⚠️ CN session cookie exists but user state missing, clearing cookie');
-          document.cookie = 'cn_session=; path=/; max-age=0';
+          const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+          const domainAttr = hostname ? `; Domain=${hostname}` : '';
+          document.cookie = `cn_session=; path=/; max-age=0${domainAttr}`;
           localStorage.removeItem('cn_user');
         }
       }

@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "postinstall": "patch-package",
     "test:db": "node scripts/test-database.js",
     "db:init": "psql -d your_database -f database/init.sql",
     "db:reset": "psql -d your_database -f database/reset.sql",
@@ -44,6 +45,7 @@
     "@supabase/supabase-js": "^2.38.4",
     "@tanstack/react-query": "^5.83.0",
     "@upstash/redis": "^1.35.1",
+    "autoprefixer": "^10.0.1",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
@@ -59,18 +61,17 @@
     "next-themes": "^0.2.1",
     "node-fetch": "^2.7.0",
     "openai": "^4.20.1",
+    "postcss": "^8",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.60.0",
     "recharts": "^3.6.0",
     "stripe": "^17.7.0",
     "tailwind-merge": "^2.0.0",
+    "tailwindcss": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
     "twilio": "^4.19.0",
-    "zod": "^3.25.76",
-    "autoprefixer": "^10.0.1",
-    "postcss": "^8",
-    "tailwindcss": "^3.3.0"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -79,6 +80,7 @@
     "@types/react-dom": "^18",
     "eslint": "^8",
     "eslint-config-next": "14.0.3",
+    "patch-package": "^8.0.1",
     "typescript": "^5"
   }
 }

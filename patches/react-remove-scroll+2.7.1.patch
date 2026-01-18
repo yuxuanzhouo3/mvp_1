@@ -1,0 +1,153 @@
+diff --git a/node_modules/react-remove-scroll/dist/es2015/SideEffect.js b/node_modules/react-remove-scroll/dist/es2015/SideEffect.js
+index f5e4559..0d3a5a1 100644
+--- a/node_modules/react-remove-scroll/dist/es2015/SideEffect.js
++++ b/node_modules/react-remove-scroll/dist/es2015/SideEffect.js
+@@ -4,6 +4,7 @@ import { RemoveScrollBar } from 'react-remove-scroll-bar';
+ import { styleSingleton } from 'react-style-singleton';
+ import { nonPassive } from './aggresiveCapture';
+ import { handleScroll, locationCouldBeScrolled } from './handleScroll';
++var passiveWheel = nonPassive ? { passive: true } : false;
+ export var getTouchXY = function (event) {
+     return 'changedTouches' in event ? [event.changedTouches[0].clientX, event.changedTouches[0].clientY] : [0, 0];
+ };
+@@ -87,7 +88,9 @@ export function RemoveScrollSideCar(props) {
+         // self event, and should be canceled
+         if (sourceEvent && sourceEvent.should) {
+             if (event.cancelable) {
+-                event.preventDefault();
++                if (event.type !== 'wheel') {
++                    event.preventDefault();
++                }
+             }
+             return;
+         }
+@@ -100,7 +103,9 @@ export function RemoveScrollSideCar(props) {
+             var shouldStop = shardNodes.length > 0 ? shouldCancelEvent(event, shardNodes[0]) : !lastProps.current.noIsolation;
+             if (shouldStop) {
+                 if (event.cancelable) {
+-                    event.preventDefault();
++                    if (event.type !== 'wheel') {
++                        event.preventDefault();
++                    }
+                 }
+             }
+         }
+@@ -129,12 +134,12 @@ export function RemoveScrollSideCar(props) {
+             onWheelCapture: scrollWheel,
+             onTouchMoveCapture: scrollTouchMove,
+         });
+-        document.addEventListener('wheel', shouldPrevent, nonPassive);
++        document.addEventListener('wheel', shouldPrevent, passiveWheel);
+         document.addEventListener('touchmove', shouldPrevent, nonPassive);
+         document.addEventListener('touchstart', scrollTouchStart, nonPassive);
+         return function () {
+             lockStack = lockStack.filter(function (inst) { return inst !== Style; });
+-            document.removeEventListener('wheel', shouldPrevent, nonPassive);
++            document.removeEventListener('wheel', shouldPrevent, passiveWheel);
+             document.removeEventListener('touchmove', shouldPrevent, nonPassive);
+             document.removeEventListener('touchstart', scrollTouchStart, nonPassive);
+         };
+diff --git a/node_modules/react-remove-scroll/dist/es2019/SideEffect.js b/node_modules/react-remove-scroll/dist/es2019/SideEffect.js
+index f22e0e0..f94af5b 100644
+--- a/node_modules/react-remove-scroll/dist/es2019/SideEffect.js
++++ b/node_modules/react-remove-scroll/dist/es2019/SideEffect.js
+@@ -3,10 +3,13 @@ import { RemoveScrollBar } from 'react-remove-scroll-bar';
+ import { styleSingleton } from 'react-style-singleton';
+ import { nonPassive } from './aggresiveCapture';
+ import { handleScroll, locationCouldBeScrolled } from './handleScroll';
++const passiveWheel = nonPassive ? { passive: true } : false;
+ export const getTouchXY = (event) => 'changedTouches' in event ? [event.changedTouches[0].clientX, event.changedTouches[0].clientY] : [0, 0];
+ export const getDeltaXY = (event) => [event.deltaX, event.deltaY];
+ const extractRef = (ref) => ref && 'current' in ref ? ref.current : ref;
+ const deltaCompare = (x, y) => x[0] === y[0] && x[1] === y[1];
++const extractRef = (ref) => ref && 'current' in ref ? ref.current : ref;
++const deltaCompare = (x, y) => x[0] === y[0] && x[1] === y[1];
+ const generateStyle = (id) => `
+   .block-interactivity-${id} {pointer-events: none;}
+   .allow-interactivity-${id} {pointer-events: all;}
+@@ -85,7 +88,9 @@ export function RemoveScrollSideCar(props) {
+         // self event, and should be canceled
+         if (sourceEvent && sourceEvent.should) {
+             if (event.cancelable) {
+-                event.preventDefault();
++                if (event.type !== 'wheel') {
++                    event.preventDefault();
++                }
+             }
+             return;
+         }
+@@ -98,7 +103,9 @@ export function RemoveScrollSideCar(props) {
+             const shouldStop = shardNodes.length > 0 ? shouldCancelEvent(event, shardNodes[0]) : !lastProps.current.noIsolation;
+             if (shouldStop) {
+                 if (event.cancelable) {
+-                    event.preventDefault();
++                    if (event.type !== 'wheel') {
++                        event.preventDefault();
++                    }
+                 }
+             }
+         }
+@@ -127,12 +134,12 @@ export function RemoveScrollSideCar(props) {
+             onWheelCapture: scrollWheel,
+             onTouchMoveCapture: scrollTouchMove,
+         });
+-        document.addEventListener('wheel', shouldPrevent, nonPassive);
++        document.addEventListener('wheel', shouldPrevent, passiveWheel);
+         document.addEventListener('touchmove', shouldPrevent, nonPassive);
+         document.addEventListener('touchstart', scrollTouchStart, nonPassive);
+         return () => {
+             lockStack = lockStack.filter((inst) => inst !== Style);
+-            document.removeEventListener('wheel', shouldPrevent, nonPassive);
++            document.removeEventListener('wheel', shouldPrevent, passiveWheel);
+             document.removeEventListener('touchmove', shouldPrevent, nonPassive);
+             document.removeEventListener('touchstart', scrollTouchStart, nonPassive);
+         };
+diff --git a/node_modules/react-remove-scroll/dist/es5/SideEffect.js b/node_modules/react-remove-scroll/dist/es5/SideEffect.js
+index 85ed794..632b141 100644
+--- a/node_modules/react-remove-scroll/dist/es5/SideEffect.js
++++ b/node_modules/react-remove-scroll/dist/es5/SideEffect.js
+@@ -7,6 +7,7 @@ var react_remove_scroll_bar_1 = require("react-remove-scroll-bar");
+ var react_style_singleton_1 = require("react-style-singleton");
+ var aggresiveCapture_1 = require("./aggresiveCapture");
+ var handleScroll_1 = require("./handleScroll");
++var passiveWheel = aggresiveCapture_1.nonPassive ? { passive: true } : false;
+ var getTouchXY = function (event) {
+     return 'changedTouches' in event ? [event.changedTouches[0].clientX, event.changedTouches[0].clientY] : [0, 0];
+ };
+@@ -92,7 +93,9 @@ function RemoveScrollSideCar(props) {
+         // self event, and should be canceled
+         if (sourceEvent && sourceEvent.should) {
+             if (event.cancelable) {
+-                event.preventDefault();
++                if (event.type !== 'wheel') {
++                    event.preventDefault();
++                }
+             }
+             return;
+         }
+@@ -105,7 +108,9 @@ function RemoveScrollSideCar(props) {
+             var shouldStop = shardNodes.length > 0 ? shouldCancelEvent(event, shardNodes[0]) : !lastProps.current.noIsolation;
+             if (shouldStop) {
+                 if (event.cancelable) {
+-                    event.preventDefault();
++                    if (event.type !== 'wheel') {
++                        event.preventDefault();
++                    }
+                 }
+             }
+         }
+@@ -134,12 +139,12 @@ function RemoveScrollSideCar(props) {
+             onWheelCapture: scrollWheel,
+             onTouchMoveCapture: scrollTouchMove,
+         });
+-        document.addEventListener('wheel', shouldPrevent, aggresiveCapture_1.nonPassive);
++        document.addEventListener('wheel', shouldPrevent, passiveWheel);
+         document.addEventListener('touchmove', shouldPrevent, aggresiveCapture_1.nonPassive);
+         document.addEventListener('touchstart', scrollTouchStart, aggresiveCapture_1.nonPassive);
+         return function () {
+             lockStack = lockStack.filter(function (inst) { return inst !== Style; });
+-            document.removeEventListener('wheel', shouldPrevent, aggresiveCapture_1.nonPassive);
++            document.removeEventListener('wheel', shouldPrevent, passiveWheel);
+             document.removeEventListener('touchmove', shouldPrevent, aggresiveCapture_1.nonPassive);
+             document.removeEventListener('touchstart', scrollTouchStart, aggresiveCapture_1.nonPassive);
+         };
