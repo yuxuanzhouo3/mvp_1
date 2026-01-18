@@ -6,6 +6,7 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 
 export default function DashboardLayout({
   children
@@ -18,6 +19,9 @@ export default function DashboardLayout({
   const [isAdmin, setIsAdmin] = useState(false);
   const supabase = getSupabaseClient();
   const { toast } = useToast();
+  
+  // 防止重复重定向
+  const hasRedirectedRef = useRef(false);
 
   // FCM initialization ref to prevent duplicate initialization
   const fcmInitializedRef = useRef(false);
@@ -29,11 +33,34 @@ export default function DashboardLayout({
   // Check if we're in a chat room page
   const isChatRoomPage = pathname?.startsWith('/dashboard/messages/') && pathname !== '/dashboard/messages';
 
-  // Check admin status
+  // Check admin status (skip for CN environment as it uses different auth)
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (!user) return;
+      
+      // CN 环境：跳过 Supabase session 检查，使用自定义 token
+      if (isChinaDeployment()) {
+        try {
+          const response = await fetch('/api/admin/check', {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer cn_${user.id}`,
+              'Content-Type': 'application/json',
+            },
+            cache: 'no-store',
+          });
 
+          if (response.ok) {
+            const data = await response.json();
+            setIsAdmin(data.isAdmin || false);
+          }
+        } catch (error) {
+          setIsAdmin(false);
+        }
+        return;
+      }
+
+      // INTL 环境：使用 Supabase session
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
@@ -63,10 +90,35 @@ export default function DashboardLayout({
     }
   }, [user, supabase.auth]);
 
+  // 认证检查：确保用户已登录
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace('/auth/login');
+    // 如果正在加载，不做任何操作
+    if (loading) return;
+    
+    // 如果已经重定向过，不再重复
+    if (hasRedirectedRef.current) return;
+    
+    // 如果有用户，重置重定向标志
+    if (user) {
+      hasRedirectedRef.current = false;
+      return;
     }
+    
+    // CN 环境：额外检查 localStorage 中是否有用户数据
+    // 这是一个防护措施，防止 AuthProvider 初始化延迟导致的误重定向
+    if (isChinaDeployment()) {
+      const cnUserData = localStorage.getItem('cn_user');
+      if (cnUserData) {
+        console.log('🔄 DashboardLayout: User data exists in localStorage, waiting for AuthProvider...');
+        // 给 AuthProvider 更多时间来恢复状态
+        return;
+      }
+    }
+    
+    // 确认用户未登录，执行重定向
+    console.log('🚫 DashboardLayout: No user found, redirecting to login...');
+    hasRedirectedRef.current = true;
+    router.replace('/auth/login');
   }, [user, loading, router]);
 
   // Initialize Firebase Cloud Messaging for push notifications (INTL only)

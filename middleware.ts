@@ -94,14 +94,21 @@ export async function middleware(request: NextRequest) {
     const isCN = deploymentRegion === "CN";
     const cnSession = request.cookies.get('cn_session')?.value;
 
+    // 调试日志：帮助诊断 CN 环境的认证问题
+    if (isCN) {
+      console.log(`[CN Auth] Path: ${pathname}, Cookie: ${cnSession ? 'present' : 'missing'}, Protected: ${isProtectedRoute}, AuthRoute: ${isAuthRoute}`);
+    }
+
     if (isCN) {
       // CN 环境使用 cookie 检查认证状态
       if (isProtectedRoute && !cnSession) {
+        console.log(`[CN Auth] Redirecting to login: no cn_session cookie`);
         const loginUrl = new URL('/auth/login', request.url);
         loginUrl.searchParams.set('redirect', pathname);
         return NextResponse.redirect(loginUrl);
       }
       if (isAuthRoute && cnSession) {
+        console.log(`[CN Auth] Redirecting to dashboard: already logged in`);
         return NextResponse.redirect(new URL('/dashboard', request.url));
       }
     } else {

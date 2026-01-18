@@ -1,6 +1,8 @@
 /**
  * CN 环境邮箱登录 API
  * 从 Cloudbase users 集合验证用户
+ * 
+ * 重要：通过响应头 Set-Cookie 设置认证 cookie，确保云环境下可靠性
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -78,7 +80,8 @@ export async function POST(request: NextRequest) {
     const userId = user.id || user._id;
     console.log('[CN Login] User logged in:', { userId, email: user.email });
 
-    return NextResponse.json({
+    // 创建响应对象
+    const response = NextResponse.json({
       success: true,
       user: {
         id: userId,
@@ -88,6 +91,21 @@ export async function POST(request: NextRequest) {
         provider: user.provider || 'email',
       },
     });
+
+    // 重要：通过响应头设置 cn_session cookie
+    // 这比客户端 document.cookie 更可靠，尤其在云环境下
+    const isProduction = process.env.NODE_ENV === 'production';
+    response.cookies.set('cn_session', userId, {
+      httpOnly: false, // 允许客户端读取（用于状态检查）
+      secure: isProduction, // 生产环境强制 HTTPS
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60, // 7 天
+    });
+
+    console.log('[CN Login] Cookie set via response header for user:', userId);
+
+    return response;
   } catch (error: any) {
     console.error('[CN Login] Error:', error);
     return NextResponse.json(

@@ -107,11 +107,17 @@ export default function LoginPage() {
           description: t.auth.login.welcomeBack,
         });
 
-        // Force redirect after successful login
-        setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 1500);
-
+        // CN 环境：使用 window.location.href 强制刷新，确保中间件能读取新设置的 cookie
+        // 延迟 500ms 确保 cookie 已经被浏览器保存
+        if (isChinaDeployment()) {
+          console.log('🔄 CN Login: Redirecting to dashboard with full page reload...');
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 500);
+        }
+        // INTL 环境：user 状态变化会自动触发 useEffect 中的 router.push
+        // 不需要额外的重定向逻辑
+        
         setIsLoading(false);
       }
     } catch (error) {

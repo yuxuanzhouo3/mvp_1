@@ -57,16 +57,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 token_type: 'bearer',
                 user: cnUser,
               } as Session);
-              // 重要：恢复 cn_session cookie，否则 middleware 会认为未登录
-              // 在 HTTPS 环境下需要添加 Secure 属性
-              const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
-              const secureFlag = isSecure ? '; Secure' : '';
-              document.cookie = `cn_session=${cnUser.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
+              
+              // 检查 cn_session cookie 是否存在，如果不存在则恢复
+              // 这是一个备份机制，主要的 cookie 应该由 API 响应头设置
+              const existingCookie = document.cookie.split(';').find(c => c.trim().startsWith('cn_session='));
+              if (!existingCookie) {
+                console.log('🔄 CN session cookie missing, restoring from localStorage...');
+                const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+                const secureFlag = isSecure ? '; Secure' : '';
+                document.cookie = `cn_session=${cnUser.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
+              }
+              
+              console.log('✅ CN user restored from localStorage:', cnUser.email);
             } catch (e) {
               console.error('Failed to parse CN user data:', e);
               localStorage.removeItem('cn_user');
               document.cookie = 'cn_session=; path=/; max-age=0';
             }
+          } else {
+            console.log('📋 CN environment: No saved user data in localStorage');
           }
           setLoading(false);
           return;
@@ -171,15 +180,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           user: cnUser,
         } as Session);
 
-        // 设置 CN session cookie（供中间件验证）
-        // 在 HTTPS 环境下需要添加 Secure 属性
-        const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
-        const secureFlag = isSecure ? '; Secure' : '';
-        document.cookie = `cn_session=${result.user.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
         // 保存用户数据到 localStorage（供页面刷新后恢复）
+        // 注意：cn_session cookie 已经由 API 通过响应头设置，不需要在客户端设置
         localStorage.setItem('cn_user', JSON.stringify(cnUser));
 
         console.log('✅ CN user state updated:', cnUser.email);
+        console.log('✅ CN session cookie set by API response header');
       }
 
       return { error: null };
@@ -295,8 +301,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear all caches first (before Supabase signOut)
       await clearAllCaches({ userId: currentUserId });
 
-      // CN 环境：清除 CN session cookie 和 localStorage
+      // CN 环境：通过 API 清除服务端 cookie，并清除 localStorage
       if (isChinaDeployment()) {
+        try {
+          // 调用登出 API 来清除服务端 cookie
+          await fetch('/api/auth/cn-logout', { method: 'POST' });
+          console.log('✅ CN logout API called');
+        } catch (e) {
+          console.error('CN logout API error:', e);
+        }
+        // 同时也在客户端清除（作为备份）
         document.cookie = 'cn_session=; path=/; max-age=0';
         localStorage.removeItem('cn_user');
       }
