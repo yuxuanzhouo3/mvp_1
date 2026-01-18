@@ -220,16 +220,16 @@ export default function DashboardPage() {
     console.log('🔄 Dashboard useEffect - user:', !!user, 'user id:', user?.id, 'authLoading:', authLoading);
 
     if (!user || !user.id) {
-      // CN 环境：检查 cookie 和用户状态是否一致，避免重定向循环
+      // CN 环境：检查 localStorage 和 cookie，如果存在则等待 AuthProvider 恢复状态
       if (isChinaDeployment()) {
+        const cnUserData = localStorage.getItem('cn_user');
         const cnSessionCookie = document.cookie.split(';').find(c => c.trim().startsWith('cn_session='));
-        if (cnSessionCookie) {
-          // Cookie 存在但用户状态丢失，清理 cookie 避免循环
-          console.log('⚠️ CN session cookie exists but user state missing, clearing cookie');
-          const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-          const domainAttr = hostname ? `; Domain=${hostname}` : '';
-          document.cookie = `cn_session=; path=/; max-age=0${domainAttr}`;
-          localStorage.removeItem('cn_user');
+        
+        // 如果 localStorage 或 cookie 存在，说明用户可能已登录，等待 AuthProvider 恢复
+        if (cnUserData || cnSessionCookie) {
+          console.log('🔄 Dashboard: CN user data or cookie exists, waiting for AuthProvider to restore state...');
+          // 不重定向，不清除数据，等待 AuthProvider
+          return;
         }
       }
 
