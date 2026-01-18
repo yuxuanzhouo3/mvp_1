@@ -1,75 +1,55 @@
-# 使用多阶段构建减小镜像大小
-FROM node:20-alpine AS base
+# ========== 腾讯云云托管优化版 Dockerfile ==========
+# 使用多阶段构建 + standalone 模式，大幅减小镜像体积
 
-# 设置工作目录
+# ========== 阶段1: 依赖安装 ==========
+FROM node:20-alpine AS deps
 WORKDIR /app
-
-# ========== 构建时环境变量声明 ==========
-ARG NODE_ENV=production
-ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
-
-ENV NODE_ENV=$NODE_ENV
-ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
-
-# 复制包管理文件和配置文件
 COPY package.json package-lock.json ./
-COPY tsconfig.json ./
-COPY next.config.js ./
-
-# 安装依赖
 RUN npm ci
 
-# 复制源代码
+# ========== 阶段2: 构建应用 ==========
+FROM node:20-alpine AS builder
+WORKDIR /app
+
+# 复制依赖
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 清理可能存在的构建缓存
-RUN rm -rf .next
-
-# 构建时环境变量占位符
+# 构建时环境变量（占位符，运行时通过腾讯云环境变量覆盖）
 ARG NEXT_PUBLIC_SUPABASE_URL=https://build-placeholder.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=build-placeholder-key
+ARG ADMIN_SESSION_SECRET=build-placeholder-admin-session-secret
 
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-# 构建应用
+ENV ADMIN_SESSION_SECRET=$ADMIN_SESSION_SECRET
+# 构建应用（standalone 模式）
 RUN npm run build
 
-# 生产阶段
-FROM node:20-alpine AS production
-
-# 设置工作目录
+# ========== 阶段3: 生产运行 ==========
+FROM node:20-alpine AS runner
 WORKDIR /app
 
-# ========== 运行时配置说明 ==========
-# 真实的配置通过环境变量注入到容器中，
-# 前端通过 /api/auth/config 接口在运行时获取这些 MY_NEXT_PUBLIC_... 变量。
+ENV NODE_ENV=production
 
-ARG PORT=3000
-ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
+# 创建非 root 用户
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
-ENV PORT=$PORT
-ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
+# 复制 standalone 输出（包含精简的 node_modules）
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
-# 从构建阶段复制必要的文件
-COPY --from=base /app/package.json /app/package-lock.json ./
-COPY --from=base /app/.next ./.next
-COPY --from=base /app/public ./public
-COPY --from=base /app/next.config.js ./
-
-# 安装生产依赖
-RUN npm ci --omit=dev
-
-# 创建非root用户
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
-
-# 更改文件所有权
+# 设置文件权限
 RUN chown -R nextjs:nodejs /app
 USER nextjs
 
-# 暴露端口
+# 使用 3000 端口（非 root 用户无法监听 80 端口）
+# 腾讯云云托管会自动将外部流量映射到此端口
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 EXPOSE 3000
 
-# 启动应用
-CMD ["npm", "start"]
+# 启动应用（standalone 模式使用 server.js）
+CMD ["node", "server.js"]

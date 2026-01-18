@@ -5,6 +5,8 @@ const nextConfig = {
     serverComponentsExternalPackages: ['@upstash/redis'],
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
   },
+
+  output: 'standalone',
   
   // Image optimization
   images: {
