@@ -74,14 +74,18 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString(),
     });
 
+    // 确保返回正确的用户 ID
+    const userId = user.id || user._id;
+    console.log('[CN Login] User logged in:', { userId, email: user.email });
+
     return NextResponse.json({
       success: true,
       user: {
-        id: user.id || user._id,
+        id: userId,
         email: user.email,
-        displayName: user.display_name,
+        displayName: user.display_name || user.email?.split('@')[0],
         avatarUrl: user.avatar_url,
-        provider: user.provider,
+        provider: user.provider || 'email',
       },
     });
   } catch (error: any) {
