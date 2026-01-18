@@ -105,11 +105,21 @@ export async function middleware(request: NextRequest) {
         console.log(`[CN Auth] Redirecting to login: no cn_session cookie`);
         const loginUrl = new URL('/auth/login', request.url);
         loginUrl.searchParams.set('redirect', pathname);
-        return NextResponse.redirect(loginUrl);
+        const redirectResponse = NextResponse.redirect(loginUrl);
+        // 禁止缓存重定向响应，避免登录后仍然被重定向
+        redirectResponse.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+        redirectResponse.headers.set('Pragma', 'no-cache');
+        redirectResponse.headers.set('Expires', '0');
+        return redirectResponse;
       }
       if (isAuthRoute && cnSession) {
         console.log(`[CN Auth] Redirecting to dashboard: already logged in`);
-        return NextResponse.redirect(new URL('/dashboard', request.url));
+        const redirectResponse = NextResponse.redirect(new URL('/dashboard', request.url));
+        // 禁止缓存重定向响应
+        redirectResponse.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+        redirectResponse.headers.set('Pragma', 'no-cache');
+        redirectResponse.headers.set('Expires', '0');
+        return redirectResponse;
       }
     } else {
       // INTL 环境使用 Supabase session
@@ -123,18 +133,32 @@ export async function middleware(request: NextRequest) {
           if (isProtectedRoute && !session) {
             const loginUrl = new URL('/auth/login', request.url);
             loginUrl.searchParams.set('redirect', pathname);
-            return NextResponse.redirect(loginUrl);
+            const redirectResponse = NextResponse.redirect(loginUrl);
+            // 禁止缓存重定向响应
+            redirectResponse.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+            redirectResponse.headers.set('Pragma', 'no-cache');
+            redirectResponse.headers.set('Expires', '0');
+            return redirectResponse;
           }
 
           // If accessing auth routes with active session, redirect to dashboard
           if (isAuthRoute && session) {
-            return NextResponse.redirect(new URL('/dashboard', request.url));
+            const redirectResponse = NextResponse.redirect(new URL('/dashboard', request.url));
+            // 禁止缓存重定向响应
+            redirectResponse.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+            redirectResponse.headers.set('Pragma', 'no-cache');
+            redirectResponse.headers.set('Expires', '0');
+            return redirectResponse;
           }
         } catch (error) {
           console.error('Auth check error:', error);
           // On error, allow access to auth routes but protect protected routes
           if (isProtectedRoute) {
-            return NextResponse.redirect(new URL('/auth/login', request.url));
+            const redirectResponse = NextResponse.redirect(new URL('/auth/login', request.url));
+            redirectResponse.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+            redirectResponse.headers.set('Pragma', 'no-cache');
+            redirectResponse.headers.set('Expires', '0');
+            return redirectResponse;
           }
         }
       }

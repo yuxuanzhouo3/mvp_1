@@ -83,6 +83,7 @@ const nextConfig = {
   // Security headers
   async headers() {
     return [
+      // 安全头 - 应用于所有路由
       {
         source: '/(.*)',
         headers: [
@@ -97,10 +98,64 @@ const nextConfig = {
           {
             key: 'X-XSS-Protection',
             value: '1; mode=block'
-          },
+          }
+        ]
+      },
+      // 静态资源缓存 - 仅应用于 _next/static 目录
+      {
+        source: '/_next/static/(.*)',
+        headers: [
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable'
+          }
+        ]
+      },
+      // 公共静态文件缓存
+      {
+        source: '/favicon.ico',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400'
+          }
+        ]
+      },
+      // 需要认证的路由 - 禁止缓存
+      {
+        source: '/dashboard/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, no-store, must-revalidate'
+          }
+        ]
+      },
+      {
+        source: '/auth/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, no-store, must-revalidate'
+          }
+        ]
+      },
+      {
+        source: '/profile/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, no-store, must-revalidate'
+          }
+        ]
+      },
+      // API 路由 - 禁止缓存
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, no-store, must-revalidate'
           }
         ]
       }
