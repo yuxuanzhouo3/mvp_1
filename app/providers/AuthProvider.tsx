@@ -91,9 +91,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth();
 
-    // Set up auth state change listener
+    // Set up auth state change listener (only for INTL environment)
+    // CN environment uses localStorage/cookie based auth, not Supabase
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: any, session: any) => {
+        // CN 环境：忽略 Supabase auth state changes，因为使用独立的认证系统
+        if (isChinaDeployment()) {
+          console.log('📋 CN environment: Ignoring Supabase auth event:', event);
+          return;
+        }
+
         setLoading(true);
 
         try {
