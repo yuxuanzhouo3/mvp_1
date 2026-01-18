@@ -8,54 +8,31 @@ yarn-error.log*
 .next
 out
 
-# 测试覆盖率
-coverage
-
-# 环境变量文件（不应包含在镜像中）
+# 环境变量文件（重要：不要将敏感信息打包进镜像）
 .env
-.env*.local
+.env.local
 .env.development
-.env.test
 .env.production
+.env*.local
 
-# Git 相关
+# Git
 .git
 .gitignore
-.gitattributes
 
-# IDE 配置
+# IDE
 .vscode
 .idea
 *.swp
 *.swo
 *~
 
-# 操作系统文件
+# 测试
+coverage
+.nyc_output
+
+# 其他
 .DS_Store
-Thumbs.db
-
-# 文档和说明
-README.md
-CHANGELOG.md
-LICENSE
-*.md
-CLAUDE.md
-
-# CI/CD 配置
-.github
-.gitlab-ci.yml
-.travis.yml
-
-# 其他构建工具
-.editorconfig
-.eslintrc*
-.prettierrc*
-tsconfig.tsbuildinfo
-
-# 日志文件
-*.log
-
-# 临时文件
-tmp
-temp
-*.tmp
+*.pem
+.cache
+dist
+build
