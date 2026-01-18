@@ -28,8 +28,16 @@ const nextConfig = {
         protocol: 'https',
         hostname: '*.supabase.in',
       },
+      {
+        protocol: 'https',
+        hostname: '**.mornscience.top',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.tcb.qcloud.la',
+      },
     ],
-    unoptimized: process.env.NODE_ENV === 'development',
+    unoptimized: true,
     formats: ['image/webp', 'image/avif'],
   },
   
