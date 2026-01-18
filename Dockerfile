@@ -1,71 +1,74 @@
 # 使用多阶段构建减小镜像大小
 FROM node:20-alpine AS base
 
-# 1. 移除：所有 Chromium 和图形库依赖
-# 2. 新增：libc6-compat (Next.js 在 Alpine 上的官方推荐依赖，体积很小，防止潜在兼容性问题)
-RUN apk add --no-cache libc6-compat
-
 # 设置工作目录
 WORKDIR /app
 
-# ========== 构建阶段 ==========
-FROM base AS builder
-
+# ========== 构建时环境变量声明 ==========
+ARG NODE_ENV=production
 ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
-
+ENV NODE_ENV=$NODE_ENV
 ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
 
 # 复制包管理文件
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json* ./
 
 # 安装依赖
-# 注意：如果您尚未从 package.json 中移除 "puppeteer"，
-# 建议运行 npm uninstall puppeteer，否则 npm ci 仍会尝试下载 Chromium 二进制文件
 RUN npm ci
 
 # 复制源代码
 COPY . .
 
-# 构建时环境变量占位符
+# 1. 声明构建参数 (ARG) 并提供【默认占位符】
+# 关键修改:添加 =... 默认值。
+# 这样即使腾讯云构建时不传这些参数,Docker 构建也能通过,
+# 从而满足 Next.js 构建时对 process.env 的基本检查。
 ARG NEXT_PUBLIC_SUPABASE_URL=https://build-placeholder.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=build-placeholder-key
 
+# 2. 将 ARG 转为 ENV
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-# 设置 Next.js 输出模式为 standalone
-ENV NEXT_OUTPUT_MODE=standalone
-
-# 跳过 Google Fonts 优化
-ENV NEXT_FONT_GOOGLE_MOCKED_RESPONSES='[{"url":"https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap","content":"","contentType":"text/css"}]'
-
 # 构建应用
+# 此时 Next.js 会使用上面的假值完成构建。
+# 只要你的代码里没有在 import 阶段就发起网络请求(通常是在组件 useEffect 或 Server Component 内部发起),
+# 使用假值构建是完全安全的。
 RUN npm run build
 
-# ========== 生产阶段 ==========
-FROM base AS production
+# 生产阶段
+FROM node:20-alpine AS production
 
+# 设置工作目录
+WORKDIR /app
+
+# ========== 运行时配置说明 ==========
+# 真实的配置通过环境变量注入到容器中,
+# 前端通过 /api/auth/config 接口在运行时获取这些 MY_NEXT_PUBLIC_... 变量。
 ARG PORT=3000
 ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
-
 ENV PORT=$PORT
 ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
-ENV NODE_ENV=production
 
 # 从构建阶段复制必要的文件
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=base /app/package.json /app/package-lock.json* ./
+COPY --from=base /app/.next ./.next
+COPY --from=base /app/public ./public
+COPY --from=base /app/next.config.mjs ./
 
-# 创建非 root 用户
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001 && \
-    chown -R nextjs:nodejs /app
+# 安装生产依赖
+RUN npm ci --omit=dev
 
+# 创建非root用户
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
+
+# 更改文件所有权
+RUN chown -R nextjs:nodejs /app
 USER nextjs
 
 # 暴露端口
 EXPOSE 3000
 
 # 启动应用
-CMD ["node", "server.js"]
+CMD ["npm", "start"]

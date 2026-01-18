@@ -41,9 +41,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
+        // 调试日志：显示环境检测结果
+        const isCN = isChinaDeployment();
+        const envRegion = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
+        console.log(`🌍 AuthProvider initializeAuth: isChinaDeployment=${isCN}, NEXT_PUBLIC_DEPLOYMENT_REGION=${envRegion}`);
+        
+        // 检查 localStorage 中是否有 CN 用户数据（无论环境如何）
+        const cnUserData = localStorage.getItem('cn_user');
+        const cnSessionCookie = document.cookie.split(';').find(c => c.trim().startsWith('cn_session='));
+        console.log(`🔍 AuthProvider: localStorage cn_user=${cnUserData ? 'exists' : 'null'}, cn_session cookie=${cnSessionCookie ? 'exists' : 'null'}`);
+        
         // CN 环境：从 localStorage 恢复用户状态
-        if (isChinaDeployment()) {
-          const cnUserData = localStorage.getItem('cn_user');
+        // 即使 isChinaDeployment() 返回 false，如果有 cn_user 数据也尝试恢复
+        if (isCN || cnUserData) {
           if (cnUserData) {
             try {
               const cnUser = JSON.parse(cnUserData) as User;
@@ -60,8 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               
               // 检查 cn_session cookie 是否存在，如果不存在则恢复
               // 这是一个备份机制，主要的 cookie 应该由 API 响应头设置
-              const existingCookie = document.cookie.split(';').find(c => c.trim().startsWith('cn_session='));
-              if (!existingCookie) {
+              if (!cnSessionCookie) {
                 console.log('🔄 CN session cookie missing, restoring from localStorage...');
                 const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
                 const secureFlag = isSecure ? '; Secure' : '';
@@ -105,8 +114,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: any, session: any) => {
         // CN 环境：忽略 Supabase auth state changes，因为使用独立的认证系统
-        if (isChinaDeployment()) {
-          console.log('📋 CN environment: Ignoring Supabase auth event:', event);
+        // 同时检查 localStorage 中是否有 cn_user 数据，作为 CN 环境的备用判断
+        const cnUserData = localStorage.getItem('cn_user');
+        if (isChinaDeployment() || cnUserData) {
+          console.log(`📋 CN environment: Ignoring Supabase auth event: ${event} (isCN=${isChinaDeployment()}, cnUserData=${!!cnUserData})`);
           return;
         }
 
