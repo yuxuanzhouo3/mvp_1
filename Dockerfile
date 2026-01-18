@@ -49,7 +49,7 @@ ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
 COPY --from=base /app/package.json /app/package-lock.json ./
 COPY --from=base /app/.next ./.next
 COPY --from=base /app/public ./public
-COPY --from=base /app/next.config.mjs ./next.config.mjs
+COPY --from=base /app/next.config.mjs ./next.config.js
 
 # 安装生产依赖
 RUN npm ci --omit=dev
