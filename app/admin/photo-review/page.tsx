@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+// 使用原生 img 标签，避免在云托管环境下 /_next/image 路由 404 问题
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -810,11 +810,11 @@ export default function PhotoReviewPage() {
                     </div>
 
                     {/* Photo */}
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={photo.thumbnail_url || photo.url}
                       alt="User photo"
-                      fill
-                      className="object-cover cursor-pointer"
+                      className="absolute inset-0 w-full h-full object-cover cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
                         setViewPhotoUrl(photo.url);
@@ -979,11 +979,11 @@ export default function PhotoReviewPage() {
         <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
           {viewPhotoUrl && (
             <div className="relative w-full h-[80vh]">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={viewPhotoUrl}
                 alt="Full size photo"
-                fill
-                className="object-contain"
+                className="absolute inset-0 w-full h-full object-contain"
               />
             </div>
           )}

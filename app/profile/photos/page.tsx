@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+// 使用原生 img 标签，避免在云托管环境下 /_next/image 路由 404 问题
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -463,11 +463,11 @@ export default function PhotoManagementPage() {
                     }`}
                   >
                     <div className="aspect-square relative">
-                      <Image
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
                         src={photo.thumbnail_url || photo.url}
                         alt="User photo"
-                        fill
-                        className="object-cover"
+                        className="absolute inset-0 w-full h-full object-cover"
                       />
 
                       {/* Primary badge */}

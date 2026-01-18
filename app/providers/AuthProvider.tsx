@@ -58,7 +58,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 user: cnUser,
               } as Session);
               // 重要：恢复 cn_session cookie，否则 middleware 会认为未登录
-              document.cookie = `cn_session=${cnUser.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+              // 在 HTTPS 环境下需要添加 Secure 属性
+              const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+              const secureFlag = isSecure ? '; Secure' : '';
+              document.cookie = `cn_session=${cnUser.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
             } catch (e) {
               console.error('Failed to parse CN user data:', e);
               localStorage.removeItem('cn_user');
@@ -162,7 +165,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } as Session);
 
         // 设置 CN session cookie（供中间件验证）
-        document.cookie = `cn_session=${result.user.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+        // 在 HTTPS 环境下需要添加 Secure 属性
+        const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        const secureFlag = isSecure ? '; Secure' : '';
+        document.cookie = `cn_session=${result.user.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
         // 保存用户数据到 localStorage（供页面刷新后恢复）
         localStorage.setItem('cn_user', JSON.stringify(cnUser));
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
+// 使用原生 img 标签，避免在云托管环境下 /_next/image 路由 404 问题
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -255,11 +255,11 @@ export default function PhotoAuditStatus({
               >
                 {/* Photo */}
                 <div className="aspect-square relative">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={photo.thumbnail_url || photo.url}
                     alt="User photo"
-                    fill
-                    className="object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
 
                   {/* Primary badge */}
