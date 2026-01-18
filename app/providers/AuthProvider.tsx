@@ -57,6 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 token_type: 'bearer',
                 user: cnUser,
               } as Session);
+              // 重要：恢复 cn_session cookie，否则 middleware 会认为未登录
+              document.cookie = `cn_session=${cnUser.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
             } catch (e) {
               console.error('Failed to parse CN user data:', e);
               localStorage.removeItem('cn_user');
