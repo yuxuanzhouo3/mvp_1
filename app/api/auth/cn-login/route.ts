@@ -6,12 +6,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { isChinaDeployment } from '@/lib/config/deployment.config';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
+  // 检查部署区域 - 直接从环境变量读取，避免构建时问题
+  const deploymentRegion = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
+  const isCN = deploymentRegion === 'CN';
+  
+  console.log(`[CN Login] Environment check: NEXT_PUBLIC_DEPLOYMENT_REGION=${deploymentRegion}, isCN=${isCN}`);
+  
   // 仅 CN 环境可用
-  if (!isChinaDeployment()) {
+  if (!isCN) {
+    console.log('[CN Login] Rejected: Not CN environment');
     return NextResponse.json(
       { error: 'This endpoint is only available in CN environment' },
       { status: 403 }
@@ -20,6 +26,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const { email, password } = await request.json();
+    
+    console.log(`[CN Login] Login attempt for email: ${email}`);
 
     // 验证必填字段
     if (!email || !password) {
@@ -33,15 +41,27 @@ export async function POST(request: NextRequest) {
     let cloudbase;
     try {
       cloudbase = await import('@cloudbase/node-sdk');
-    } catch {
+    } catch (importError) {
+      console.error('[CN Login] Cloudbase SDK import error:', importError);
       return NextResponse.json(
         { error: 'Cloudbase SDK not installed. Run: npm install @cloudbase/node-sdk' },
         { status: 500 }
       );
     }
 
+    const envId = process.env.CLOUDBASE_ENV_ID || process.env.NEXT_PUBLIC_CLOUDBASE_ENV_ID || '';
+    console.log(`[CN Login] Cloudbase env: ${envId ? envId.substring(0, 10) + '...' : 'NOT SET'}`);
+    
+    if (!envId) {
+      console.error('[CN Login] Cloudbase ENV_ID not configured');
+      return NextResponse.json(
+        { error: '服务配置错误：Cloudbase ENV_ID 未设置' },
+        { status: 500 }
+      );
+    }
+
     const app = cloudbase.init({
-      env: process.env.CLOUDBASE_ENV_ID || process.env.NEXT_PUBLIC_CLOUDBASE_ENV_ID || '',
+      env: envId,
       secretId: process.env.CLOUDBASE_SECRET_ID,
       secretKey: process.env.CLOUDBASE_SECRET_KEY,
     });

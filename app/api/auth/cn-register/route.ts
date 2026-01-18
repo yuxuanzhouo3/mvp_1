@@ -1,15 +1,23 @@
 /**
  * CN 环境邮箱注册 API
  * 直接写入 Cloudbase users 集合，不需要邮箱验证
+ * 
+ * 注册成功后自动设置认证 cookie，实现注册即登录
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { isChinaDeployment } from '@/lib/config/deployment.config';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
+  // 检查部署区域 - 直接从环境变量读取，避免构建时问题
+  const deploymentRegion = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
+  const isCN = deploymentRegion === 'CN';
+  
+  console.log(`[CN Register] Environment check: NEXT_PUBLIC_DEPLOYMENT_REGION=${deploymentRegion}, isCN=${isCN}`);
+  
   // 仅 CN 环境可用
-  if (!isChinaDeployment()) {
+  if (!isCN) {
+    console.log('[CN Register] Rejected: Not CN environment');
     return NextResponse.json(
       { error: 'This endpoint is only available in CN environment' },
       { status: 403 }
@@ -17,12 +25,35 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { email, password, displayName, phone } = await request.json();
+    const body = await request.json();
+    const { email, password, displayName, phone } = body;
+    
+    console.log(`[CN Register] Registration attempt for email: ${email}`);
 
     // 验证必填字段
     if (!email || !password) {
+      console.log('[CN Register] Validation failed: missing email or password');
       return NextResponse.json(
         { error: '邮箱和密码为必填项' },
+        { status: 400 }
+      );
+    }
+
+    // 验证密码长度
+    if (password.length < 6) {
+      console.log('[CN Register] Validation failed: password too short');
+      return NextResponse.json(
+        { error: '密码长度至少6位' },
+        { status: 400 }
+      );
+    }
+
+    // 验证邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      console.log('[CN Register] Validation failed: invalid email format');
+      return NextResponse.json(
+        { error: '邮箱格式不正确' },
         { status: 400 }
       );
     }
@@ -31,15 +62,27 @@ export async function POST(request: NextRequest) {
     let cloudbase;
     try {
       cloudbase = await import('@cloudbase/node-sdk');
-    } catch {
+    } catch (importError) {
+      console.error('[CN Register] Cloudbase SDK import error:', importError);
       return NextResponse.json(
         { error: 'Cloudbase SDK not installed. Run: npm install @cloudbase/node-sdk' },
         { status: 500 }
       );
     }
 
+    const envId = process.env.CLOUDBASE_ENV_ID || process.env.NEXT_PUBLIC_CLOUDBASE_ENV_ID || '';
+    console.log(`[CN Register] Cloudbase env: ${envId ? envId.substring(0, 10) + '...' : 'NOT SET'}`);
+    
+    if (!envId) {
+      console.error('[CN Register] Cloudbase ENV_ID not configured');
+      return NextResponse.json(
+        { error: '服务配置错误：Cloudbase ENV_ID 未设置' },
+        { status: 500 }
+      );
+    }
+
     const app = cloudbase.init({
-      env: process.env.CLOUDBASE_ENV_ID || process.env.NEXT_PUBLIC_CLOUDBASE_ENV_ID || '',
+      env: envId,
       secretId: process.env.CLOUDBASE_SECRET_ID,
       secretKey: process.env.CLOUDBASE_SECRET_KEY,
     });
@@ -50,6 +93,7 @@ export async function POST(request: NextRequest) {
     // 检查邮箱是否已存在
     const existingUser = await usersCollection.where({ email }).limit(1).get();
     if (existingUser.data && existingUser.data.length > 0) {
+      console.log(`[CN Register] Email already registered: ${email}`);
       return NextResponse.json(
         { error: '该邮箱已被注册' },
         { status: 400 }
@@ -67,7 +111,7 @@ export async function POST(request: NextRequest) {
       id: userId,
       email,
       password: hashedPassword,
-      display_name: displayName || null,
+      display_name: displayName || email.split('@')[0],
       phone: phone || null,
       avatar_url: null,
       provider: 'email',
@@ -77,19 +121,36 @@ export async function POST(request: NextRequest) {
       email_verified: true, // CN环境直接标记为已验证
     });
 
-    return NextResponse.json({
+    console.log(`[CN Register] User created successfully: ${userId}, ${email}`);
+
+    // 创建响应并设置认证 cookie（注册即登录）
+    const response = NextResponse.json({
       success: true,
       user: {
         id: userId,
         email,
-        displayName,
+        displayName: displayName || email.split('@')[0],
         provider: 'email',
       },
     });
+
+    // 设置 cn_session cookie，实现注册即登录
+    const isProduction = process.env.NODE_ENV === 'production';
+    response.cookies.set('cn_session', userId, {
+      httpOnly: false,
+      secure: isProduction,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60, // 7 天
+    });
+
+    console.log(`[CN Register] Cookie set for user: ${userId}`);
+
+    return response;
   } catch (error: any) {
     console.error('[CN Register] Error:', error);
     return NextResponse.json(
-      { error: error.message || '注册失败' },
+      { error: error.message || '注册失败，请稍后重试' },
       { status: 500 }
     );
   }

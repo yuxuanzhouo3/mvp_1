@@ -45,12 +45,25 @@ RUN npm run build
 # ========== 生产阶段 ==========
 FROM base AS production
 
+# 设置构建参数
 ARG PORT=3000
 ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
+ARG CLOUDBASE_ENV_ID
+ARG CLOUDBASE_SECRET_ID
+ARG CLOUDBASE_SECRET_KEY
 
+# 设置环境变量 - 这些会在运行时可用
 ENV PORT=$PORT
-ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
 ENV NODE_ENV=production
+ENV HOSTNAME="0.0.0.0"
+
+# 重要：CN 环境相关的环境变量
+ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
+
+# Cloudbase 配置（如果通过 ARG 传入）
+ENV CLOUDBASE_ENV_ID=$CLOUDBASE_ENV_ID
+ENV CLOUDBASE_SECRET_ID=$CLOUDBASE_SECRET_ID
+ENV CLOUDBASE_SECRET_KEY=$CLOUDBASE_SECRET_KEY
 
 # 从构建阶段复制必要的文件
 COPY --from=builder /app/public ./public
@@ -67,5 +80,5 @@ USER nextjs
 # 暴露端口
 EXPOSE 3000
 
-# 启动应用
-CMD ["node", "server.js"]
+# 启动应用 - 使用 shell 形式确保环境变量被正确传递
+CMD node server.js
