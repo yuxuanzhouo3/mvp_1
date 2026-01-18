@@ -20,6 +20,9 @@ RUN npm ci
 # 复制源代码
 COPY . .
 
+# 清理可能存在的构建缓存
+RUN rm -rf .next
+
 # 构建时环境变量占位符
 ARG NEXT_PUBLIC_SUPABASE_URL=https://build-placeholder.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=build-placeholder-key
