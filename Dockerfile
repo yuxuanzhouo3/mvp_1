@@ -70,8 +70,8 @@ COPY --from=base /app/.next ./.next
 COPY --from=base /app/public ./public
 COPY --from=base /app/next.config.js ./
 
-# 安装生产依赖
-RUN pnpm install --frozen-lockfile --prod
+# 安装生产依赖(跳过postinstall脚本,因为patch-package是devDependency)
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 
 # 创建非root用户
 RUN addgroup -g 1001 -S nodejs
