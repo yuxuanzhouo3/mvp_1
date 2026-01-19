@@ -118,10 +118,11 @@ export async function middleware(request: NextRequest) {
       const redirectResponse = NextResponse.redirect(loginUrl);
       redirectResponse.headers.set(
         "Cache-Control",
-        "private, no-cache, no-store, must-revalidate"
+        "private, no-cache, no-store, must-revalidate, max-age=0"
       );
       redirectResponse.headers.set("Pragma", "no-cache");
       redirectResponse.headers.set("Expires", "0");
+      redirectResponse.headers.set("X-Accel-Expires", "0");
       return redirectResponse;
     }
 
@@ -131,11 +132,23 @@ export async function middleware(request: NextRequest) {
       );
       redirectResponse.headers.set(
         "Cache-Control",
-        "private, no-cache, no-store, must-revalidate"
+        "private, no-cache, no-store, must-revalidate, max-age=0"
       );
       redirectResponse.headers.set("Pragma", "no-cache");
       redirectResponse.headers.set("Expires", "0");
+      redirectResponse.headers.set("X-Accel-Expires", "0");
       return redirectResponse;
+    }
+
+    // For authenticated routes, add no-cache headers to response
+    if (isProtectedRoute && isAuthenticated) {
+      response.headers.set(
+        "Cache-Control",
+        "private, no-cache, no-store, must-revalidate, max-age=0"
+      );
+      response.headers.set("Pragma", "no-cache");
+      response.headers.set("Expires", "0");
+      response.headers.set("X-Accel-Expires", "0");
     }
   }
 

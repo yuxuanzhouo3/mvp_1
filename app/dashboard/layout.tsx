@@ -8,6 +8,16 @@ import { getSupabaseClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 
+// Force no-cache for dashboard layout to prevent stale auth state
+if (typeof window !== 'undefined') {
+  window.addEventListener('load', () => {
+    const meta = document.createElement('meta');
+    meta.httpEquiv = 'Cache-Control';
+    meta.content = 'no-cache, no-store, must-revalidate';
+    document.head.appendChild(meta);
+  });
+}
+
 export default function DashboardLayout({
   children
 }: {

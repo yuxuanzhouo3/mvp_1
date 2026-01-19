@@ -32,10 +32,10 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '*.tcb.qcloud.la',
+        hostname: '636c-cloud2-6gyd32hf02a19502-1389657646.tcb.qcloud.la',
       },
     ],
-    unoptimized: true,
+    unoptimized: process.env.NODE_ENV === 'production',
     formats: ['image/webp', 'image/avif'],
   },
   
@@ -96,7 +96,7 @@ const nextConfig = {
           },
           {
             key: 'X-Frame-Options',
-            value: 'DENY'
+            value: 'SAMEORIGIN'
           },
           {
             key: 'X-XSS-Protection',
@@ -130,7 +130,19 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'private, no-cache, no-store, must-revalidate'
+            value: 'private, no-cache, no-store, must-revalidate, max-age=0'
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache'
+          },
+          {
+            key: 'Expires',
+            value: '0'
+          },
+          {
+            key: 'X-Robots-Tag',
+            value: 'noindex, nofollow'
           }
         ]
       },
