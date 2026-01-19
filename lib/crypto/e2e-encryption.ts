@@ -141,12 +141,17 @@ export async function deriveSharedKey(
     ['deriveKey']
   );
 
+  // 创建一个新的 Uint8Array 以确保类型兼容
+  const saltBuffer = new ArrayBuffer(salt.length);
+  const saltView = new Uint8Array(saltBuffer);
+  saltView.set(salt);
+
   // 派生 AES 密钥
   return await crypto.subtle.deriveKey(
     {
       name: 'HKDF',
       hash: 'SHA-256',
-      salt: salt,
+      salt: saltView,
       info: new TextEncoder().encode('PersonaLink E2E Chat'),
     },
     sharedKeyMaterial,
@@ -164,11 +169,14 @@ export async function encryptMessage(
   sharedKey: CryptoKey
 ): Promise<EncryptedMessage> {
   // 生成随机 IV
-  const iv = crypto.getRandomValues(new Uint8Array(CRYPTO_CONFIG.IV_LENGTH));
-  
+  const ivTemp = crypto.getRandomValues(new Uint8Array(CRYPTO_CONFIG.IV_LENGTH));
+  const ivBuffer = new ArrayBuffer(ivTemp.length);
+  const iv = new Uint8Array(ivBuffer);
+  iv.set(ivTemp);
+
   // 编码消息
   const encodedMessage = new TextEncoder().encode(message);
-  
+
   // 加密
   const ciphertext = await crypto.subtle.encrypt(
     {
@@ -195,8 +203,15 @@ export async function decryptMessage(
   sharedKey: CryptoKey
 ): Promise<string> {
   // 解码 Base64
-  const ciphertext = base64ToArrayBuffer(encrypted.ciphertext);
-  const iv = base64ToArrayBuffer(encrypted.iv);
+  const ciphertextTemp = base64ToArrayBuffer(encrypted.ciphertext);
+  const ciphertextBuffer = new ArrayBuffer(ciphertextTemp.length);
+  const ciphertext = new Uint8Array(ciphertextBuffer);
+  ciphertext.set(ciphertextTemp);
+
+  const ivTemp = base64ToArrayBuffer(encrypted.iv);
+  const ivBuffer = new ArrayBuffer(ivTemp.length);
+  const iv = new Uint8Array(ivBuffer);
+  iv.set(ivTemp);
 
   // 解密
   const decrypted = await crypto.subtle.decrypt(
