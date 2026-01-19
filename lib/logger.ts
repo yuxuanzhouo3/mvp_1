@@ -40,7 +40,8 @@ export interface ScoringLogData {
 const LOG_CONFIG = {
   enabled: process.env.NODE_ENV !== 'test',
   minLevel: process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG,
-  consoleOutput: process.env.NODE_ENV !== 'production',
+  // 生产环境也输出日志，以便在云托管中查看
+  consoleOutput: true,
   maxLogLength: 10000,
 };
 

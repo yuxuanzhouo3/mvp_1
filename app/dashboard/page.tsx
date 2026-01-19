@@ -220,20 +220,19 @@ export default function DashboardPage() {
     console.log('🔄 Dashboard useEffect - user:', !!user, 'user id:', user?.id, 'authLoading:', authLoading);
 
     if (!user || !user.id) {
-      // CN 环境：检查 localStorage 和 cookie，如果存在则等待 AuthProvider 恢复状态
-      if (isChinaDeployment()) {
-        const cnUserData = localStorage.getItem('cn_user');
-        const cnSessionCookie = document.cookie.split(';').find(c => c.trim().startsWith('cn_session='));
-        
-        // 如果 localStorage 或 cookie 存在，说明用户可能已登录，等待 AuthProvider 恢复
-        if (cnUserData || cnSessionCookie) {
-          console.log('🔄 Dashboard: CN user data or cookie exists, waiting for AuthProvider to restore state...');
-          // 不重定向，不清除数据，等待 AuthProvider
-          return;
-        }
+      // 关键：不依赖 isChinaDeployment()，直接检查 localStorage 和 cookie
+      // 这样即使环境变量配置错误也能正常工作
+      const cnUserData = localStorage.getItem('cn_user');
+      const cnSessionCookie = document.cookie.split(';').find(c => c.trim().startsWith('cn_session='));
+      
+      // 如果 localStorage 或 cookie 存在，说明用户可能已登录，等待 AuthProvider 恢复
+      if (cnUserData || cnSessionCookie) {
+        console.log('🔄 Dashboard page: Auth data exists (cnUserData:', !!cnUserData, ', cnSessionCookie:', !!cnSessionCookie, '), waiting for AuthProvider...');
+        // 不重定向，不清除数据，等待 AuthProvider
+        return;
       }
 
-      console.log('❌ No user found in dashboard, redirecting to login');
+      console.log('❌ No user found in dashboard and no auth data, redirecting to login');
       isRedirectingRef.current = true;
       setProfile(null);
       setRecentMatches([]);

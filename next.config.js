@@ -71,8 +71,12 @@ const nextConfig = {
   },
   
   // Compiler optimizations
+  // 注意：不要在生产环境完全移除 console，否则无法看到服务端日志
+  // 只移除 console.debug，保留 console.log, console.warn, console.error
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['log', 'warn', 'error', 'info'],
+    } : false,
   },
   
   // Environment variables

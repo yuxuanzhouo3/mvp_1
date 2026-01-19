@@ -19,10 +19,13 @@ COPY . .
 ARG NEXT_PUBLIC_SUPABASE_URL=https://build-placeholder.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=build-placeholder-key
 ARG ADMIN_SESSION_SECRET=build-placeholder-admin-session-secret
+# CN 环境部署区域配置
+ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
 
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV ADMIN_SESSION_SECRET=$ADMIN_SESSION_SECRET
+ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
 # 构建应用（standalone 模式）
 RUN npm run build
 
@@ -31,6 +34,8 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+# CN 环境配置（必须在运行时也设置，供服务端代码使用）
+ENV NEXT_PUBLIC_DEPLOYMENT_REGION=CN
 
 # 创建非 root 用户
 RUN addgroup --system --gid 1001 nodejs && \

@@ -91,35 +91,41 @@ export default function DashboardLayout({
   }, [user, supabase.auth]);
 
   // 认证检查：确保用户已登录
+  // 关键：不依赖 isChinaDeployment()，直接检查 localStorage 和 cookie
+  // 这样即使环境变量配置错误也能正常工作
   useEffect(() => {
-    // 调试日志
+    // 获取所有可能的认证数据
     const cnUserData = localStorage.getItem('cn_user');
     const cnSessionCookie = document.cookie.split(';').find(c => c.trim().startsWith('cn_session='));
     const isCN = isChinaDeployment();
     
     console.log(`🛡️ DashboardLayout auth check: loading=${loading}, user=${!!user}, isCN=${isCN}, cnUserData=${!!cnUserData}, cnSessionCookie=${!!cnSessionCookie}`);
     
-    // 如果正在加载，不做任何操作
-    if (loading) return;
+    // 如果 AuthProvider 正在加载，等待
+    if (loading) {
+      console.log('⏳ DashboardLayout: AuthProvider loading, waiting...');
+      return;
+    }
     
     // 如果已经重定向过，不再重复
     if (hasRedirectedRef.current) return;
     
-    // 如果有用户，重置重定向标志
+    // 如果有用户状态，一切正常
     if (user) {
       hasRedirectedRef.current = false;
       return;
     }
     
-    // 额外检查 localStorage 中是否有 CN 用户数据（不依赖 isChinaDeployment）
-    // 这是一个防护措施，防止环境变量构建问题导致的误重定向
+    // 用户状态为空，但需要检查是否有持久化的认证数据
+    // 关键：不管是 CN 还是 INTL 环境，都检查这些数据
+    // 这样可以防止环境变量配置错误导致的问题
+    
     if (cnUserData) {
-      // 如果 localStorage 中有 CN 用户数据，说明用户确实登录过
-      // 可能是 AuthProvider 还没有完成状态恢复，或者页面刚刚加载
-      // 不要重定向，而是给 AuthProvider 更多时间
-      console.log('🔄 DashboardLayout: CN user data exists in localStorage, not redirecting');
+      // localStorage 中有用户数据，说明用户确实登录过
+      // AuthProvider 可能还没完成状态恢复，继续等待
+      console.log('🔄 DashboardLayout: cn_user exists in localStorage, waiting for AuthProvider...');
       
-      // 尝试验证并确保 cookie 存在
+      // 确保 cookie 也存在
       if (!cnSessionCookie) {
         try {
           const userData = JSON.parse(cnUserData);
@@ -133,17 +139,19 @@ export default function DashboardLayout({
           console.error('Failed to parse CN user data:', e);
         }
       }
+      // 不重定向，继续等待
       return;
     }
     
-    // 如果只有 cookie 没有 localStorage 数据，也等待一下
     if (cnSessionCookie) {
-      console.log('🔄 DashboardLayout: CN session cookie exists, waiting for AuthProvider...');
+      // 有 cookie 但没有 localStorage，可能是数据不完整
+      // 也继续等待，给 AuthProvider 机会恢复
+      console.log('🔄 DashboardLayout: cn_session cookie exists, waiting for AuthProvider...');
       return;
     }
     
-    // 确认用户未登录，执行重定向
-    console.log('🚫 DashboardLayout: No user found and no CN data, redirecting to login...');
+    // 没有任何认证数据，确认用户未登录，执行重定向
+    console.log('🚫 DashboardLayout: No user and no auth data found, redirecting to login...');
     hasRedirectedRef.current = true;
     router.replace('/auth/login');
   }, [user, loading, router]);
@@ -206,7 +214,14 @@ export default function DashboardLayout({
   }, [user?.id, toast]);
 
   // Show loading state while checking authentication
-  if (loading) {
+  // 或者当有认证数据但 user 状态还未恢复时
+  const cnUserData = typeof window !== 'undefined' ? localStorage.getItem('cn_user') : null;
+  const cnSessionCookie = typeof window !== 'undefined' 
+    ? document.cookie.split(';').find(c => c.trim().startsWith('cn_session='))
+    : null;
+  const hasAuthData = !!(cnUserData || cnSessionCookie);
+  
+  if (loading || (!user && hasAuthData)) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
@@ -217,7 +232,7 @@ export default function DashboardLayout({
     );
   }
 
-  // Dont render anything if user is not authenticated
+  // 没有用户且没有认证数据，不渲染内容（useEffect 会处理重定向）
   if (!user) {
     return null;
   }
