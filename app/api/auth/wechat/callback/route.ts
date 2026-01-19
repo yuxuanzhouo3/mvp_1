@@ -7,7 +7,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { isChinaDeployment } from '@/lib/config/deployment.config';
 import {
   findOrCreateWeChatUser,
   createUserSession,
@@ -47,7 +46,11 @@ interface WeChatUserInfo {
  */
 export async function GET(request: NextRequest) {
   // 仅在 CN 环境可用
-  if (!isChinaDeployment()) {
+  const deploymentRegion =
+    process.env.DEPLOYMENT_REGION || process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
+  const isCN = deploymentRegion === 'CN';
+
+  if (!isCN) {
     return NextResponse.json(
       { error: 'WeChat OAuth only available in CN deployment' },
       { status: 400 }
@@ -140,9 +143,14 @@ export async function GET(request: NextRequest) {
     const response = NextResponse.redirect(successUrl);
     
     // 设置认证 cookie
-    response.cookies.set('auth_token', session.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+    const forwardedProto = request.headers.get('x-forwarded-proto');
+    const isSecureRequest = forwardedProto
+      ? forwardedProto.split(',')[0].trim() === 'https'
+      : request.url.startsWith('https://');
+
+    response.cookies.set('cn_session', user.id, {
+      httpOnly: false,
+      secure: isSecureRequest,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60, // 7天
       path: '/',
@@ -162,7 +170,11 @@ export async function GET(request: NextRequest) {
  * POST 请求 - 用于客户端 AJAX 调用
  */
 export async function POST(request: NextRequest) {
-  if (!isChinaDeployment()) {
+  const deploymentRegion =
+    process.env.DEPLOYMENT_REGION || process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
+  const isCN = deploymentRegion === 'CN';
+
+  if (!isCN) {
     return NextResponse.json(
       { error: 'WeChat OAuth only available in CN deployment' },
       { status: 400 }

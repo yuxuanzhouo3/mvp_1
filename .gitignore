@@ -4,6 +4,7 @@ node_modules
 .env
 .env.local
 .next
+.trae
 
 .claude
 .vscode

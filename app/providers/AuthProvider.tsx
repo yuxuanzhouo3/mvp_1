@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // CN 环境：从 localStorage 恢复用户状态
         // 即使 isChinaDeployment() 返回 false，如果有 cn_user 数据也尝试恢复
-        if (isCN || cnUserData) {
+        if (isCN || cnUserData || cnSessionCookie) {
           if (cnUserData) {
             try {
               const cnUser = JSON.parse(cnUserData) as User;
@@ -84,6 +84,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.error('Failed to parse CN user data:', e);
               localStorage.removeItem('cn_user');
               // 不设置 Domain 属性，确保与设置时一致
+              document.cookie = 'cn_session=; path=/; max-age=0; SameSite=Lax';
+            }
+          } else if (cnSessionCookie) {
+            try {
+              const response = await fetch('/api/auth/cn-me', {
+                method: 'GET',
+                credentials: 'include',
+                cache: 'no-store',
+              });
+
+              if (response.ok) {
+                const result = await response.json();
+                const serverUser = result?.user;
+
+                if (serverUser?.id) {
+                  const cnUser = {
+                    id: serverUser.id,
+                    email: serverUser.email,
+                    user_metadata: {
+                      display_name: serverUser.displayName,
+                      avatar_url: serverUser.avatarUrl,
+                    },
+                  } as any;
+
+                  setUser(cnUser);
+                  userRef.current = cnUser;
+                  setSession({
+                    access_token: `cn_${cnUser.id}`,
+                    refresh_token: '',
+                    expires_in: 0,
+                    token_type: 'bearer',
+                    user: cnUser,
+                  } as Session);
+
+                  localStorage.setItem('cn_user', JSON.stringify(cnUser));
+                  console.log('✅ CN user restored from cookie via /api/auth/cn-me:', cnUser.email);
+                } else {
+                  console.error('Invalid CN user payload from /api/auth/cn-me:', result);
+                  document.cookie = 'cn_session=; path=/; max-age=0; SameSite=Lax';
+                }
+              } else {
+                console.error('CN /api/auth/cn-me failed:', response.status);
+                document.cookie = 'cn_session=; path=/; max-age=0; SameSite=Lax';
+              }
+            } catch (e) {
+              console.error('CN /api/auth/cn-me error:', e);
               document.cookie = 'cn_session=; path=/; max-age=0; SameSite=Lax';
             }
           } else {

@@ -114,8 +114,10 @@ export async function POST(request: NextRequest) {
 
     // 重要：通过响应头设置 cn_session cookie
     // 根据请求协议决定是否设置 secure 属性（而不是依赖 NODE_ENV）
-    const requestUrl = request.url;
-    const isSecureRequest = requestUrl.startsWith('https://');
+    const forwardedProto = request.headers.get('x-forwarded-proto');
+    const isSecureRequest = forwardedProto
+      ? forwardedProto.split(',')[0].trim() === 'https'
+      : request.url.startsWith('https://');
     
     // 设置 cookie，确保在无痕模式下也能正常工作
     response.cookies.set('cn_session', userId, {

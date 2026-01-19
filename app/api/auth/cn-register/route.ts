@@ -135,16 +135,19 @@ export async function POST(request: NextRequest) {
     });
 
     // 设置 cn_session cookie，实现注册即登录
-    const isProduction = process.env.NODE_ENV === 'production';
+    const forwardedProto = request.headers.get('x-forwarded-proto');
+    const isSecureRequest = forwardedProto
+      ? forwardedProto.split(',')[0].trim() === 'https'
+      : request.url.startsWith('https://');
     response.cookies.set('cn_session', userId, {
       httpOnly: false,
-      secure: isProduction,
+      secure: isSecureRequest,
       sameSite: 'lax',
       path: '/',
       maxAge: 7 * 24 * 60 * 60, // 7 天
     });
 
-    console.log(`[CN Register] Cookie set for user: ${userId}`);
+    console.log(`[CN Register] Cookie set for user: ${userId}, secure: ${isSecureRequest}`);
 
     return response;
   } catch (error: any) {

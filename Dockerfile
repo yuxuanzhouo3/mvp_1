@@ -33,7 +33,7 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV=production
+ENV NODE_ENV=development
 # CN 环境配置（必须在运行时也设置，供服务端代码使用）
 ENV NEXT_PUBLIC_DEPLOYMENT_REGION=CN
 

@@ -90,78 +90,50 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
 
   if (isProtectedRoute || isAuthRoute) {
-    // CN 环境：检查 CN session cookie
-    const isCN = deploymentRegion === "CN";
-    const cnSession = request.cookies.get('cn_session')?.value;
+    const cnSession = request.cookies.get("cn_session")?.value;
+    const hasCnSession = !!cnSession;
 
-    // 调试日志：帮助诊断 CN 环境的认证问题
-    if (isCN) {
-      console.log(`[CN Auth] Path: ${pathname}, Cookie: ${cnSession ? 'present' : 'missing'}, Protected: ${isProtectedRoute}, AuthRoute: ${isAuthRoute}`);
-    }
-
-    if (isCN) {
-      // CN 环境使用 cookie 检查认证状态
-      if (isProtectedRoute && !cnSession) {
-        console.log(`[CN Auth] Redirecting to login: no cn_session cookie`);
-        const loginUrl = new URL('/auth/login', request.url);
-        loginUrl.searchParams.set('redirect', pathname);
-        const redirectResponse = NextResponse.redirect(loginUrl);
-        // 禁止缓存重定向响应，避免登录后仍然被重定向
-        redirectResponse.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
-        redirectResponse.headers.set('Pragma', 'no-cache');
-        redirectResponse.headers.set('Expires', '0');
-        return redirectResponse;
-      }
-      if (isAuthRoute && cnSession) {
-        console.log(`[CN Auth] Redirecting to dashboard: already logged in`);
-        const redirectResponse = NextResponse.redirect(new URL('/dashboard', request.url));
-        // 禁止缓存重定向响应
-        redirectResponse.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
-        redirectResponse.headers.set('Pragma', 'no-cache');
-        redirectResponse.headers.set('Expires', '0');
-        return redirectResponse;
-      }
-    } else {
-      // INTL 环境使用 Supabase session
+    let hasIntlSession = false;
+    if (!hasCnSession) {
       const supabase = createMiddlewareClient(request, response);
-
       if (supabase) {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-
-          // If accessing protected route without session, redirect to login
-          if (isProtectedRoute && !session) {
-            const loginUrl = new URL('/auth/login', request.url);
-            loginUrl.searchParams.set('redirect', pathname);
-            const redirectResponse = NextResponse.redirect(loginUrl);
-            // 禁止缓存重定向响应
-            redirectResponse.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
-            redirectResponse.headers.set('Pragma', 'no-cache');
-            redirectResponse.headers.set('Expires', '0');
-            return redirectResponse;
-          }
-
-          // If accessing auth routes with active session, redirect to dashboard
-          if (isAuthRoute && session) {
-            const redirectResponse = NextResponse.redirect(new URL('/dashboard', request.url));
-            // 禁止缓存重定向响应
-            redirectResponse.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
-            redirectResponse.headers.set('Pragma', 'no-cache');
-            redirectResponse.headers.set('Expires', '0');
-            return redirectResponse;
-          }
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          hasIntlSession = !!session;
         } catch (error) {
-          console.error('Auth check error:', error);
-          // On error, allow access to auth routes but protect protected routes
-          if (isProtectedRoute) {
-            const redirectResponse = NextResponse.redirect(new URL('/auth/login', request.url));
-            redirectResponse.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
-            redirectResponse.headers.set('Pragma', 'no-cache');
-            redirectResponse.headers.set('Expires', '0');
-            return redirectResponse;
-          }
+          console.error("Auth check error:", error);
         }
       }
+    }
+
+    const isAuthenticated = hasCnSession || hasIntlSession;
+
+    if (isProtectedRoute && !isAuthenticated) {
+      const loginUrl = new URL("/auth/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      const redirectResponse = NextResponse.redirect(loginUrl);
+      redirectResponse.headers.set(
+        "Cache-Control",
+        "private, no-cache, no-store, must-revalidate"
+      );
+      redirectResponse.headers.set("Pragma", "no-cache");
+      redirectResponse.headers.set("Expires", "0");
+      return redirectResponse;
+    }
+
+    if (isAuthRoute && isAuthenticated) {
+      const redirectResponse = NextResponse.redirect(
+        new URL("/dashboard", request.url)
+      );
+      redirectResponse.headers.set(
+        "Cache-Control",
+        "private, no-cache, no-store, must-revalidate"
+      );
+      redirectResponse.headers.set("Pragma", "no-cache");
+      redirectResponse.headers.set("Expires", "0");
+      return redirectResponse;
     }
   }
 
