@@ -47,11 +47,11 @@ function generateConfig(region: DeploymentRegion): DeploymentConfig {
  * 当前部署区域
  *
  * 环境变量 NEXT_PUBLIC_DEPLOYMENT_REGION：
- * - "CN"：中国版
- * - 其他值或未设置：国际版 (INTL)
+ * - "INTL"：国际版
+ * - 其他值或未设置：中国版 (CN，默认)
  */
 const DEPLOYMENT_REGION: DeploymentRegion =
-  process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === "CN" ? "CN" : "INTL";
+  process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === "INTL" ? "INTL" : "CN";
 
 /**
  * 导出当前配置
@@ -66,9 +66,31 @@ export const currentRegion: DeploymentRegion = DEPLOYMENT_REGION;
 
 /**
  * 判断是否为中国区域
+ *
+ * 优先使用构建时环境变量，如果未设置则检查运行时标识：
+ * - localStorage 中是否有 cn_user 数据
+ * - cookie 中是否有 cn_session
+ * 这样即使构建时环境变量配置错误，也能在运行时正确识别 CN 环境
  */
 export function isChinaDeployment(): boolean {
-  return deploymentConfig.region === "CN";
+  // 优先使用构建时配置
+  if (deploymentConfig.region === "CN") {
+    return true;
+  }
+
+  // 运行时检测：如果有 CN 认证数据，说明是 CN 环境
+  if (typeof window !== 'undefined') {
+    const hasCnUser = localStorage.getItem('cn_user');
+    const hasCnSession = document.cookie
+      .split(';')
+      .some(c => c.trim().startsWith('cn_session=') || c.trim().startsWith('cn_session_cross='));
+
+    if (hasCnUser || hasCnSession) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
