@@ -90,7 +90,9 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
 
   if (isProtectedRoute || isAuthRoute) {
-    const cnSession = request.cookies.get("cn_session")?.value;
+    const cnSession =
+      request.cookies.get("cn_session")?.value ||
+      request.cookies.get("cn_session_cross")?.value;
     const hasCnSession = !!cnSession;
 
     let hasIntlSession = false;

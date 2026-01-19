@@ -139,15 +139,28 @@ export async function POST(request: NextRequest) {
     const isSecureRequest = forwardedProto
       ? forwardedProto.split(',')[0].trim() === 'https'
       : request.url.startsWith('https://');
+    const host = request.headers.get('host') || '';
+    const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    const isSecureCookie = isSecureRequest || !isLocalhost;
     response.cookies.set('cn_session', userId, {
       httpOnly: false,
-      secure: isSecureRequest,
+      secure: isSecureCookie,
       sameSite: 'lax',
       path: '/',
       maxAge: 7 * 24 * 60 * 60, // 7 天
     });
 
-    console.log(`[CN Register] Cookie set for user: ${userId}, secure: ${isSecureRequest}`);
+    if (!isLocalhost) {
+      response.cookies.set('cn_session_cross', userId, {
+        httpOnly: false,
+        secure: true,
+        sameSite: 'none',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60,
+      });
+    }
+
+    console.log(`[CN Register] Cookie set for user: ${userId}, secure: ${isSecureCookie}`);
 
     return response;
   } catch (error: any) {

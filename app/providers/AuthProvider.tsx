@@ -48,7 +48,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // 检查 localStorage 中是否有 CN 用户数据（无论环境如何）
         const cnUserData = localStorage.getItem('cn_user');
-        const cnSessionCookie = document.cookie.split(';').find(c => c.trim().startsWith('cn_session='));
+        const cnSessionCookie = document.cookie
+          .split(';')
+          .find((c) => c.trim().startsWith('cn_session=') || c.trim().startsWith('cn_session_cross='));
         console.log(`🔍 AuthProvider: localStorage cn_user=${cnUserData ? 'exists' : 'null'}, cn_session cookie=${cnSessionCookie ? 'exists' : 'null'}`);
         
         // CN 环境：从 localStorage 恢复用户状态
@@ -76,6 +78,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const secureFlag = isSecure ? '; Secure' : '';
                 // 不设置 Domain 属性，让浏览器自动使用当前域名（更可靠，避免无痕模式问题）
                 document.cookie = `cn_session=${cnUser.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
+                if (isSecure) {
+                  document.cookie = `cn_session_cross=${cnUser.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=None; Secure`;
+                }
                 console.log('✅ CN session cookie restored from localStorage');
               }
               
@@ -251,6 +256,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const secureFlag = isSecure ? '; Secure' : '';
           // 不设置 Domain 属性，让浏览器使用当前域名（更可靠）
           document.cookie = `cn_session=${result.user.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
+          if (isSecure) {
+            document.cookie = `cn_session_cross=${result.user.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=None; Secure`;
+          }
           console.log('✅ CN session cookie set on client side');
         }
 
@@ -382,6 +390,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // 同时也在客户端清除（作为备份）
         // 不设置 Domain 属性，确保与设置时一致
         document.cookie = 'cn_session=; path=/; max-age=0; SameSite=Lax';
+        document.cookie = 'cn_session_cross=; path=/; max-age=0; SameSite=None; Secure';
         localStorage.removeItem('cn_user');
       }
 

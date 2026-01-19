@@ -118,17 +118,30 @@ export async function POST(request: NextRequest) {
     const isSecureRequest = forwardedProto
       ? forwardedProto.split(',')[0].trim() === 'https'
       : request.url.startsWith('https://');
+    const host = request.headers.get('host') || '';
+    const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    const isSecureCookie = isSecureRequest || !isLocalhost;
     
     // 设置 cookie，确保在无痕模式下也能正常工作
     response.cookies.set('cn_session', userId, {
       httpOnly: false, // 允许客户端读取（用于状态检查）
-      secure: isSecureRequest, // 根据请求协议决定
+      secure: isSecureCookie, // 根据请求协议与环境兜底决定
       sameSite: 'lax',
       path: '/',
       maxAge: 7 * 24 * 60 * 60, // 7 天
     });
 
-    console.log(`[CN Login] Cookie set via response header for user: ${userId}, secure: ${isSecureRequest}`);
+    if (!isLocalhost) {
+      response.cookies.set('cn_session_cross', userId, {
+        httpOnly: false,
+        secure: true,
+        sameSite: 'none',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60,
+      });
+    }
+
+    console.log(`[CN Login] Cookie set via response header for user: ${userId}, secure: ${isSecureCookie}`);
 
     return response;
   } catch (error: any) {

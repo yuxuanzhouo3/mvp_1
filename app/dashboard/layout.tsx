@@ -96,7 +96,9 @@ export default function DashboardLayout({
   useEffect(() => {
     // 获取所有可能的认证数据
     const cnUserData = localStorage.getItem('cn_user');
-    const cnSessionCookie = document.cookie.split(';').find(c => c.trim().startsWith('cn_session='));
+    const cnSessionCookie = document.cookie
+      .split(';')
+      .find((c) => c.trim().startsWith('cn_session=') || c.trim().startsWith('cn_session_cross='));
     const isCN = isChinaDeployment();
     
     console.log(`🛡️ DashboardLayout auth check: loading=${loading}, user=${!!user}, isCN=${isCN}, cnUserData=${!!cnUserData}, cnSessionCookie=${!!cnSessionCookie}`);
@@ -134,6 +136,9 @@ export default function DashboardLayout({
             const isSecure = window.location.protocol === 'https:';
             const secureFlag = isSecure ? '; Secure' : '';
             document.cookie = `cn_session=${userData.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
+            if (isSecure) {
+              document.cookie = `cn_session_cross=${userData.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=None; Secure`;
+            }
           }
         } catch (e) {
           console.error('Failed to parse CN user data:', e);
@@ -217,7 +222,9 @@ export default function DashboardLayout({
   // 或者当有认证数据但 user 状态还未恢复时
   const cnUserData = typeof window !== 'undefined' ? localStorage.getItem('cn_user') : null;
   const cnSessionCookie = typeof window !== 'undefined' 
-    ? document.cookie.split(';').find(c => c.trim().startsWith('cn_session='))
+    ? document.cookie
+        .split(';')
+        .find((c) => c.trim().startsWith('cn_session=') || c.trim().startsWith('cn_session_cross='))
     : null;
   const hasAuthData = !!(cnUserData || cnSessionCookie);
   

@@ -4,11 +4,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { isChinaDeployment } from '@/lib/config/deployment.config';
 
 export async function POST(request: NextRequest) {
   // 仅 CN 环境可用
-  if (!isChinaDeployment()) {
+  const deploymentRegion =
+    process.env.DEPLOYMENT_REGION || process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
+  const isCN = deploymentRegion === 'CN';
+
+  if (!isCN) {
     return NextResponse.json(
       { error: 'This endpoint is only available in CN environment' },
       { status: 403 }
@@ -26,16 +29,31 @@ export async function POST(request: NextRequest) {
 
     // 通过设置 maxAge 为 0 来删除 cookie
     // 根据请求协议决定是否设置 secure 属性
-    const requestUrl = request.url;
-    const isSecureRequest = requestUrl.startsWith('https://');
+    const forwardedProto = request.headers.get('x-forwarded-proto');
+    const isSecureRequest = forwardedProto
+      ? forwardedProto.split(',')[0].trim() === 'https'
+      : request.url.startsWith('https://');
+    const host = request.headers.get('host') || '';
+    const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    const isSecureCookie = isSecureRequest || !isLocalhost;
     
     response.cookies.set('cn_session', '', {
       httpOnly: false,
-      secure: isSecureRequest,
+      secure: isSecureCookie,
       sameSite: 'lax',
       path: '/',
       maxAge: 0, // 立即过期，删除 cookie
     });
+
+    if (!isLocalhost) {
+      response.cookies.set('cn_session_cross', '', {
+        httpOnly: false,
+        secure: true,
+        sameSite: 'none',
+        path: '/',
+        maxAge: 0,
+      });
+    }
 
     console.log('[CN Logout] Cookie cleared via response header');
 

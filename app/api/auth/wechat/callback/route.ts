@@ -147,14 +147,27 @@ export async function GET(request: NextRequest) {
     const isSecureRequest = forwardedProto
       ? forwardedProto.split(',')[0].trim() === 'https'
       : request.url.startsWith('https://');
+    const host = request.headers.get('host') || '';
+    const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    const isSecureCookie = isSecureRequest || !isLocalhost;
 
     response.cookies.set('cn_session', user.id, {
       httpOnly: false,
-      secure: isSecureRequest,
+      secure: isSecureCookie,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60, // 7天
       path: '/',
     });
+
+    if (!isLocalhost) {
+      response.cookies.set('cn_session_cross', user.id, {
+        httpOnly: false,
+        secure: true,
+        sameSite: 'none',
+        maxAge: 7 * 24 * 60 * 60,
+        path: '/',
+      });
+    }
 
     return response;
   } catch (error: any) {

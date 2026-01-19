@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
-  const cnSession = request.cookies.get("cn_session")?.value;
+  const cnSession =
+    request.cookies.get("cn_session")?.value ||
+    request.cookies.get("cn_session_cross")?.value;
   if (!cnSession) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -87,4 +89,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
