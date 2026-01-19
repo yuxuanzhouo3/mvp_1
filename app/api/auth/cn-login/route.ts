@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     const userId = user.id || user._id;
     console.log('[CN Login] User logged in:', { userId, email: user.email });
 
-    // 创建响应对象
+    // 创建响应对象，添加防缓存头
     const response = NextResponse.json({
       success: true,
       user: {
@@ -111,6 +111,12 @@ export async function POST(request: NextRequest) {
         provider: user.provider || 'email',
       },
     });
+    
+    // 🔒 重要：设置防缓存头，防止 CDN 缓存认证响应
+    response.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate, max-age=0');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    response.headers.set('X-Accel-Expires', '0'); // Nginx 缓存控制
 
     // 重要：通过响应头设置 cn_session cookie
     // 根据请求协议决定是否设置 secure 属性（而不是依赖 NODE_ENV）

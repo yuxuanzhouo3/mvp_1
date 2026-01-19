@@ -59,6 +59,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (cnUserData) {
             try {
               const cnUser = JSON.parse(cnUserData) as User;
+              
+              // 🔒 重要：验证 localStorage 数据与 cookie 数据的一致性
+              // 防止身份混淆问题
+              if (cnSessionCookie) {
+                const cookieValue = cnSessionCookie.split('=')[1]?.trim();
+                if (cookieValue && cookieValue !== cnUser.id) {
+                  console.error('⚠️ CN auth data mismatch! localStorage user:', cnUser.id, 'cookie user:', cookieValue);
+                  console.log('🧹 Clearing inconsistent auth data...');
+                  // 数据不一致，清除所有认证数据，强制重新登录
+                  localStorage.removeItem('cn_user');
+                  const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+                  document.cookie = 'cn_session=; path=/; max-age=0; SameSite=Lax';
+                  if (isSecure) {
+                    document.cookie = 'cn_session_cross=; path=/; max-age=0; SameSite=None; Secure';
+                  }
+                  setLoading(false);
+                  return;
+                }
+              }
+              
+              console.log('🔐 CN user restoring from localStorage, ID:', cnUser.id, 'Email:', cnUser.email);
+              
               setUser(cnUser);
               userRef.current = cnUser;
               // CN 环境：创建模拟 session，使用 cn_ 前缀的 token
@@ -218,6 +240,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     // CN 环境使用 Cloudbase Auth
     if (isChinaDeployment()) {
+      // 🔒 重要：登录前先清除旧的认证数据，防止身份混淆
+      // 这是修复用户 A 登录后读取用户 B 数据的关键
+      console.log('🧹 CN Login: Clearing old auth data before login...');
+      localStorage.removeItem('cn_user');
+      if (typeof window !== 'undefined') {
+        const isSecure = window.location.protocol === 'https:';
+        // 清除旧的 cookies
+        document.cookie = 'cn_session=; path=/; max-age=0; SameSite=Lax';
+        if (isSecure) {
+          document.cookie = 'cn_session_cross=; path=/; max-age=0; SameSite=None; Secure';
+        }
+      }
+      // 清除内存中的旧状态
+      setUser(null);
+      userRef.current = null;
+      setSession(null);
+
       const authService = await getAuthServiceAsync();
       const result = await authService.signInWithEmail(email, password);
       if (!result.success) {
@@ -234,6 +273,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             avatar_url: result.user.avatarUrl,
           },
         } as any;
+        
+        console.log('🔐 CN Login: Setting new user data for:', result.user.email, 'ID:', result.user.id);
+        
         setUser(cnUser);
         userRef.current = cnUser;
         // CN 环境：创建模拟 session
@@ -259,7 +301,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (isSecure) {
             document.cookie = `cn_session_cross=${result.user.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=None; Secure`;
           }
-          console.log('✅ CN session cookie set on client side');
+          console.log('✅ CN session cookie set on client side for user:', result.user.id);
         }
 
         console.log('✅ CN user state updated:', cnUser.email);

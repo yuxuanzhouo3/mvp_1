@@ -109,12 +109,30 @@ export class CnAuthService implements IAuthService {
 
   async signInWithEmail(email: string, password: string): Promise<AuthResult> {
     try {
+      // 🔒 重要：调用登出 API 清除服务端旧会话，防止身份混淆
+      // 这确保服务端不会返回旧用户的缓存数据
+      try {
+        await fetch('/api/auth/cn-logout', { 
+          method: 'POST', 
+          credentials: 'include',
+          cache: 'no-store'
+        });
+        console.log('[CN Auth] Old session cleared before login');
+      } catch (e) {
+        // 忽略登出失败，继续登录流程
+        console.log('[CN Auth] No previous session to clear');
+      }
+      
       // 调用服务端 API 进行登录（避免在客户端加载 Cloudbase SDK）
       const response = await fetch('/api/auth/cn-login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store'
+        },
         body: JSON.stringify({ email, password }),
         credentials: 'include', // 确保 cookie 能够被正确设置
+        cache: 'no-store', // 防止请求被缓存
       });
 
       const result = await response.json();
@@ -127,6 +145,8 @@ export class CnAuthService implements IAuthService {
         };
       }
 
+      console.log('[CN Auth] Login successful for:', result.user?.email);
+      
       return {
         success: true,
         user: result.user,

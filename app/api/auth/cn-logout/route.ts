@@ -26,6 +26,12 @@ export async function POST(request: NextRequest) {
       success: true,
       message: '登出成功',
     });
+    
+    // 🔒 添加防缓存头
+    response.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate, max-age=0');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    response.headers.set('X-Accel-Expires', '0');
 
     // 通过设置 maxAge 为 0 来删除 cookie
     // 根据请求协议决定是否设置 secure 属性

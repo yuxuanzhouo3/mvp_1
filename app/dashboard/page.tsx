@@ -149,6 +149,36 @@ export default function DashboardPage() {
       const profileRes = await fetch('/api/user/profile', { headers, cache: 'no-store' });
       if (profileRes.ok) {
         const profileData = await profileRes.json();
+        
+        // 🔒 重要：验证返回的 profile 身份与当前登录用户一致
+        // 这是防止身份混淆问题的最后一道防线
+        if (profileData.profile && profileData.profile.id !== userId) {
+          console.error('⚠️ CRITICAL: Profile identity mismatch!', {
+            expectedUserId: userId,
+            receivedProfileId: profileData.profile.id,
+            receivedEmail: profileData.profile.email
+          });
+          
+          // 身份不匹配，清除所有认证数据并重定向到登录页
+          console.log('🧹 Clearing mismatched auth data and redirecting to login...');
+          localStorage.removeItem('cn_user');
+          document.cookie = 'cn_session=; path=/; max-age=0; SameSite=Lax';
+          document.cookie = 'cn_session_cross=; path=/; max-age=0; SameSite=None; Secure';
+          
+          toast({
+            title: '身份验证异常 / Authentication Error',
+            description: '检测到账户身份不一致，请重新登录 / Account identity mismatch. Please login again.',
+            variant: 'destructive',
+          });
+          
+          isRedirectingRef.current = true;
+          setLoading(false);
+          setTimeout(() => {
+            window.location.href = '/auth/login';
+          }, 1500);
+          return;
+        }
+        
         setProfile(profileData.profile);
       } else {
         console.error('Failed to load profile:', profileRes.status);

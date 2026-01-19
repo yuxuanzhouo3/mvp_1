@@ -207,7 +207,14 @@ export async function GET(request: NextRequest) {
       updated_at: profileData?.updated_at || userData?.updated_at || new Date().toISOString()
     };
 
-    return NextResponse.json({ profile });
+    // 🔒 重要：设置防缓存头，确保每次都返回最新的用户资料
+    const response = NextResponse.json({ profile });
+    response.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate, max-age=0');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    response.headers.set('X-Accel-Expires', '0');
+    
+    return response;
   } catch (error) {
     console.error('[User Profile GET] Error:', error);
     return NextResponse.json({ error: 'Internal server error', details: String(error) }, { status: 500 });

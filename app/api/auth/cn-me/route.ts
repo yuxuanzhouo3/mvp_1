@@ -64,23 +64,24 @@ export async function GET(request: NextRequest) {
 
     const userId = user.id || user._id;
 
-    return NextResponse.json(
-      {
-        success: true,
-        user: {
-          id: userId,
-          email: user.email,
-          displayName: user.display_name || user.email?.split("@")[0],
-          avatarUrl: user.avatar_url,
-          provider: user.provider || "email",
-        },
+    // 🔒 重要：添加严格的防缓存头，防止 CDN 缓存用户身份信息
+    const response = NextResponse.json({
+      success: true,
+      user: {
+        id: userId,
+        email: user.email,
+        displayName: user.display_name || user.email?.split("@")[0],
+        avatarUrl: user.avatar_url,
+        provider: user.provider || "email",
       },
-      {
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      }
-    );
+    });
+    
+    response.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate, max-age=0');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
+    response.headers.set('X-Accel-Expires', '0'); // Nginx 缓存控制
+    
+    return response;
   } catch (error: any) {
     console.error("[CN Me] Error:", error);
     return NextResponse.json(
