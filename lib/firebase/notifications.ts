@@ -21,7 +21,14 @@ export interface NotificationPayload {
  */
 export async function initializePushNotifications(userId: string): Promise<boolean> {
   try {
-    // 请求权限并获取 Token
+    // Check if permission is already granted
+    const permissionStatus = getNotificationPermissionStatus();
+    if (permissionStatus !== 'granted') {
+      console.log('Notification permission not granted, skipping FCM initialization');
+      return false;
+    }
+
+    // Get token without requesting permission (already granted)
     const token = await requestNotificationPermission();
     
     if (!token) {
