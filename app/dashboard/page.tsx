@@ -83,10 +83,6 @@ interface MembershipStatus {
   daysRemaining?: number;
 }
 
-// Force no-cache for this page to prevent stale auth state
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
 export default function DashboardPage() {
   const { user, signOut, loading: authLoading } = useAuth();
   const router = useRouter();
