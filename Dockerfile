@@ -1,5 +1,5 @@
 # ========== 腾讯云云托管优化版 Dockerfile ==========
-# 使用多阶段构建 + standalone 模式，大幅减小镜像体积
+# 使用多阶段构建 + standalone 模式,大幅减小镜像体积
 
 # ========== 阶段1: 依赖安装 ==========
 FROM node:20-alpine AS deps
@@ -15,17 +15,17 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 构建时环境变量（占位符，运行时通过腾讯云环境变量覆盖）
-ARG NEXT_PUBLIC_SUPABASE_URL=https://build-placeholder.supabase.co
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=build-placeholder-key
-ARG ADMIN_SESSION_SECRET=build-placeholder-admin-session-secret
-# CN 环境部署区域配置
+# 构建时环境变量
+# 注意: NEXT_PUBLIC_* 变量会被内联到客户端代码中
+# 如果使用占位符,需要确保运行时不依赖这些值的动态替换
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
 
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV ADMIN_SESSION_SECRET=$ADMIN_SESSION_SECRET
 ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
+
 # 构建应用（standalone 模式）
 RUN npm run build
 
@@ -33,28 +33,31 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV=development
-# CN 环境配置（必须在运行时也设置，供服务端代码使用）
+# 设置时区
+RUN apk add --no-cache tzdata && \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone && \
+    apk del tzdata
+
+# 生产环境配置
+ENV NODE_ENV=production
 ENV NEXT_PUBLIC_DEPLOYMENT_REGION=CN
 
 # 创建非 root 用户
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
-# 复制 standalone 输出（包含精简的 node_modules）
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# 复制 standalone 输出
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# 设置文件权限
-RUN chown -R nextjs:nodejs /app
 USER nextjs
 
-# 使用 3000 端口（非 root 用户无法监听 80 端口）
-# 腾讯云云托管会自动将外部流量映射到此端口
+# 端口配置
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 EXPOSE 3000
 
-# 启动应用（standalone 模式使用 server.js）
+# 启动应用
 CMD ["node", "server.js"]
