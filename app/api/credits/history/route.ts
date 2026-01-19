@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient } from '@/lib/db-client';
 import { getTransactionHistory } from '@/lib/credits/credits';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/credits/history
  * Get user's credits transaction history

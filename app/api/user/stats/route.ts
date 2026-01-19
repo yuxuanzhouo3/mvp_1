@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 // INTL 环境: 创建用于认证的 Supabase 客户端
 function createSupabaseAdmin() {
   return createClient(

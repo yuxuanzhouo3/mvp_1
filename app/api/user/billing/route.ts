@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { getUserPaymentHistory } from '@/lib/payment/payments';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const db = await getDbClient();

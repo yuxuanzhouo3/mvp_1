@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 // 统一认证函数
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
   const authHeader = request.headers.get('authorization');

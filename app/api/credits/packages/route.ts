@@ -10,6 +10,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 
+export const dynamic = 'force-dynamic';
+
 interface CreditPackage {
   id: string;
   name_en: string;

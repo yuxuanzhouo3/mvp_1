@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+
 // INTL 环境: 创建用于 token 验证的 anon 客户端
 function createAnonClientForAuth() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

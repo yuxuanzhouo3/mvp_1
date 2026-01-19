@@ -10,6 +10,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, getServiceDbClient } from '@/lib/db-client';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/transactions
  * Get user's transaction history with optional filters

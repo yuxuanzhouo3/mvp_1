@@ -14,6 +14,8 @@ import { createClient } from '@supabase/supabase-js';
 import type { AlgorithmType } from '@/lib/matching/types';
 import { ALGORITHM_NAMES } from '@/lib/matching/types';
 
+export const dynamic = 'force-dynamic';
+
 // 统一认证函数
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
   const authHeader = request.headers.get('authorization');

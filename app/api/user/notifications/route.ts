@@ -16,6 +16,8 @@ import {
   markAllAsRead,
 } from '@/lib/services/notifications';
 
+export const dynamic = 'force-dynamic';
+
 // INTL 环境: 创建用于认证的 Supabase 客户端
 function createSupabaseAdmin() {
   return createClient(
