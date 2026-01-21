@@ -43,25 +43,27 @@ export function AIChatSimulation({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [messageCount, setMessageCount] = useState(0);
-  const [remainingChats, setRemainingChats] = useState(10);
+  const [remainingChats, setRemainingChats] = useState<number | null>(10);
   const [totalLimit, setTotalLimit] = useState<number | null>(10);
   const [isVip, setIsVip] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const loadLimits = async () => {
+    try {
+      const limits = await getAIUsageLimits();
+      if (!limits) return;
+      const remaining = limits.total_chat_limit === null ? null : (limits.total_chat_limit - limits.total_chat_count);
+      setRemainingChats(remaining);
+      setTotalLimit(limits.total_chat_limit);
+      setIsVip(limits.is_vip);
+    } catch (err) {
+      console.error('Failed to load limits:', err);
+    }
+  };
+
   useEffect(() => {
-    const loadLimits = async () => {
-      try {
-        const limits = await getAIUsageLimits();
-        if (!limits) return;
-        const remaining = limits.total_chat_limit ? limits.total_chat_limit - limits.total_chat_count : null;
-        setRemainingChats(remaining ?? 999);
-        setTotalLimit(limits.total_chat_limit);
-        setIsVip(limits.is_vip);
-      } catch (err) {
-        console.error('Failed to load limits:', err);
-      }
-    };
     loadLimits();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const scrollToBottom = () => {
@@ -80,6 +82,7 @@ export function AIChatSimulation({
       const chatSession = await startChatSession(targetUserId);
       setSession(chatSession);
       setShowDisclaimer(false);
+      await loadLimits();
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to start session';
       if (errorMsg.includes('consent')) {
@@ -106,9 +109,6 @@ export function AIChatSimulation({
       const response = await sendChatMessage(session.session_id, userMessage);
       setMessages(prev => [...prev, { role: 'assistant', content: response.ai_reply }]);
       setMessageCount(response.message_count);
-      if (!isVip && remainingChats > 0) {
-        setRemainingChats(prev => prev - 1);
-      }
     } catch (err: any) {
       setError(err.message || (language === 'zh' ? '发送失败' : 'Failed to send message'));
     } finally {
@@ -249,10 +249,10 @@ export function AIChatSimulation({
         </div>
         {/* 剩余次数 */}
         <div className="text-xs text-gray-500 mt-2 text-center">
-          {isVip ? (
+          {isVip || totalLimit === null ? (
             <Badge variant="secondary">VIP {language === 'zh' ? '无限制' : 'Unlimited'}</Badge>
           ) : (
-            `${remainingChats}/${totalLimit} ${language === 'zh' ? '次对话剩余' : 'chats remaining'}`
+            `${Math.max(0, remainingChats ?? 0)}/${totalLimit} ${language === 'zh' ? '次对话剩余' : 'chats remaining'}`
           )}
         </div>
       </div>

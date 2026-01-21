@@ -115,16 +115,16 @@ export async function GET(request: NextRequest) {
     const totalMessages = messagesData?.length || 0;
 
     // Get active chats count
-    const { data: chatsData, error: chatError } = await db
-      .from('chat_rooms')
-      .select('id')
-      .eq('is_active', true);
-
-    // Filter chats where user is a participant (via matches)
+    const matchIds = (matchesData || []).map((m: any) => m.id).filter(Boolean);
     let activeChats = 0;
-    if (chatsData && chatsData.length > 0) {
-      // For simplicity, count all active chat rooms the user has access to
-      activeChats = chatsData.length;
+    if (matchIds.length > 0) {
+      const { data: chatsData } = await db
+        .from('chat_rooms')
+        .select('id')
+        .eq('is_active', true)
+        .in('match_id', matchIds);
+
+      activeChats = chatsData?.length || 0;
     }
 
     // Get user profile for completion calculation

@@ -437,7 +437,7 @@ export async function notifySomeoneLikedYou(
     type: 'match',
     title: content.title,
     message: content.message as string,
-    actionUrl: '/matching',
+    actionUrl: '/matching?likedYou=1',
     metadata: {
       type: 'someone_liked_you',
       action: isSuperLike ? 'super_like' : 'like',

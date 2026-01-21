@@ -80,26 +80,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'target_user_id required' }, { status: 400 });
     }
 
-    // 检查使用限额 (INTL 环境使用 RPC)
-    if (!isCN) {
-      try {
-        const { data: limitCheck } = await db.rpc('check_ai_usage_limit', {
-          p_user_id: authUser.userId,
-          p_limit_type: 'analysis',
-        });
-
-        if (limitCheck && !limitCheck.allowed) {
-          return NextResponse.json({
-            error: isCN ? '已达到每日分析限额' : 'Daily limit reached',
-            current: limitCheck.current,
-            limit: limitCheck.limit,
-          }, { status: 429 });
-        }
-      } catch (rpcError) {
-        console.log('RPC check_ai_usage_limit not available');
-      }
-    }
-
     // 检查缓存
     const { data: targetProfile } = await db
       .from('user_profiles')
@@ -117,6 +97,77 @@ export async function POST(request: NextRequest) {
         cached: true,
         region: isCN ? 'CN' : 'INTL',
       });
+    }
+
+    // 检查使用限额（仅对非缓存请求扣减）
+    if (isCN) {
+      const nowIso = new Date().toISOString();
+      const today = nowIso.slice(0, 10);
+
+      const { data: existingLimits } = await db
+        .from('ai_usage_limits')
+        .select('*')
+        .eq('user_id', authUser.userId)
+        .single();
+
+      if (!existingLimits) {
+        await db.from('ai_usage_limits').insert({
+          user_id: authUser.userId,
+          daily_analysis_count: 0,
+          daily_analysis_limit: 3,
+          total_chat_count: 0,
+          total_chat_limit: 10,
+          last_reset_at: nowIso,
+          updated_at: nowIso,
+        });
+      } else {
+        const lastResetDate = (existingLimits.last_reset_at || nowIso).slice(0, 10);
+        if (lastResetDate !== today) {
+          await db
+            .from('ai_usage_limits')
+            .update({
+              daily_analysis_count: 0,
+              last_reset_at: nowIso,
+              updated_at: nowIso,
+            })
+            .eq('user_id', authUser.userId);
+        }
+      }
+
+      const { data: refreshedLimits } = await db
+        .from('ai_usage_limits')
+        .select('daily_analysis_count, daily_analysis_limit')
+        .eq('user_id', authUser.userId)
+        .single();
+
+      if (refreshedLimits) {
+        const current = refreshedLimits.daily_analysis_count ?? 0;
+        const limit = refreshedLimits.daily_analysis_limit ?? 3;
+        if (current >= limit) {
+          return NextResponse.json(
+            { error: '已达到每日分析限额', current, limit },
+            { status: 429 }
+          );
+        }
+      }
+    } else {
+      try {
+        const { data: limitCheck } = await db.rpc('check_ai_usage_limit', {
+          p_user_id: authUser.userId,
+          p_limit_type: 'analysis',
+        });
+
+        if (limitCheck && !limitCheck.allowed) {
+          return NextResponse.json(
+            {
+              error: 'Daily limit reached',
+              current: limitCheck.current,
+              limit: limitCheck.limit,
+            },
+            { status: 429 }
+          );
+        }
+      } catch {}
     }
 
     // 获取目标用户完整资料
@@ -148,14 +199,44 @@ export async function POST(request: NextRequest) {
       })
       .eq('user_id', target_user_id);
 
-    // 记录使用量
-    await db
-      .from('ai_usage_logs')
-      .insert({
-        user_id: authUser.userId,
-        action_type: 'personality_analysis',
-        target_user_id: target_user_id,
-      });
+    try {
+      await db
+        .from('ai_usage_logs')
+        .insert({
+          user_id: authUser.userId,
+          action_type: 'personality_analysis',
+          target_user_id: target_user_id,
+        });
+    } catch {}
+
+    // 扣减使用次数（仅非缓存）
+    if (isCN) {
+      await db
+        .from('ai_usage_limits')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('user_id', authUser.userId);
+
+      const { data: currentLimits } = await db
+        .from('ai_usage_limits')
+        .select('daily_analysis_count')
+        .eq('user_id', authUser.userId)
+        .single();
+
+      await db
+        .from('ai_usage_limits')
+        .update({
+          daily_analysis_count: (currentLimits?.daily_analysis_count ?? 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', authUser.userId);
+    } else {
+      try {
+        await db.rpc('deduct_ai_usage', {
+          p_user_id: authUser.userId,
+          p_usage_type: 'analysis',
+        });
+      } catch {}
+    }
 
     return NextResponse.json({
       analysis,

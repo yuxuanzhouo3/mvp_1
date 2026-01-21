@@ -36,44 +36,54 @@ export interface ChatMessage {
   show_reminder: boolean;
 }
 
-// 获取AI使用限额
-export async function getAIUsageLimits(): Promise<AIUsageLimits | null> {
-  const isCN = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN';
+async function resolveAuthToken(): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession();
 
-  // CN 环境返回默认值
-  if (isCN) {
-    return {
-      daily_analysis_count: 0,
-      daily_analysis_limit: 3,
-      total_chat_count: 0,
-      total_chat_limit: null,
-      is_vip: false,
-    };
+  if (typeof window !== 'undefined') {
+    const cnUserData = localStorage.getItem('cn_user');
+    if (cnUserData) {
+      try {
+        const cnUser = JSON.parse(cnUserData);
+        if (cnUser?.id) {
+          return `cn_${cnUser.id}`;
+        }
+      } catch {}
+    }
   }
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  if (session?.access_token) {
+    return session.access_token;
+  }
 
-  const { data } = await supabase
-    .from('ai_usage_limits')
-    .select('*')
-    .eq('user_id', user.id)
-    .single();
+  throw new Error('Not authenticated');
+}
 
-  if (!data) return null;
+// 获取AI使用限额
+export async function getAIUsageLimits(): Promise<AIUsageLimits | null> {
+  let authToken = '';
+  try {
+    authToken = await resolveAuthToken();
+  } catch {
+    return null;
+  }
 
-  // 检查VIP状态
-  const { data: membership } = await supabase
-    .from('user_memberships')
-    .select('status, expires_at')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
-    .gt('expires_at', new Date().toISOString())
-    .single();
+  const response = await fetch('/api/ai/usage-limits', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${authToken}`,
+    },
+    cache: 'no-store',
+  });
+
+  if (!response.ok) return null;
+  const data = await response.json();
 
   return {
-    ...data,
-    is_vip: !!membership,
+    daily_analysis_count: data.daily_analysis_count ?? 0,
+    daily_analysis_limit: data.daily_analysis_limit ?? 3,
+    total_chat_count: data.total_chat_count ?? 0,
+    total_chat_limit: data.total_chat_limit === null ? null : (data.total_chat_limit ?? 10),
+    is_vip: !!data.is_vip,
   };
 }
 
@@ -83,37 +93,7 @@ export async function analyzePersonality(targetUserId: string): Promise<{
   cached: boolean;
   tokens_used?: number;
 }> {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  // CN 环境使用本地 token，INTL 环境使用 Supabase session
-  const isCN = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN';
-  let authToken = '';
-
-  if (isCN) {
-    // CN 环境：从 localStorage 获取用户数据
-    let cnUserId: string | null = null;
-    if (typeof window !== 'undefined') {
-      const cnUserData = localStorage.getItem('cn_user');
-      if (cnUserData) {
-        try {
-          const cnUser = JSON.parse(cnUserData);
-          cnUserId = cnUser.id;
-        } catch {
-          // ignore parse error
-        }
-      }
-    }
-    if (cnUserId) {
-      authToken = `cn_${cnUserId}`;
-    } else if (session?.access_token) {
-      authToken = session.access_token;
-    }
-  } else {
-    if (!session) throw new Error('Not authenticated');
-    authToken = session.access_token;
-  }
-
-  if (!authToken) throw new Error('Not authenticated');
+  const authToken = await resolveAuthToken();
 
   const response = await fetch('/api/ai/personality-analysis', {
     method: 'POST',
@@ -134,35 +114,7 @@ export async function analyzePersonality(targetUserId: string): Promise<{
 
 // 开始AI对话会话
 export async function startChatSession(targetUserId: string): Promise<ChatSession> {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  const isCN = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN';
-  let authToken = '';
-
-  if (isCN) {
-    let cnUserId: string | null = null;
-    if (typeof window !== 'undefined') {
-      const cnUserData = localStorage.getItem('cn_user');
-      if (cnUserData) {
-        try {
-          const cnUser = JSON.parse(cnUserData);
-          cnUserId = cnUser.id;
-        } catch {
-          // ignore parse error
-        }
-      }
-    }
-    if (cnUserId) {
-      authToken = `cn_${cnUserId}`;
-    } else if (session?.access_token) {
-      authToken = session.access_token;
-    }
-  } else {
-    if (!session) throw new Error('Not authenticated');
-    authToken = session.access_token;
-  }
-
-  if (!authToken) throw new Error('Not authenticated');
+  const authToken = await resolveAuthToken();
 
   const response = await fetch('/api/ai/chat/start', {
     method: 'POST',
@@ -183,35 +135,7 @@ export async function startChatSession(targetUserId: string): Promise<ChatSessio
 
 // 发送AI对话消息
 export async function sendChatMessage(sessionId: string, message: string): Promise<ChatMessage> {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  const isCN = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN';
-  let authToken = '';
-
-  if (isCN) {
-    let cnUserId: string | null = null;
-    if (typeof window !== 'undefined') {
-      const cnUserData = localStorage.getItem('cn_user');
-      if (cnUserData) {
-        try {
-          const cnUser = JSON.parse(cnUserData);
-          cnUserId = cnUser.id;
-        } catch {
-          // ignore parse error
-        }
-      }
-    }
-    if (cnUserId) {
-      authToken = `cn_${cnUserId}`;
-    } else if (session?.access_token) {
-      authToken = session.access_token;
-    }
-  } else {
-    if (!session) throw new Error('Not authenticated');
-    authToken = session.access_token;
-  }
-
-  if (!authToken) throw new Error('Not authenticated');
+  const authToken = await resolveAuthToken();
 
   const response = await fetch('/api/ai/chat/message', {
     method: 'POST',

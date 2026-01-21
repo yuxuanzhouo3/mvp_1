@@ -1,4 +1,7 @@
 export function getExternalRequestOrigin(request: Request): string {
+  const configuredOrigin = getConfiguredAppOrigin();
+  if (configuredOrigin) return configuredOrigin;
+
   const headers = request.headers;
   const forwardedProto =
     headers.get('x-forwarded-proto') ||
@@ -26,3 +29,15 @@ export function getExternalRequestOrigin(request: Request): string {
   }
 }
 
+function getConfiguredAppOrigin(): string | null {
+  const raw =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() || process.env.APP_URL?.trim() || '';
+  if (!raw) return null;
+
+  const normalized = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    return new URL(normalized).origin;
+  } catch {
+    return null;
+  }
+}

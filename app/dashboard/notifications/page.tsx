@@ -142,13 +142,16 @@ export default function NotificationsPage() {
       markAsRead(notification.id);
     }
 
-    // 根据通知类型跳转到对应页面
-    if (notification.type === 'payment') {
-      router.push('/dashboard/orders');
-    } else if (notification.type === 'match') {
-      router.push('/matching/history');
-    } else if (notification.action_url) {
-      router.push(notification.action_url);
+    const targetUrl =
+      notification.action_url ||
+      (notification.type === 'payment'
+        ? '/dashboard/orders'
+        : notification.type === 'match'
+          ? '/matching?likedYou=1'
+          : null);
+
+    if (targetUrl) {
+      router.push(targetUrl);
     }
   };
 

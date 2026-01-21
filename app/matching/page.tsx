@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -105,6 +105,7 @@ const algorithmOptions: AlgorithmOption[] = [
 export default function MatchingPage() {
   const { user, session, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslations(language);
@@ -119,6 +120,7 @@ export default function MatchingPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAIAnalysis, setShowAIAnalysis] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
+  const autoLoadedRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
@@ -216,6 +218,19 @@ export default function MatchingPage() {
 
     setLoading(false);
   }, [user, authLoading, router]);
+
+  useEffect(() => {
+    if (autoLoadedRef.current) return;
+    if (authLoading) return;
+    if (!user?.id) return;
+
+    const likedYou = searchParams?.get('likedYou');
+    if (likedYou !== '1' && likedYou !== 'true') return;
+
+    autoLoadedRef.current = true;
+    setSelectedAlgorithm('compatible');
+    fetchRecommendations('compatible');
+  }, [authLoading, user?.id, searchParams, fetchRecommendations]);
 
   const handleAlgorithmSelect = (algorithm: AlgorithmType) => {
     setSelectedAlgorithm(algorithm);

@@ -149,7 +149,7 @@ export default function Step5PersonalityInterests({ data, onUpdate, onValidChang
 
   // 获取翻译后的兴趣名称
   const getInterestName = (interest: string) => {
-    const translations = (t.profileSetup as any)?.interests as Record<string, string> | undefined;
+    const translations = (t.profileSetup as any)?.interestItems as Record<string, string> | undefined;
     return translations?.[interest] || interest;
   };
 

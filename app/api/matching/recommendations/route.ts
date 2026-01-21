@@ -22,6 +22,7 @@ import {
   MATCHING_CONFIG,
   ALGORITHM_NAMES
 } from '@/lib/matching/types';
+import { filterSensitiveFields, isProfileVisible } from '@/lib/api/privacyFilter';
 
 // 统一认证函数
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
@@ -177,7 +178,9 @@ export async function GET(request: NextRequest) {
     // 组装响应数据
     const enrichedRecommendations = recommendations.map((rec: any) => ({
       id: rec.id,
-      targetUser: userMap.get(rec.target_user_id) || null,
+      targetUser: userMap.get(rec.target_user_id)
+        ? filterSensitiveFields(userMap.get(rec.target_user_id) as any, authUser.userId)
+        : null,
       matchScore: rec.match_score,
       algorithmType: rec.algorithm_type,
       scoreDetails: rec.score_details,
@@ -325,6 +328,7 @@ export async function POST(request: NextRequest) {
     // 过滤并转换候选人
     const candidates = (candidatesData || [])
       .filter((c: any) => !excludeUserIds.has(c.id))
+      .filter((c: any) => isProfileVisible(c.privacy_settings, false))
       .map((c: any) => transformDbUserToMatchProfile(c))
       .filter((c: any): c is NonNullable<typeof c> => c !== null);
 
@@ -404,7 +408,9 @@ export async function POST(request: NextRequest) {
     // 组装响应数据（包含 recommendation id）
     let enrichedRecommendations = batchResult.matches.map((match: any) => ({
       id: recIdMap.get(match.targetUserId) || null,
-      targetUser: userMap.get(match.targetUserId) || null,
+      targetUser: userMap.get(match.targetUserId)
+        ? filterSensitiveFields(userMap.get(match.targetUserId) as any, authUser.userId)
+        : null,
       matchScore: match.matchScore,
       algorithmType: match.algorithmType,
       scoreDetails: match.scoreDetails,

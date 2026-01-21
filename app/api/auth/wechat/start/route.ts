@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   const nonce = crypto.randomUUID();
   const state = encodeState({ n: nonce, r: redirectPath, t: 'open' });
 
-  const origin = getExternalRequestOrigin(request);
+  const origin = getExternalRequestOrigin(request) || new URL(request.url).origin;
   const redirectUri = `${origin}/api/auth/wechat/callback`;
 
   const params = new URLSearchParams({
@@ -75,4 +75,3 @@ export async function GET(request: NextRequest) {
 
   return response;
 }
-

@@ -43,8 +43,8 @@ const STORAGE_REGION_KEY = "deployment-region-version";
  *    - 国际区域 (INTL)：默认英文
  */
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  // 默认使用英文（国际版默认）
-  const [language, setLanguageState] = useState<Language>("en");
+  const initialLanguage: Language = isChinaDeployment() ? "zh" : "en";
+  const [language, setLanguageState] = useState<Language>(initialLanguage);
   const [mounted, setMounted] = useState(false);
 
   // 初始化语言
@@ -100,7 +100,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     return (
       <LanguageContext.Provider
         value={{
-          language: "en",
+          language: initialLanguage,
           setLanguage: () => {},
           toggleLanguage: () => {},
         }}

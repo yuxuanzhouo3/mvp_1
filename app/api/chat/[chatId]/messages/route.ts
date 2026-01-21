@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 import { checkAndConsumeCredits, CREDIT_COSTS } from '@/lib/credits/credits';
+import { canSendMessage } from '@/lib/api/privacyFilter';
 
 // 统一认证函数
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
@@ -156,6 +157,45 @@ export async function POST(
 
     const db = await getDbClient();
     const { content, messageType = 'text' } = await request.json();
+
+    const { data: chatRoom } = await db
+      .from('chat_rooms')
+      .select('id, match_id')
+      .eq('id', params.chatId)
+      .single();
+
+    if (!chatRoom?.match_id) {
+      return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+    }
+
+    const { data: match } = await db
+      .from('matches')
+      .select('user_1, user_2')
+      .eq('id', chatRoom.match_id)
+      .single();
+
+    if (!match?.user_1 || !match?.user_2) {
+      return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+    }
+
+    const isParticipant = match.user_1 === authUser.userId || match.user_2 === authUser.userId;
+    if (!isParticipant) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const otherUserId = match.user_1 === authUser.userId ? match.user_2 : match.user_1;
+    const { data: otherProfile } = await db
+      .from('user_profiles')
+      .select('privacy_settings')
+      .eq('user_id', otherUserId)
+      .single();
+
+    if (!canSendMessage(otherProfile?.privacy_settings, true)) {
+      return NextResponse.json(
+        { error: isChinaDeployment() ? '对方已关闭接收消息' : 'Messaging is disabled by the recipient' },
+        { status: 403 }
+      );
+    }
 
     // Check and consume credits for sending a message
     const creditsResult = await checkAndConsumeCredits(authUser.userId, 'message');

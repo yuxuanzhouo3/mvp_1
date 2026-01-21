@@ -31,20 +31,22 @@ export function AIPersonalityAnalysis({
   const [dailyLimit, setDailyLimit] = useState(3);
   const [isVip, setIsVip] = useState(false);
 
+  const loadLimits = async () => {
+    try {
+      const limits = await getAIUsageLimits();
+      if (!limits) return;
+      setRemainingCount(limits.daily_analysis_limit - limits.daily_analysis_count);
+      setDailyLimit(limits.daily_analysis_limit);
+      setIsVip(limits.is_vip);
+    } catch (err) {
+      console.error('Failed to load limits:', err);
+    }
+  };
+
   useEffect(() => {
-    const loadLimits = async () => {
-      try {
-        const limits = await getAIUsageLimits();
-        if (!limits) return;
-        setRemainingCount(limits.daily_analysis_limit - limits.daily_analysis_count);
-        setDailyLimit(limits.daily_analysis_limit);
-        setIsVip(limits.is_vip);
-      } catch (err) {
-        console.error('Failed to load limits:', err);
-      }
-    };
     loadLimits();
   }, []);
+
 
   const handleAnalyze = async () => {
     if (remainingCount <= 0 && !isVip) {
@@ -58,9 +60,7 @@ export function AIPersonalityAnalysis({
     try {
       const result = await analyzePersonality(targetUserId);
       setAnalysis(result.analysis);
-      if (!result.cached) {
-        setRemainingCount(prev => Math.max(0, prev - 1));
-      }
+      if (!result.cached) await loadLimits();
     } catch (err: any) {
       setError(err.message || (language === 'zh' ? '分析失败' : 'Analysis failed'));
     } finally {

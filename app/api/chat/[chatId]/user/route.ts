@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
+import { defaultPrivacySettings } from '@/lib/validations/settings';
 
 // 统一认证函数
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
@@ -98,20 +99,26 @@ export async function GET(
     // Get chat information to find the other user
     let otherUserId: string | null = null;
 
-    const { data: chatRoom, error: chatRoomError } = await db
+    const { data: chatRoom } = await db
       .from('chat_rooms')
-      .select(`
-        id,
-        match_id,
-        matches!inner(user_1, user_2)
-      `)
+      .select('id, match_id')
       .eq('id', params.chatId)
       .single();
 
-    if (chatRoom && !chatRoomError) {
-      // Determine which user is the other participant
-      const matches = chatRoom.matches as unknown as { user_1: string; user_2: string };
-      otherUserId = matches.user_1 === authUser.userId ? matches.user_2 : matches.user_1;
+    if (chatRoom?.match_id) {
+      const { data: match } = await db
+        .from('matches')
+        .select('user_1, user_2')
+        .eq('id', chatRoom.match_id)
+        .single();
+
+      if (match?.user_1 && match?.user_2) {
+        const isParticipant = match.user_1 === authUser.userId || match.user_2 === authUser.userId;
+        if (!isParticipant) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+        otherUserId = match.user_1 === authUser.userId ? match.user_2 : match.user_1;
+      }
     }
 
     if (!otherUserId) {
@@ -135,17 +142,30 @@ export async function GET(
       );
     }
 
+    const { data: otherProfile } = await db
+      .from('user_profiles')
+      .select('privacy_settings')
+      .eq('user_id', otherUserId)
+      .single();
+
+    const privacy = {
+      ...defaultPrivacySettings,
+      ...(otherProfile?.privacy_settings || {}),
+    };
+
     // Determine if user is online (simple check - if last_active_at is within 5 minutes)
     const lastActive = new Date(otherUser.last_active_at || 0);
     const now = new Date();
-    const isOnline = (now.getTime() - lastActive.getTime()) < 5 * 60 * 1000; // 5 minutes
+    const isOnline = privacy.show_online_status
+      ? (now.getTime() - lastActive.getTime()) < 5 * 60 * 1000
+      : false;
 
     const chatUser = {
       id: otherUser.id,
       full_name: otherUser.username || 'User',
       avatar_url: otherUser.avatar_url,
       is_online: isOnline,
-      last_seen: otherUser.last_active_at,
+      last_seen: privacy.show_last_active ? otherUser.last_active_at : null,
     };
 
     return NextResponse.json({

@@ -96,8 +96,36 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 检查使用限额 (INTL 环境使用 RPC)
-    if (!isCN) {
+    // 检查使用限额
+    if (isCN) {
+      const nowIso = new Date().toISOString();
+      const { data: existingLimits } = await db
+        .from('ai_usage_limits')
+        .select('*')
+        .eq('user_id', authUser.userId)
+        .single();
+
+      if (!existingLimits) {
+        await db.from('ai_usage_limits').insert({
+          user_id: authUser.userId,
+          daily_analysis_count: 0,
+          daily_analysis_limit: 3,
+          total_chat_count: 0,
+          total_chat_limit: 10,
+          last_reset_at: nowIso,
+          updated_at: nowIso,
+        });
+      } else {
+        const current = existingLimits.total_chat_count ?? 0;
+        const limit = existingLimits.total_chat_limit ?? 10;
+        if (existingLimits.total_chat_limit !== null && current >= limit) {
+          return NextResponse.json(
+            { error: '已达到聊天限额', current, limit },
+            { status: 429 }
+          );
+        }
+      }
+    } else {
       try {
         const { data: limitCheck } = await db.rpc('check_ai_usage_limit', {
           p_user_id: authUser.userId,
@@ -105,16 +133,17 @@ export async function POST(request: NextRequest) {
         });
 
         if (limitCheck && !limitCheck.allowed) {
-          return NextResponse.json({
-            error: isCN ? '已达到聊天限额' : 'Chat limit reached',
-            current: limitCheck.current,
-            limit: limitCheck.limit,
-            is_vip: limitCheck.is_vip,
-          }, { status: 429 });
+          return NextResponse.json(
+            {
+              error: 'Chat limit reached',
+              current: limitCheck.current,
+              limit: limitCheck.limit,
+              is_vip: limitCheck.is_vip,
+            },
+            { status: 429 }
+          );
         }
-      } catch (rpcError) {
-        console.log('RPC check_ai_usage_limit not available');
-      }
+      } catch {}
     }
 
     // 获取目标用户资料用于 AI 模拟
@@ -146,6 +175,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         error: isCN ? '创建会话失败' : 'Failed to create session',
       }, { status: 500 });
+    }
+
+    // 扣减使用次数（按会话次数）
+    if (isCN) {
+      const { data: currentLimits } = await db
+        .from('ai_usage_limits')
+        .select('total_chat_count')
+        .eq('user_id', authUser.userId)
+        .single();
+
+      await db
+        .from('ai_usage_limits')
+        .update({
+          total_chat_count: (currentLimits?.total_chat_count ?? 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', authUser.userId);
+    } else {
+      try {
+        await db.rpc('deduct_ai_usage', {
+          p_user_id: authUser.userId,
+          p_usage_type: 'chat',
+        });
+      } catch {}
     }
 
     // 生成初始 AI 消息

@@ -12,6 +12,7 @@ import {
   createUserSession,
 } from '@/lib/services/auth/wechat-db';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { getExternalRequestOrigin } from '@/lib/http/request-origin';
 
 // 微信 Access Token 接口
 const WECHAT_ACCESS_TOKEN_URL = 'https://api.weixin.qq.com/sns/oauth2/access_token';
@@ -140,7 +141,8 @@ export async function GET(request: NextRequest) {
     const redirectPath = normalizeRedirectPath(parsedState?.redirectPath || null);
 
     // 设置会话 cookie 并重定向
-    const successUrl = new URL(redirectPath, request.url);
+    const origin = getExternalRequestOrigin(request) || new URL(request.url).origin;
+    const successUrl = new URL(redirectPath, origin);
     const response = NextResponse.redirect(successUrl);
     
     // 设置认证 cookie
