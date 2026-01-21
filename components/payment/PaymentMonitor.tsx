@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Copy, RefreshCw, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { useLanguage } from '@/components/language-provider';
+import { useAuth } from '@/app/providers/AuthProvider';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 
 const TRANSLATIONS = {
   zh: {
@@ -136,6 +138,7 @@ export default function PaymentMonitor({
 }: PaymentMonitorProps) {
   const { toast } = useToast();
   const { language } = useLanguage();
+  const { user, session } = useAuth();
   const t = TRANSLATIONS[language] || TRANSLATIONS.zh;
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -147,6 +150,17 @@ export default function PaymentMonitor({
     qrCodeBase64 ||
     (qrCodeUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrCodeUrl)}` : undefined);
 
+  // 获取认证 token
+  const getAuthToken = (): string | null => {
+    if (session?.access_token) {
+      return session.access_token;
+    }
+    if (isChinaDeployment() && user?.id) {
+      return `cn_${user.id}`;
+    }
+    return null;
+  };
+
   useEffect(() => {
     checkPaymentStatus();
     // Poll for payment status every 30 seconds
@@ -157,7 +171,17 @@ export default function PaymentMonitor({
 
   const checkPaymentStatus = async () => {
     try {
-      const response = await fetch(`/api/payments/status/${paymentId}`, { cache: 'no-store' });
+      setIsLoading(true);
+      const token = getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`/api/payments/status/${paymentId}`, {
+        cache: 'no-store',
+        headers,
+      });
       if (response.ok) {
         const data = await response.json();
         setPaymentData(data);
@@ -168,6 +192,8 @@ export default function PaymentMonitor({
       }
     } catch (error) {
       console.error('Failed to check payment status:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -188,7 +214,8 @@ export default function PaymentMonitor({
   };
 
   const handleManualVerification = async () => {
-    if (!transactionHash && !transactionId) {
+    // 微信支付不需要用户输入交易 ID，直接调用验证 API 查询订单状态
+    if (paymentMethod !== 'wechat' && !transactionHash && !transactionId) {
       toast({
         title: t.verifyFailed,
         description: t.enterHashOrId,
@@ -199,9 +226,15 @@ export default function PaymentMonitor({
 
     setIsVerifying(true);
     try {
+      const token = getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch('/api/payments/verify-manual', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           paymentId,
           paymentMethod,
@@ -464,16 +497,24 @@ export default function PaymentMonitor({
             </>
           )}
 
-          {(paymentMethod === 'alipay' || paymentMethod === 'wechat') && (
+          {paymentMethod === 'alipay' && (
             <div>
               <Label htmlFor="transactionId">{t.transactionId}</Label>
               <Input
                 id="transactionId"
                 value={transactionId}
                 onChange={(e) => setTransactionId(e.target.value)}
-                placeholder={paymentMethod === 'wechat' ? (language === 'zh' ? '输入微信支付交易ID' : 'Enter WeChat Pay transaction ID') : t.enterAlipayId}
+                placeholder={t.enterAlipayId}
                 className="mt-1"
               />
+            </div>
+          )}
+
+          {paymentMethod === 'wechat' && (
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              {language === 'zh' 
+                ? '点击下方按钮将自动查询微信支付订单状态，如果您已完成支付，积分将自动到账。' 
+                : 'Click the button below to automatically query WeChat Pay order status. If you have completed payment, credits will be added automatically.'}
             </div>
           )}
 
