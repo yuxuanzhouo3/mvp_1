@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -102,7 +102,7 @@ const algorithmOptions: AlgorithmOption[] = [
   },
 ];
 
-export default function MatchingPage() {
+function MatchingPageContent() {
   const { user, session, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -758,5 +758,19 @@ export default function MatchingPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MatchingPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        </div>
+      </div>
+    }>
+      <MatchingPageContent />
+    </Suspense>
   );
 }
