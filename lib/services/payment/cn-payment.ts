@@ -914,11 +914,65 @@ export class CnPaymentService implements IPaymentService {
       }
     }
 
-    // 检测支付环境
-    const isWeChatBrowser = typeof window !== 'undefined' && 
-      /micromessenger/i.test(window.navigator.userAgent);
-    const isMobile = typeof window !== 'undefined' && 
-      /mobile|android|iphone|ipad/i.test(window.navigator.userAgent);
+    // 服务器端：返回所有已配置的支付方式（客户端会根据环境选择）
+    // 客户端：根据用户环境过滤支付方式
+    if (runningOnServer) {
+      // 服务器端：返回所有已配置的支付方式
+      if (hasWeChatConfig) {
+        methods.push({
+          id: 'wechat',
+          name: '微信支付',
+          description: '使用微信扫码支付',
+          icon: 'wechat',
+          processingTime: '即时到账',
+          available: true,
+          currencies: ['CNY'],
+        });
+        methods.push({
+          id: 'wechat_h5',
+          name: '微信支付',
+          description: '跳转微信支付',
+          icon: 'wechat',
+          processingTime: '即时到账',
+          available: true,
+          currencies: ['CNY'],
+        });
+        methods.push({
+          id: 'wechat_jsapi',
+          name: '微信支付',
+          description: '微信内直接支付',
+          icon: 'wechat',
+          processingTime: '即时到账',
+          available: true,
+          currencies: ['CNY'],
+        });
+      }
+      if (hasAlipayConfig) {
+        methods.push({
+          id: 'alipay',
+          name: '支付宝',
+          description: '支付宝电脑网站支付',
+          icon: 'alipay',
+          processingTime: '即时到账',
+          available: true,
+          currencies: ['CNY'],
+        });
+        methods.push({
+          id: 'alipay_wap',
+          name: '支付宝',
+          description: '跳转支付宝支付',
+          icon: 'alipay',
+          processingTime: '即时到账',
+          available: true,
+          currencies: ['CNY'],
+        });
+      }
+      return methods;
+    }
+
+    // 客户端：根据环境检测返回适合的支付方式
+    const isWeChatBrowser = /micromessenger/i.test(window.navigator.userAgent);
+    const isMobile = /mobile|android|iphone|ipad/i.test(window.navigator.userAgent);
 
     // 微信支付 - 扫码支付（PC端）
     if (hasWeChatConfig && !isMobile) {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useLanguage } from '@/components/language-provider';
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -140,8 +141,18 @@ export default function OrdersPage() {
 
     try {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      
+      let token: string | null = null;
+      const isCN = isChinaDeployment();
+      
+      if (isCN) {
+        // CN 环境：使用 cn_ 前缀的 token
+        token = `cn_${user.id}`;
+      } else {
+        // INTL 环境：使用 Supabase session token
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token || null;
+      }
 
       if (!token) {
         console.error('No session token');
@@ -153,6 +164,7 @@ export default function OrdersPage() {
           'Authorization': `Bearer ${token}`,
         },
         cache: 'no-store',
+        credentials: 'include', // 确保发送 cookie
       });
 
       if (response.ok) {
@@ -181,12 +193,22 @@ export default function OrdersPage() {
   };
 
   const handleCancelConfirm = async () => {
-    if (!selectedPaymentId) return;
+    if (!selectedPaymentId || !user) return;
 
     try {
       setCancellingId(selectedPaymentId);
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      
+      let token: string | null = null;
+      const isCN = isChinaDeployment();
+      
+      if (isCN) {
+        // CN 环境：使用 cn_ 前缀的 token
+        token = `cn_${user.id}`;
+      } else {
+        // INTL 环境：使用 Supabase session token
+        const { data: { session } } = await supabase.auth.getSession();
+        token = session?.access_token || null;
+      }
 
       const response = await fetch('/api/payments/cancel', {
         method: 'POST',
@@ -196,6 +218,7 @@ export default function OrdersPage() {
         },
         body: JSON.stringify({ paymentId: selectedPaymentId }),
         cache: 'no-store',
+        credentials: 'include', // 确保发送 cookie
       });
 
       if (response.ok) {

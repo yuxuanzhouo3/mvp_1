@@ -28,7 +28,14 @@ function parseEasemobAppKey(appKey: string): { orgName: string; appName: string 
 function validateEasemobConfigConsistency(): void {
   const publicAppKey = process.env.NEXT_PUBLIC_EASEMOB_APP_KEY || '';
   const parsed = publicAppKey ? parseEasemobAppKey(publicAppKey) : null;
+  
+  // 如果客户端使用默认占位符值，跳过验证（构建时的默认值）
   if (!parsed) return;
+  if (parsed.orgName === 'your_org' && parsed.appName === 'your_app_name') {
+    console.log('[Easemob] Client using placeholder appKey, skipping consistency check');
+    return;
+  }
+  
   if (parsed.orgName !== EASEMOB_ORG_NAME || parsed.appName !== EASEMOB_APP_NAME) {
     throw new Error(
       `Easemob config mismatch: NEXT_PUBLIC_EASEMOB_APP_KEY expects ${parsed.orgName}/${parsed.appName}, but server is configured for ${EASEMOB_ORG_NAME}/${EASEMOB_APP_NAME}`
@@ -234,10 +241,14 @@ export async function POST(request: NextRequest) {
 
     console.log('[Easemob] Token generated for user:', userId);
 
+    // 返回 appKey 配置，让前端使用服务端的配置
+    const serverAppKey = `${EASEMOB_ORG_NAME}#${EASEMOB_APP_NAME}`;
+
     return NextResponse.json({
       accessToken,
       expiresIn,
       userId,
+      appKey: serverAppKey, // 返回服务端配置的 appKey
     });
   } catch (error: any) {
     console.error('[Easemob Token] Error:', error);

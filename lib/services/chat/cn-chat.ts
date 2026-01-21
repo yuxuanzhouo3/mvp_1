@@ -91,6 +91,8 @@ interface EasemobSDK {
 // 全局环信实例
 let easemobSDK: EasemobSDK | null = null;
 let easemobConnection: EasemobConnection | null = null;
+// 服务端返回的 appKey（优先使用）
+let serverAppKey: string | null = null;
 
 // 禁用环信 SDK 日志输出
 if (typeof window !== 'undefined') {
@@ -149,16 +151,26 @@ async function getEasemobSDK(): Promise<EasemobSDK> {
 
 /**
  * 获取环信连接实例
+ * @param appKeyFromServer 从服务端 API 返回的 appKey（优先使用）
  */
-async function getConnection(): Promise<EasemobConnection> {
+async function getConnection(appKeyFromServer?: string): Promise<EasemobConnection> {
+  // 如果提供了服务端 appKey，保存它
+  if (appKeyFromServer) {
+    serverAppKey = appKeyFromServer;
+  }
+
+  // 如果连接已存在，直接返回
   if (easemobConnection) {
     return easemobConnection;
   }
 
-  const appKey = process.env.NEXT_PUBLIC_EASEMOB_APP_KEY;
+  // 优先使用服务端返回的 appKey，其次使用环境变量
+  const appKey = serverAppKey || process.env.NEXT_PUBLIC_EASEMOB_APP_KEY;
 
-  if (!appKey) {
-    throw new Error('Easemob appKey is not configured. Please check NEXT_PUBLIC_EASEMOB_APP_KEY in .env.local');
+  // 检查 appKey 是否有效（排除构建时的占位符）
+  const isPlaceholder = !appKey || appKey === 'your_org#your_app_name';
+  if (isPlaceholder) {
+    throw new Error('Easemob appKey is not configured. Please check NEXT_PUBLIC_EASEMOB_APP_KEY or wait for server config.');
   }
 
   const sdk = await getEasemobSDK();
@@ -294,18 +306,8 @@ export class CnChatService implements IChatService {
   private async _initialize(userId: string): Promise<{ success: boolean; error?: string }> {
     try {
       this.currentUserId = userId;
-      const connection = await getConnection();
 
-      // 检查连接是否已经打开
-      if (connection.isOpened()) {
-        // 设置全局消息处理器
-        this.setupEventHandlers(connection);
-        // 标记为已初始化
-        this.isInitialized = true;
-        return { success: true };
-      }
-
-      // 获取环信 Token（需要从后端获取）
+      // 先获取环信 Token 和 appKey（需要从后端获取）
       const tokenResponse = await fetch('/api/chat/easemob-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -319,7 +321,19 @@ export class CnChatService implements IChatService {
         );
       }
 
-      const { accessToken } = await tokenResponse.json();
+      const { accessToken, appKey } = await tokenResponse.json();
+
+      // 使用服务端返回的 appKey 获取连接
+      const connection = await getConnection(appKey);
+
+      // 检查连接是否已经打开
+      if (connection.isOpened()) {
+        // 设置全局消息处理器
+        this.setupEventHandlers(connection);
+        // 标记为已初始化
+        this.isInitialized = true;
+        return { success: true };
+      }
 
       // 连接环信服务器
       await connection.open({
