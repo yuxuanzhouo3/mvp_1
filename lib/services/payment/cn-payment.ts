@@ -210,6 +210,7 @@ export class CnPaymentService implements IPaymentService {
   private wechatCertSerialNo: string;  // 证书序列号
   private wechatPrivateKey: string;    // 商户私钥
   private wechatNotifyUrl: string;     // 回调地址
+  private wechatPayAppId: string;      // 支付用 AppID（公众号/小程序，与商户号关联）
   // 支付宝配置
   private alipayAppId: string;
   private alipayPrivateKey: string;
@@ -225,6 +226,12 @@ export class CnPaymentService implements IPaymentService {
     // 处理私钥中的换行符：支持 \n 转义、\\n 字面量、以及实际换行
     this.wechatPrivateKey = normalizePrivateKey(process.env.WECHAT_PAY_PRIVATE_KEY || '');
     this.wechatNotifyUrl = process.env.WECHAT_PAY_NOTIFY_URL || '';
+    // 支付用 AppID - 优先使用专门的支付 AppID，否则回退到通用配置
+    // 注意：微信支付需要的是与商户号关联的公众号/小程序 AppID，不是开放平台的网站应用 AppID
+    this.wechatPayAppId = 
+      process.env.WECHAT_PAY_APP_ID ||      // 专门用于支付的 AppID（推荐）
+      process.env.WECHAT_APP_ID ||          // 通用微信 AppID
+      '';
     // 支付宝配置
     this.alipayAppId = process.env.ALIPAY_APP_ID || '';
     // 处理支付宝私钥中的换行符
@@ -284,10 +291,20 @@ export class CnPaymentService implements IPaymentService {
       const apiUrl = '/v3/pay/transactions/native';
       const fullUrl = `https://api.mch.weixin.qq.com${apiUrl}`;
       
+      // 检查支付 AppID 是否配置
+      if (!this.wechatPayAppId) {
+        console.error('[WeChat Pay V3] Missing WECHAT_PAY_APP_ID or WECHAT_APP_ID');
+        return {
+          success: false,
+          error: '微信支付 AppID 未配置，请设置 WECHAT_PAY_APP_ID 环境变量',
+          errorCode: 'MISSING_APP_ID',
+        };
+      }
+
       const requestBody = {
         mchid: this.wechatMchId,
         out_trade_no: paymentRecord.id,
-        appid: process.env.WECHAT_APP_ID || '', // 微信开放平台应用 AppID
+        appid: this.wechatPayAppId, // 与商户号关联的公众号/小程序 AppID
         description: `PersonaLink - ${request.credits}积分`,
         notify_url: this.wechatNotifyUrl || `${this.apiBaseUrl}/api/payments/wechat-callback`,
         amount: {
@@ -295,6 +312,8 @@ export class CnPaymentService implements IPaymentService {
           currency: 'CNY',
         },
       };
+      
+      console.log('[WeChat Pay V3] Creating payment with appid:', this.wechatPayAppId, 'mchid:', this.wechatMchId);
 
       const bodyStr = JSON.stringify(requestBody);
       
@@ -383,12 +402,19 @@ export class CnPaymentService implements IPaymentService {
       // 2. 构建 V3 API 请求
       const apiUrl = '/v3/pay/transactions/jsapi';
       const fullUrl = `https://api.mch.weixin.qq.com${apiUrl}`;
-      const appId = process.env.WECHAT_APP_ID || '';
+      
+      if (!this.wechatPayAppId) {
+        return {
+          success: false,
+          error: '微信支付 AppID 未配置',
+          errorCode: 'MISSING_APP_ID',
+        };
+      }
       
       const requestBody = {
         mchid: this.wechatMchId,
         out_trade_no: paymentRecord.id,
-        appid: appId,
+        appid: this.wechatPayAppId,
         description: `PersonaLink - ${request.credits}积分`,
         notify_url: this.wechatNotifyUrl || `${this.apiBaseUrl}/api/payments/wechat-callback`,
         amount: {
@@ -442,11 +468,11 @@ export class CnPaymentService implements IPaymentService {
       const jsTimestamp = Math.floor(Date.now() / 1000).toString();
       const jsNonceStr = generateNonceStr();
       const packageStr = `prepay_id=${result.prepay_id}`;
-      const jsSignMessage = `${appId}\n${jsTimestamp}\n${jsNonceStr}\n${packageStr}\n`;
+      const jsSignMessage = `${this.wechatPayAppId}\n${jsTimestamp}\n${jsNonceStr}\n${packageStr}\n`;
       const jsSignature = await generateWeChatV3Signature(jsSignMessage, this.wechatPrivateKey);
 
       const jsapiParams = {
-        appId: appId,
+        appId: this.wechatPayAppId,
         timeStamp: jsTimestamp,
         nonceStr: jsNonceStr,
         package: packageStr,
@@ -493,10 +519,18 @@ export class CnPaymentService implements IPaymentService {
       const apiUrl = '/v3/pay/transactions/h5';
       const fullUrl = `https://api.mch.weixin.qq.com${apiUrl}`;
       
+      if (!this.wechatPayAppId) {
+        return {
+          success: false,
+          error: '微信支付 AppID 未配置',
+          errorCode: 'MISSING_APP_ID',
+        };
+      }
+      
       const requestBody = {
         mchid: this.wechatMchId,
         out_trade_no: paymentRecord.id,
-        appid: process.env.WECHAT_APP_ID || '',
+        appid: this.wechatPayAppId,
         description: `PersonaLink - ${request.credits}积分`,
         notify_url: this.wechatNotifyUrl || `${this.apiBaseUrl}/api/payments/wechat-callback`,
         amount: {

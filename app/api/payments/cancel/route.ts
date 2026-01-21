@@ -28,41 +28,59 @@ function createAnonClient() {
   });
 }
 
+// 从 Cookie 获取 CN 用户 ID
+function getCnUserIdFromCookie(request: NextRequest): string | null {
+  const cnSession =
+    request.cookies.get('cn_session')?.value || request.cookies.get('cn_session_cross')?.value;
+  return cnSession || null;
+}
+
 // 验证用户身份
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
   const authHeader = request.headers.get('authorization');
-  
-  if (!authHeader) {
-    return null;
-  }
-
-  const token = authHeader.replace('Bearer ', '');
 
   if (isChinaDeployment()) {
-    // CN 环境
-    try {
-      const db = await getServiceDbClient();
-      const { data, error } = await db.auth.getUser();
-      if (error || !data?.user) {
-        try {
-          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+    // CN 环境：支持多种认证方式
+    
+    // 1. 检查 cn_ 前缀的 token
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      if (token.startsWith('cn_')) {
+        const userId = token.substring(3);
+        if (userId) {
+          return { userId };
+        }
+      }
+      
+      // 2. 尝试解析 JWT token
+      try {
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        if (payload.sub || payload.uid) {
           return {
             userId: payload.sub || payload.uid,
             email: payload.email
           };
-        } catch {
-          return null;
         }
+      } catch {
+        // JWT 解析失败，继续尝试其他方式
       }
-      return {
-        userId: data.user.id,
-        email: data.user.email
-      };
-    } catch {
-      return null;
     }
+    
+    // 3. 从 Cookie 获取
+    const cookieUserId = getCnUserIdFromCookie(request);
+    if (cookieUserId) {
+      return { userId: cookieUserId };
+    }
+    
+    return null;
   } else {
     // INTL 环境
+    if (!authHeader) {
+      return null;
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    
     try {
       const anonClient = createAnonClient();
       const { data: { user }, error } = await anonClient.auth.getUser(token);
