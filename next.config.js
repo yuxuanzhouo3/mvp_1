@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  ...(process.platform === 'win32' && process.env.NEXT_STANDALONE !== '1'
+    ? {}
+    : { output: 'standalone' }),
   // Performance optimizations
   experimental: {
     serverComponentsExternalPackages: ['@upstash/redis'],
@@ -33,6 +35,10 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: '636c-cloud2-6gyd32hf02a19502-1389657646.tcb.qcloud.la',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.tcb.qcloud.la',
       },
     ],
     unoptimized: process.env.NODE_ENV === 'production',

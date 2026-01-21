@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { GlobalHeader } from './global-header';
 
 export function ConditionalHeader() {
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
   const isAuthPage = pathname.startsWith('/auth/');
   // 聊天室页面不显示全局 header（但 cn-chat 页面除外）
   const isChatRoomPage = pathname?.startsWith('/dashboard/messages/')

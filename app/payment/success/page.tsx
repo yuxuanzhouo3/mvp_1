@@ -25,10 +25,10 @@ function PaymentSuccessContent() {
   const [paymentData, setPaymentData] = useState<PaymentSuccessData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const sessionId = searchParams.get('session_id');
-  const provider = searchParams.get('provider');
-  const paymentId = searchParams.get('paymentId');
-  const token = searchParams.get('token'); // PayPal returns this as order ID
+  const sessionId = searchParams?.get('session_id');
+  const provider = searchParams?.get('provider');
+  const paymentId = searchParams?.get('paymentId');
+  const token = searchParams?.get('token'); // PayPal returns this as order ID
 
   useEffect(() => {
     if (provider === 'paypal' && (paymentId || token)) {

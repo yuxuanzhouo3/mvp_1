@@ -34,13 +34,19 @@ function createAnonClientForAuth() {
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
   const authHeader = request.headers.get('authorization');
 
-  if (!authHeader) {
-    return null;
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-
   if (isChinaDeployment()) {
+    if (!authHeader) {
+      const cnSession =
+        request.cookies.get('cn_session')?.value ||
+        request.cookies.get('cn_session_cross')?.value;
+      if (cnSession) {
+        return { userId: cnSession };
+      }
+      return null;
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+
     // CN 环境: 支持 cn_ 前缀的用户 ID token
     if (token.startsWith('cn_')) {
       const userId = token.substring(3);
@@ -60,6 +66,12 @@ async function authenticateUser(request: NextRequest): Promise<{ userId: string;
       return null;
     }
   } else {
+    if (!authHeader) {
+      return null;
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+
     // INTL 环境: 使用 Supabase 验证 token
     try {
       const anonClient = createAnonClientForAuth();

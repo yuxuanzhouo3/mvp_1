@@ -11,6 +11,7 @@
     "type-check": "tsc --noEmit",
     "postinstall": "patch-package",
     "test:db": "node scripts/test-database.js",
+    "test:payment-observability": "node scripts/verify-payment-observability.js",
     "db:init": "psql -d your_database -f database/init.sql",
     "db:reset": "psql -d your_database -f database/reset.sql",
     "db:migrate": "psql -d your_database -f database/migrate.sql",

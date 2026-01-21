@@ -8,22 +8,64 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { getPaymentService } from '@/lib/services/payment';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import type { PaymentMethod, Currency, CreatePaymentRequest } from '@/lib/services/payment/types';
+import { createClient as createSupabaseClient } from '@/lib/supabase/server';
+import { buildPaymentRequestContext, recordPaymentEvent } from '@/lib/observability/payment-events';
+import { getExternalRequestOrigin } from '@/lib/http/request-origin';
+
+function getCnUserId(request: NextRequest): string | null {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.substring('Bearer '.length);
+    if (token.startsWith('cn_')) {
+      const userId = token.substring(3);
+      return userId || null;
+    }
+  }
+
+  const cnSession =
+    request.cookies.get('cn_session')?.value || request.cookies.get('cn_session_cross')?.value;
+  return cnSession || null;
+}
 
 export async function POST(request: NextRequest) {
   try {
-    // 验证用户身份
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const ctx = buildPaymentRequestContext(request);
+    let user: { id: string; email?: string } | null = null;
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (isChinaDeployment()) {
+      const userId = getCnUserId(request);
+      if (!userId) {
+        await recordPaymentEvent(ctx, {
+          event: 'PAYMENT_CREATE_REJECTED',
+          level: 'warn',
+          paymentId: 'unknown',
+          provider: 'unknown',
+          errorCode: 'UNAUTHORIZED',
+        });
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      user = { id: userId };
+    } else {
+      const supabase = createSupabaseClient();
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError || !authData?.user) {
+        await recordPaymentEvent(ctx, {
+          event: 'PAYMENT_CREATE_REJECTED',
+          level: 'warn',
+          paymentId: 'unknown',
+          provider: 'unknown',
+          errorCode: 'UNAUTHORIZED',
+        });
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      user = { id: authData.user.id, email: authData.user.email || undefined };
+    }
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
@@ -49,15 +91,23 @@ export async function POST(request: NextRequest) {
     // 获取支付服务
     const paymentService = getPaymentService();
     const isCN = isChinaDeployment();
+    const userAgent = request.headers.get('user-agent') || '';
+    const isMobileUA = /mobile|android|iphone|ipad/i.test(userAgent);
+    const actualMethod: PaymentMethod =
+      isCN && method === 'alipay' && isMobileUA ? 'alipay_wap' : method;
 
     // 验证支付方式是否可用
     const availableMethods = paymentService.getAvailablePaymentMethods();
-    const selectedMethod = availableMethods.find(m => m.id === method);
+    const selectedMethod =
+      availableMethods.find(m => m.id === actualMethod) ||
+      (isCN && actualMethod === 'alipay_wap'
+        ? availableMethods.find(m => m.id === 'alipay')
+        : undefined);
     
     if (!selectedMethod || !selectedMethod.available) {
       return NextResponse.json(
         { 
-          error: `Payment method '${method}' is not available in ${isCN ? 'CN' : 'INTL'} region`,
+          error: `Payment method '${actualMethod}' is not available in ${isCN ? 'CN' : 'INTL'} region`,
           availableMethods: availableMethods.filter(m => m.available).map(m => m.id),
         },
         { status: 400 }
@@ -79,22 +129,33 @@ export async function POST(request: NextRequest) {
     }
 
     // 构建支付请求
+    const baseOrigin = getExternalRequestOrigin(request);
     const paymentRequest: CreatePaymentRequest = {
       userId: user.id,
       amount: selectedPackage.price,
       currency: selectedPackage.currency,
       credits: selectedPackage.credits,
-      method: method,
+      method: actualMethod,
       packageId: packageId,
-      returnUrl: returnUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/billing/result`,
-      cancelUrl: cancelUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard/billing`,
+      returnUrl:
+        returnUrl ||
+        (isCN
+          ? `${baseOrigin}/payment/success`
+          : `${baseOrigin}/dashboard/billing/result`),
+      cancelUrl:
+        cancelUrl ||
+        (isCN
+          ? `${baseOrigin}/payment/cancel`
+          : `${baseOrigin}/dashboard/billing`),
       metadata: {
         packageName: selectedPackage.name,
         userEmail: user.email,
+        requestedMethod: method,
+        origin: baseOrigin,
       },
     };
 
-    console.log(`[Payment Create] Creating ${method} payment for user ${user.id}`, {
+    console.log(`[Payment Create] Creating ${actualMethod} payment for user ${user.id}`, {
       packageId,
       amount: selectedPackage.price,
       currency: selectedPackage.currency,
@@ -105,6 +166,26 @@ export async function POST(request: NextRequest) {
     const result = await paymentService.createPayment(paymentRequest);
 
     if (!result.success) {
+      await recordPaymentEvent(ctx, {
+        event: 'PAYMENT_CREATE_FAILED',
+        level: 'error',
+        paymentId: result.paymentId || 'unknown',
+        userId: user.id,
+        provider: actualMethod.startsWith('wechat')
+          ? 'wechat'
+          : actualMethod.startsWith('alipay')
+            ? 'alipay'
+            : 'unknown',
+        errorCode: result.errorCode,
+        errorMessage: result.error,
+        metadata: {
+          packageId,
+          requestedMethod: method,
+          actualMethod,
+          amount: selectedPackage.price,
+          currency: selectedPackage.currency,
+        },
+      });
       return NextResponse.json(
         { 
           error: result.error || 'Failed to create payment',
@@ -114,6 +195,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    await recordPaymentEvent(ctx, {
+      event: 'PAYMENT_CREATED',
+      level: 'info',
+      paymentId: result.paymentId || 'unknown',
+      userId: user.id,
+      provider: actualMethod.startsWith('wechat')
+        ? 'wechat'
+        : actualMethod.startsWith('alipay')
+          ? 'alipay'
+          : (actualMethod as any),
+      status: 'pending',
+      metadata: {
+        packageId,
+        requestedMethod: method,
+        actualMethod,
+        credits: selectedPackage.credits,
+        amount: selectedPackage.price,
+        currency: selectedPackage.currency,
+      },
+    });
+
     console.log(`[Payment Create] Payment created successfully: ${result.paymentId}`);
 
     return NextResponse.json({
@@ -122,7 +224,7 @@ export async function POST(request: NextRequest) {
       redirectUrl: result.redirectUrl,
       qrCodeUrl: result.qrCodeUrl,
       qrCodeBase64: result.qrCodeBase64,
-      method: method,
+      method: actualMethod,
       region: isCN ? 'CN' : 'INTL',
     });
   } catch (error: any) {

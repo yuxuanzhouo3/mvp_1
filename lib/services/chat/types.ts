@@ -30,6 +30,8 @@ export interface ChatMessage {
     duration?: number;
     // 视频
     videoUrl?: string;
+    cloudbaseFileId?: string;
+    cloudbasePath?: string;
     // 位置
     latitude?: number;
     longitude?: number;

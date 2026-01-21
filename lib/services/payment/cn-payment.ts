@@ -23,7 +23,7 @@ const CN_CREDIT_PACKAGES: CreditPackage[] = [
     id: 'starter',
     name: '入门包',
     credits: 50,
-    price: 68,
+    price: 9.99,
     currency: 'CNY',
     features: ['50 积分', '基础匹配', '标准客服'],
   },
@@ -31,30 +31,30 @@ const CN_CREDIT_PACKAGES: CreditPackage[] = [
     id: 'popular',
     name: '热门包',
     credits: 150,
-    price: 168,
-    originalPrice: 199,
+    price: 24.99,
+    originalPrice: 29.99,
     currency: 'CNY',
     popular: true,
-    features: ['150 积分', '优先匹配', '优先客服', '高级筛选'],
+    features: ['150 积分', '优先匹配', '优先客服', '高级筛选', '送 1 次 Boost'],
   },
   {
     id: 'premium',
     name: '高级包',
     credits: 300,
-    price: 298,
-    originalPrice: 399,
+    price: 44.99,
+    originalPrice: 59.99,
     currency: 'CNY',
     bestValue: true,
-    features: ['300 积分', '超级匹配', '专属客服', '无限筛选', '数据分析'],
+    features: ['300 积分', '超级匹配', '专属客服', '无限筛选', '数据分析', '送 3 天 Premium 体验'],
   },
   {
     id: 'ultimate',
     name: '终极包',
     credits: 500,
-    price: 468,
-    originalPrice: 668,
+    price: 69.99,
+    originalPrice: 99.99,
     currency: 'CNY',
-    features: ['500 积分', 'VIP 匹配', '24/7 客服', '所有功能', '专属活动'],
+    features: ['500 积分', 'VIP 匹配', '24/7 客服', '所有功能', '专属活动', '送 7 天 VIP 体验'],
   },
 ];
 
@@ -70,22 +70,59 @@ function generateNonceStr(length: number = 32): string {
   return result;
 }
 
+function formatPem(label: 'PRIVATE KEY' | 'RSA PRIVATE KEY', base64Body: string): string {
+  const normalized = base64Body.replace(/[\r\n\s]/g, '');
+  const lines = normalized.match(/.{1,64}/g) || [];
+  return `-----BEGIN ${label}-----\n${lines.join('\n')}\n-----END ${label}-----\n`;
+}
+
+function createRsaPrivateKey(privateKey: string) {
+  const crypto = require('crypto');
+  const trimmed = (privateKey || '')
+    .trim()
+    .replace(/^"+|"+$/g, '')
+    .replace(/\\n/g, '\n')
+    .trim();
+
+  if (!trimmed) {
+    throw new Error('Missing private key');
+  }
+
+  if (trimmed.includes('-----BEGIN')) {
+    return crypto.createPrivateKey(trimmed);
+  }
+
+  const base64 = trimmed.replace(/[\r\n\s]/g, '');
+  const der = Buffer.from(base64, 'base64');
+
+  try {
+    return crypto.createPrivateKey({ key: der, format: 'der', type: 'pkcs8' });
+  } catch {}
+
+  try {
+    return crypto.createPrivateKey({ key: der, format: 'der', type: 'pkcs1' });
+  } catch {}
+
+  try {
+    return crypto.createPrivateKey(formatPem('PRIVATE KEY', base64));
+  } catch {}
+
+  return crypto.createPrivateKey(formatPem('RSA PRIVATE KEY', base64));
+}
+
 /**
  * 微信支付 V3 RSA-SHA256 签名
  * @param message 待签名字符串
  * @param privateKey 商户私钥 (PEM 格式)
  */
 async function generateWeChatV3Signature(message: string, privateKey: string): Promise<string> {
-  // 处理私钥格式 - 将 \n 转换为真正的换行符
-  const formattedKey = privateKey.replace(/\\n/g, '\n');
-  
-  // 使用 Node.js crypto 模块进行 RSA-SHA256 签名
   const crypto = require('crypto');
   const sign = crypto.createSign('RSA-SHA256');
   sign.update(message);
   sign.end();
   
-  const signature = sign.sign(formattedKey, 'base64');
+  const keyObject = createRsaPrivateKey(privateKey);
+  const signature = sign.sign(keyObject, 'base64');
   return signature;
 }
 
@@ -125,15 +162,12 @@ async function generateAlipaySign(params: Record<string, string>, privateKey: st
   const sortedKeys = Object.keys(params).filter(key => key !== 'sign').sort();
   const signContent = sortedKeys.map(key => `${key}=${params[key]}`).join('&');
 
-  // 2. 处理私钥格式 - 将 \n 转换为真正的换行符
-  const formattedKey = privateKey.replace(/\\n/g, '\n');
-
-  // 3. 使用 RSA-SHA256 签名
+  const keyObject = createRsaPrivateKey(privateKey);
   const sign = crypto.createSign('RSA-SHA256');
   sign.update(signContent, 'utf8');
   sign.end();
 
-  const signature = sign.sign(formattedKey, 'base64');
+  const signature = sign.sign(keyObject, 'base64');
   return signature;
 }
 
@@ -154,6 +188,7 @@ export class CnPaymentService implements IPaymentService {
   // 支付宝配置
   private alipayAppId: string;
   private alipayPrivateKey: string;
+  private alipayGatewayUrl: string;
   // 通用配置
   private apiBaseUrl: string;
 
@@ -167,6 +202,10 @@ export class CnPaymentService implements IPaymentService {
     // 支付宝配置
     this.alipayAppId = process.env.ALIPAY_APP_ID || '';
     this.alipayPrivateKey = process.env.ALIPAY_PRIVATE_KEY || '';
+    this.alipayGatewayUrl =
+      process.env.ALIPAY_GATEWAY_URL ||
+      process.env.ALIPAY_NOTIFY_URL ||
+      'https://openapi.alipay.com/gateway.do';
     // 通用配置
     this.apiBaseUrl = process.env.NEXT_PUBLIC_APP_URL || '';
   }
@@ -177,12 +216,16 @@ export class CnPaymentService implements IPaymentService {
     switch (method) {
       case 'wechat':
         return this.createWeChatPayment(request);
+      case 'wechat_native':
+        return this.createWeChatPayment({ ...request, method: 'wechat' });
       case 'wechat_jsapi':
         return this.createWeChatJSAPIPayment(request);
       case 'wechat_h5':
         return this.createWeChatH5Payment(request);
       case 'alipay':
         return this.createAlipayPayment(request);
+      case 'alipay_face':
+        return this.createAlipayPayment({ ...request, method: 'alipay' });
       case 'alipay_wap':
         return this.createAlipayWapPayment(request);
       default:
@@ -268,7 +311,7 @@ export class CnPaymentService implements IPaymentService {
       return {
         success: true,
         paymentId: paymentRecord.id,
-        qrCodeUrl: result.code_url, // Native 支付返回二维码链接
+        qrCodeUrl: result.code_url,
       };
     } catch (error: any) {
       console.error('[WeChat Pay V3] Create payment error:', error);
@@ -521,45 +564,42 @@ export class CnPaymentService implements IPaymentService {
         out_trade_no: paymentRecord.id,
         total_amount: request.amount.toFixed(2),
         subject: `PersonaLink - ${request.credits}积分`,
-        product_code: 'FACE_TO_FACE_PAYMENT', // 当面付（扫码）
+        product_code: 'FAST_INSTANT_TRADE_PAY',
       };
+
+      const baseUrl =
+        typeof request.metadata?.origin === 'string' && request.metadata.origin
+          ? request.metadata.origin
+          : this.apiBaseUrl;
+
+      const returnUrlObj = new URL(request.returnUrl || '/payment/success', baseUrl);
+      returnUrlObj.searchParams.set('paymentId', paymentRecord.id);
+      returnUrlObj.searchParams.set('provider', 'alipay');
+      const returnUrl = returnUrlObj.toString();
 
       const params: Record<string, string> = {
         app_id: this.alipayAppId,
-        method: 'alipay.trade.precreate',
+        method: 'alipay.trade.page.pay',
         format: 'JSON',
+        return_url: returnUrl,
         charset: 'utf-8',
         sign_type: 'RSA2',
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         version: '1.0',
-        notify_url: `${this.apiBaseUrl}/api/payments/alipay-webhook`,
+        notify_url: new URL('/api/payments/alipay-callback', baseUrl).toString(),
         biz_content: JSON.stringify(bizContent),
       };
 
       // 生成签名
       params.sign = await generateAlipaySign(params, this.alipayPrivateKey);
 
-      // 调用支付宝API
       const searchParams = new URLSearchParams(params);
-      const response = await fetch(`https://openapi.alipay.com/gateway.do?${searchParams.toString()}`, {
-        method: 'POST',
-      });
-
-      const result = await response.json();
-      const responseData = result.alipay_trade_precreate_response;
-
-      if (responseData.code !== '10000') {
-        return {
-          success: false,
-          error: responseData.sub_msg || responseData.msg || '支付宝支付创建失败',
-          errorCode: responseData.sub_code || 'ALIPAY_ERROR',
-        };
-      }
+      const payUrl = `${this.alipayGatewayUrl}?${searchParams.toString()}`;
 
       return {
         success: true,
         paymentId: paymentRecord.id,
-        qrCodeUrl: responseData.qr_code,
+        redirectUrl: payUrl,
       };
     } catch (error: any) {
       console.error('[Alipay] Create payment error:', error);
@@ -591,24 +631,39 @@ export class CnPaymentService implements IPaymentService {
       }
 
       // 2. 构建支付宝请求参数
+      const baseUrl =
+        typeof request.metadata?.origin === 'string' && request.metadata.origin
+          ? request.metadata.origin
+          : this.apiBaseUrl;
+
+      const returnUrlObj = new URL(request.returnUrl || '/payment/success', baseUrl);
+      returnUrlObj.searchParams.set('paymentId', paymentRecord.id);
+      returnUrlObj.searchParams.set('provider', 'alipay');
+      const returnUrl = returnUrlObj.toString();
+
+      const cancelUrlObj = new URL(request.cancelUrl || '/payment/cancel', baseUrl);
+      cancelUrlObj.searchParams.set('paymentId', paymentRecord.id);
+      cancelUrlObj.searchParams.set('provider', 'alipay');
+      const cancelUrl = cancelUrlObj.toString();
+
       const bizContent = {
         out_trade_no: paymentRecord.id,
         total_amount: request.amount.toFixed(2),
         subject: `PersonaLink - ${request.credits}积分`,
         product_code: 'QUICK_WAP_WAY', // 手机网站支付产品码
-        quit_url: `${this.apiBaseUrl}/payment/cancel?id=${paymentRecord.id}`, // 用户取消支付后返回的地址
+        quit_url: cancelUrl,
       };
 
       const params: Record<string, string> = {
         app_id: this.alipayAppId,
         method: 'alipay.trade.wap.pay',
         format: 'JSON',
-        return_url: `${this.apiBaseUrl}/payment/success?id=${paymentRecord.id}`, // 同步返回地址
+        return_url: returnUrl,
         charset: 'utf-8',
         sign_type: 'RSA2',
         timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
         version: '1.0',
-        notify_url: `${this.apiBaseUrl}/api/payments/alipay-callback`,
+        notify_url: new URL('/api/payments/alipay-callback', baseUrl).toString(),
         biz_content: JSON.stringify(bizContent),
       };
 
@@ -617,7 +672,7 @@ export class CnPaymentService implements IPaymentService {
 
       // 构建支付URL
       const searchParams = new URLSearchParams(params);
-      const payUrl = `https://openapi.alipay.com/gateway.do?${searchParams.toString()}`;
+      const payUrl = `${this.alipayGatewayUrl}?${searchParams.toString()}`;
 
       return {
         success: true,
@@ -849,7 +904,15 @@ export class CnPaymentService implements IPaymentService {
       this.wechatCertSerialNo && 
       this.wechatPrivateKey
     );
-    const hasAlipayConfig = !!this.alipayAppId;
+    const runningOnServer = typeof window === 'undefined';
+    let hasAlipayConfig = !!(this.alipayAppId && this.alipayPrivateKey);
+    if (runningOnServer && hasAlipayConfig) {
+      try {
+        createRsaPrivateKey(this.alipayPrivateKey);
+      } catch {
+        hasAlipayConfig = false;
+      }
+    }
 
     // 检测支付环境
     const isWeChatBrowser = typeof window !== 'undefined' && 
@@ -901,7 +964,7 @@ export class CnPaymentService implements IPaymentService {
       methods.push({
         id: 'alipay',
         name: '支付宝',
-        description: '使用支付宝扫码支付',
+        description: '支付宝电脑网站支付',
         icon: 'alipay',
         processingTime: '即时到账',
         available: true,
@@ -926,7 +989,25 @@ export class CnPaymentService implements IPaymentService {
   }
 
   getCreditPackages(): CreditPackage[] {
-    return CN_CREDIT_PACKAGES;
+    const raw = process.env.PAYMENT_TEST_MODE;
+    const enabled =
+      typeof raw === 'string' && ['true', 'ture', '1', 'yes', 'on'].includes(raw.toLowerCase());
+
+    if (!enabled) {
+      return CN_CREDIT_PACKAGES;
+    }
+
+    return [
+      ...CN_CREDIT_PACKAGES,
+      {
+        id: 'test_0_01',
+        name: '微信支付测试单',
+        credits: 1,
+        price: 0.01,
+        currency: 'CNY',
+        features: ['0.01 元', '仅用于测试'],
+      },
+    ];
   }
 
   async requestRefund(paymentId: string, reason?: string, refundAmount?: number): Promise<{
@@ -1234,4 +1315,3 @@ export class CnPaymentService implements IPaymentService {
     }
   }
 }
-

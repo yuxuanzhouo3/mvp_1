@@ -4,14 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 
 export async function POST(request: NextRequest) {
-  // 仅 CN 环境可用
-  const deploymentRegion =
-    process.env.DEPLOYMENT_REGION || process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
-  const isCN = deploymentRegion === 'CN';
-
-  if (!isCN) {
+  if (!isChinaDeployment()) {
     return NextResponse.json(
       { error: 'This endpoint is only available in CN environment' },
       { status: 403 }
@@ -44,7 +40,7 @@ export async function POST(request: NextRequest) {
     const isSecureCookie = isSecureRequest || !isLocalhost;
     
     response.cookies.set('cn_session', '', {
-      httpOnly: false,
+      httpOnly: true,
       secure: isSecureCookie,
       sameSite: 'lax',
       path: '/',
@@ -53,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     if (!isLocalhost) {
       response.cookies.set('cn_session_cross', '', {
-        httpOnly: false,
+        httpOnly: true,
         secure: true,
         sameSite: 'none',
         path: '/',
@@ -72,4 +68,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

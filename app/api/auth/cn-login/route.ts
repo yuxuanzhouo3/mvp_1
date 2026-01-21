@@ -7,14 +7,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 
 export async function POST(request: NextRequest) {
-  // 检查部署区域 - 直接从环境变量读取，避免构建时问题
-  const deploymentRegion = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
-  const isCN = deploymentRegion === 'CN';
-  
-  console.log(`[CN Login] Environment check: NEXT_PUBLIC_DEPLOYMENT_REGION=${deploymentRegion}, isCN=${isCN}`);
-  
+  const isCN = isChinaDeployment();
+
   // 仅 CN 环境可用
   if (!isCN) {
     console.log('[CN Login] Rejected: Not CN environment');
@@ -130,7 +127,7 @@ export async function POST(request: NextRequest) {
     
     // 设置 cookie，确保在无痕模式下也能正常工作
     response.cookies.set('cn_session', userId, {
-      httpOnly: false, // 允许客户端读取（用于状态检查）
+      httpOnly: true,
       secure: isSecureCookie, // 根据请求协议与环境兜底决定
       sameSite: 'lax',
       path: '/',
@@ -139,7 +136,7 @@ export async function POST(request: NextRequest) {
 
     if (!isLocalhost) {
       response.cookies.set('cn_session_cross', userId, {
-        httpOnly: false,
+        httpOnly: true,
         secure: true,
         sameSite: 'none',
         path: '/',

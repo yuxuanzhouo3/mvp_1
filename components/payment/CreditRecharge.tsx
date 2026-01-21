@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
-import { getSupabaseClient } from '@/lib/supabase/client';
+import { useAuth } from '@/app/providers/AuthProvider';
 import {
   CreditCard,
   DollarSign,
@@ -60,6 +60,7 @@ interface PaymentData {
   paymentId: string;
   paymentAddress?: string;
   qrCodeUrl?: string;
+  qrCodeBase64?: string;
   account?: string;
   network?: string;
   amount: number;
@@ -69,131 +70,14 @@ interface PaymentData {
   credits?: number;
 }
 
-// Base package prices - USD and CNY are independently priced, not converted
-const basePackages = [
-  {
-    id: 'starter',
-    credits: 50,
-    usdPrice: 1.39,
-    cnyPrice: 9.99,
-    usdOriginalPrice: undefined as number | undefined,
-    cnyOriginalPrice: undefined as number | undefined,
-    discount: undefined as string | undefined,
-    bonus: undefined as string | undefined,
-  },
-  {
-    id: 'popular',
-    credits: 150,
-    usdPrice: 3.49,
-    cnyPrice: 24.99,
-    usdOriginalPrice: 4.36,  // ~20% off
-    cnyOriginalPrice: 31.24,
-    discount: '20% OFF',
-    bonus: 'boost_1',  // 送 1 次 Boost
-  },
-  {
-    id: 'premium',
-    credits: 300,
-    usdPrice: 6.29,
-    cnyPrice: 44.99,
-    usdOriginalPrice: 8.39,  // ~25% off
-    cnyOriginalPrice: 59.99,
-    discount: '25% OFF',
-    bonus: 'premium_3days',  // 送 3 天 Premium 体验
-  },
-  {
-    id: 'ultimate',
-    credits: 500,
-    usdPrice: 9.79,
-    cnyPrice: 69.99,
-    usdOriginalPrice: 13.99,  // ~30% off
-    cnyOriginalPrice: 99.99,
-    discount: '30% OFF',
-    bonus: 'vip_7days',  // 送 7 天 VIP 体验
-  },
-];
-
-// Get credit packages based on language
-const getPackages = (t: any, language: string): CreditPackage[] => {
-  const isCn = language === 'zh';
-
-  return basePackages.map((pkg, index) => {
-    const price = isCn ? pkg.cnyPrice : pkg.usdPrice;
-    const originalPrice = isCn ? pkg.cnyOriginalPrice : pkg.usdOriginalPrice;
-
-    // Build features list dynamically based on package
-    const baseFeatures: string[] = [];
-
-    if (pkg.id === 'starter') {
-      baseFeatures.push(
-        t.payment.recharge.packages.starter.feature1,
-        t.payment.recharge.packages.starter.feature2,
-        t.payment.recharge.packages.starter.feature3,
-      );
-    } else if (pkg.id === 'popular') {
-      baseFeatures.push(
-        t.payment.recharge.packages.popular.feature1,
-        t.payment.recharge.packages.popular.feature2,
-        t.payment.recharge.packages.popular.feature3,
-        t.payment.recharge.packages.popular.feature4,
-      );
-    } else if (pkg.id === 'premium') {
-      baseFeatures.push(
-        t.payment.recharge.packages.premium.feature1,
-        t.payment.recharge.packages.premium.feature2,
-        t.payment.recharge.packages.premium.feature3,
-        t.payment.recharge.packages.premium.feature4,
-        t.payment.recharge.packages.premium.feature5,
-      );
-    } else if (pkg.id === 'ultimate') {
-      baseFeatures.push(
-        t.payment.recharge.packages.ultimate.feature1,
-        t.payment.recharge.packages.ultimate.feature2,
-        t.payment.recharge.packages.ultimate.feature3,
-        t.payment.recharge.packages.ultimate.feature4,
-        t.payment.recharge.packages.ultimate.feature5,
-      );
-    }
-
-    // Add bonus feature if available
-    if (pkg.bonus) {
-      const bonusText = pkg.bonus === 'boost_1'
-        ? (isCn ? '🎁 送 1 次 Boost' : '🎁 +1 Free Boost')
-        : pkg.bonus === 'premium_3days'
-        ? (isCn ? '🎁 送 3 天 Premium 体验' : '🎁 +3 Days Premium Trial')
-        : pkg.bonus === 'vip_7days'
-        ? (isCn ? '🎁 送 7 天 VIP 体验' : '🎁 +7 Days VIP Trial')
-        : '';
-      if (bonusText) baseFeatures.push(bonusText);
-    }
-
-    const gradients = [
-      'from-gray-500 to-gray-700',
-      'from-blue-500 to-cyan-500',
-      'from-purple-500 to-pink-500',
-      'from-amber-500 to-orange-500',
-    ];
-
-    const iconBgs = [
-      'bg-gray-100 dark:bg-gray-800',
-      'bg-blue-100 dark:bg-blue-900/30',
-      'bg-purple-100 dark:bg-purple-900/30',
-      'bg-amber-100 dark:bg-amber-900/30',
-    ];
-
-    return {
-      id: pkg.id,
-      name: t.payment.recharge.packages[pkg.id as keyof typeof t.payment.recharge.packages].name,
-      credits: pkg.credits,
-      price: price,
-      originalPrice: originalPrice,
-      popular: pkg.id === 'popular',
-      bestValue: pkg.id === 'premium',
-      gradient: gradients[index],
-      iconBg: iconBgs[index],
-      features: baseFeatures,
-    };
-  });
+type ApiCreditPackage = {
+  id: string;
+  credits: number;
+  price: number;
+  originalPrice?: number | null;
+  isPopular?: boolean;
+  isBestValue?: boolean;
+  bonuses?: { boost?: number; premiumDays?: number; vipDays?: number };
 };
 
 // CN环境支付方式
@@ -210,7 +94,7 @@ const getCNPaymentMethods = (t: any): PaymentMethod[] => [
     id: 'alipay',
     name: t.payment.recharge.paymentMethods.alipay?.name || '支付宝',
     icon: DollarSign,
-    description: t.payment.recharge.paymentMethods.alipay?.description || '支付宝扫码支付',
+    description: t.payment.recharge.paymentMethods.alipay?.description || '支付宝电脑网站支付',
     processingTime: t.payment.recharge.paymentMethods.alipay?.processingTime || '即时到账',
     gradient: 'from-blue-500 to-blue-600',
   },
@@ -246,6 +130,7 @@ export default function CreditRecharge() {
   const router = useRouter();
   const { language } = useLanguage();
   const t = useTranslations(language);
+  const { user, session } = useAuth();
 
   // 检测部署区域
   const isCN = isChinaDeployment();
@@ -253,12 +138,10 @@ export default function CreditRecharge() {
   // Tab state
   const [activeTab, setActiveTab] = useState<TabType>('credits');
 
-  // Get localized data
-  const creditPackages = getPackages(t, language);
+  const [creditPackages, setCreditPackages] = useState<CreditPackage[]>([]);
   const paymentMethods = getPaymentMethods(t, isCN);
-
-  // Currency symbol
-  const currencySymbol = t.currency.symbol;
+  const currency = isCN ? 'CNY' : 'USD';
+  const currencySymbol = currency === 'CNY' ? '¥' : '$';
 
   const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
@@ -267,17 +150,128 @@ export default function CreditRecharge() {
   const [showPaymentMonitor, setShowPaymentMonitor] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
 
-  // Get session token on mount
   useEffect(() => {
-    const getToken = async () => {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        setSessionToken(session.access_token);
+    const loadPackages = async () => {
+      try {
+        const response = await fetch(`/api/credits/packages?currency=${currency}`, {
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          setCreditPackages([]);
+          return;
+        }
+
+        const result = await response.json();
+        const apiPackages = (result?.data?.packages || []) as ApiCreditPackage[];
+
+        const gradients = [
+          'from-gray-500 to-gray-700',
+          'from-blue-500 to-cyan-500',
+          'from-purple-500 to-pink-500',
+          'from-amber-500 to-orange-500',
+        ];
+
+        const iconBgs = [
+          'bg-gray-100 dark:bg-gray-800',
+          'bg-blue-100 dark:bg-blue-900/30',
+          'bg-purple-100 dark:bg-purple-900/30',
+          'bg-amber-100 dark:bg-amber-900/30',
+        ];
+
+        const sorted = [...apiPackages].sort((a, b) => {
+          const order = ['starter', 'popular', 'premium', 'ultimate'];
+          return order.indexOf(a.id) - order.indexOf(b.id);
+        });
+
+        const mapped = sorted.map((pkg, index) => {
+          const baseFeatures: string[] = [];
+
+          if (pkg.id === 'starter') {
+            baseFeatures.push(
+              t.payment.recharge.packages.starter.feature1,
+              t.payment.recharge.packages.starter.feature2,
+              t.payment.recharge.packages.starter.feature3,
+            );
+          } else if (pkg.id === 'popular') {
+            baseFeatures.push(
+              t.payment.recharge.packages.popular.feature1,
+              t.payment.recharge.packages.popular.feature2,
+              t.payment.recharge.packages.popular.feature3,
+              t.payment.recharge.packages.popular.feature4,
+            );
+          } else if (pkg.id === 'premium') {
+            baseFeatures.push(
+              t.payment.recharge.packages.premium.feature1,
+              t.payment.recharge.packages.premium.feature2,
+              t.payment.recharge.packages.premium.feature3,
+              t.payment.recharge.packages.premium.feature4,
+              t.payment.recharge.packages.premium.feature5,
+            );
+          } else if (pkg.id === 'ultimate') {
+            baseFeatures.push(
+              t.payment.recharge.packages.ultimate.feature1,
+              t.payment.recharge.packages.ultimate.feature2,
+              t.payment.recharge.packages.ultimate.feature3,
+              t.payment.recharge.packages.ultimate.feature4,
+              t.payment.recharge.packages.ultimate.feature5,
+            );
+          }
+
+          if (pkg.bonuses?.boost) {
+            baseFeatures.push(language === 'zh' ? `送 ${pkg.bonuses.boost} 次 Boost` : `+${pkg.bonuses.boost} Boost`);
+          }
+          if (pkg.bonuses?.premiumDays) {
+            baseFeatures.push(
+              language === 'zh'
+                ? `送 ${pkg.bonuses.premiumDays} 天 Premium 体验`
+                : `+${pkg.bonuses.premiumDays} Days Premium Trial`
+            );
+          }
+          if (pkg.bonuses?.vipDays) {
+            baseFeatures.push(
+              language === 'zh' ? `送 ${pkg.bonuses.vipDays} 天 VIP 体验` : `+${pkg.bonuses.vipDays} Days VIP Trial`
+            );
+          }
+
+          const localizedName =
+            t.payment?.recharge?.packages?.[pkg.id as keyof typeof t.payment.recharge.packages]?.name;
+
+          return {
+            id: pkg.id,
+            name: localizedName || pkg.id,
+            credits: pkg.credits,
+            price: pkg.price,
+            originalPrice: pkg.originalPrice ?? undefined,
+            popular: !!pkg.isPopular,
+            bestValue: !!pkg.isBestValue,
+            gradient: gradients[index] || gradients[0]!,
+            iconBg: iconBgs[index] || iconBgs[0]!,
+            features: baseFeatures,
+          } satisfies CreditPackage;
+        });
+
+        setCreditPackages(mapped);
+      } catch {
+        setCreditPackages([]);
       }
     };
-    getToken();
-  }, []);
+
+    loadPackages();
+  }, [currency, language, t]);
+
+  // Get session token on mount
+  useEffect(() => {
+    if (session?.access_token) {
+      setSessionToken(session.access_token);
+      return;
+    }
+    if (user?.id) {
+      setSessionToken(`cn_${user.id}`);
+      return;
+    }
+    setSessionToken(null);
+  }, [session?.access_token, user?.id]);
 
   const handlePackageSelect = (pkg: CreditPackage) => {
     setSelectedPackage(pkg);
@@ -314,23 +308,63 @@ export default function CreditRecharge() {
     setIsProcessing(true);
 
     try {
-      const response = await fetch('/api/payments/create-intent', {
+      const apiUrl = isCN ? '/api/payments/create' : '/api/payments/create-intent';
+      const isMobileDevice =
+        typeof window !== 'undefined' && /mobile|android|iphone|ipad/i.test(window.navigator.userAgent);
+      const cnMethod =
+        selectedPaymentMethod.id === 'alipay' && isMobileDevice ? 'alipay_wap' : selectedPaymentMethod.id;
+      const body = isCN
+        ? {
+            packageId: selectedPackage.id,
+            method: cnMethod,
+          }
+        : {
+            packageId: selectedPackage.id,
+            paymentMethod: selectedPaymentMethod.id,
+            amount: selectedPackage.price,
+            credits: selectedPackage.credits,
+          };
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${sessionToken}`,
         },
-        body: JSON.stringify({
-          packageId: selectedPackage.id,
-          paymentMethod: selectedPaymentMethod.id,
-          amount: selectedPackage.price,
-          credits: selectedPackage.credits,
-        }),
+        body: JSON.stringify(body),
         cache: 'no-store',
       });
 
       if (response.ok) {
         const data = await response.json();
+
+        if (isCN) {
+          if (selectedPaymentMethod.id === 'wechat') {
+            setPaymentData({
+              paymentId: data.paymentId,
+              qrCodeUrl: data.qrCodeUrl,
+              qrCodeBase64: data.qrCodeBase64,
+              amount: selectedPackage.price,
+              paymentMethod: 'wechat',
+            });
+            setShowPaymentMonitor(true);
+          } else if (selectedPaymentMethod.id === 'alipay') {
+            if (data.redirectUrl && typeof window !== 'undefined') {
+              window.location.href = data.redirectUrl;
+              return;
+            }
+
+            setPaymentData({
+              paymentId: data.paymentId,
+              qrCodeUrl: data.qrCodeUrl,
+              qrCodeBase64: data.qrCodeBase64,
+              amount: selectedPackage.price,
+              paymentMethod: 'alipay',
+            });
+            setShowPaymentMonitor(true);
+          }
+          return;
+        }
 
         if (selectedPaymentMethod.id === 'stripe') {
           if (typeof window !== 'undefined') {
@@ -463,6 +497,7 @@ export default function CreditRecharge() {
           amount={paymentData.amount}
           paymentAddress={paymentData.paymentAddress}
           qrCodeUrl={paymentData.qrCodeUrl}
+          qrCodeBase64={paymentData.qrCodeBase64}
           account={paymentData.account}
           network={paymentData.network}
           onPaymentVerified={handlePaymentVerified}

@@ -26,7 +26,7 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const { user, signOut, loading: authLoading } = useAuth();
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() || '';
   const { toast } = useToast();
   const supabase = getSupabaseClient();
   const { language } = useLanguage();

@@ -6,8 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getPaymentService } from '@/lib/services/payment';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { finalizeCnPayment } from '@/lib/payment/cn-payment-finalize';
+import { buildPaymentRequestContext, recordPaymentEvent } from '@/lib/observability/payment-events';
 
 export async function POST(request: NextRequest) {
   // 仅在 CN 环境可用
@@ -18,6 +19,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const ctx = buildPaymentRequestContext(request);
   try {
     // 获取支付宝通知数据
     const formData = await request.formData();
@@ -25,6 +27,16 @@ export async function POST(request: NextRequest) {
 
     formData.forEach((value, key) => {
       params[key] = value.toString();
+    });
+
+    await recordPaymentEvent(ctx, {
+      event: 'CALLBACK_RECEIVED',
+      level: 'info',
+      paymentId: params.out_trade_no || 'unknown',
+      provider: 'alipay',
+      providerOrderId: params.trade_no,
+      status: params.trade_status,
+      metadata: { notify_id: params.notify_id },
     });
 
     console.log('[Alipay Callback] Received:', {
@@ -37,6 +49,14 @@ export async function POST(request: NextRequest) {
     const signatureVerified = await verifyAlipaySignature(params);
 
     if (!signatureVerified) {
+      await recordPaymentEvent(ctx, {
+        event: 'SIGNATURE_VERIFY_FAILED',
+        level: 'warn',
+        paymentId: params.out_trade_no || 'unknown',
+        provider: 'alipay',
+        providerOrderId: params.trade_no,
+        status: params.trade_status,
+      });
       console.error('[Alipay Callback] Signature verification failed');
       return new NextResponse('fail', {
         status: 200,
@@ -44,8 +64,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    await recordPaymentEvent(ctx, {
+      event: 'SIGNATURE_VERIFIED',
+      level: 'info',
+      paymentId: params.out_trade_no || 'unknown',
+      provider: 'alipay',
+      providerOrderId: params.trade_no,
+      status: params.trade_status,
+    });
+
     // 更新支付状态
-    const result = await updateAlipayPaymentStatus(params);
+    const result = await updateAlipayPaymentStatus(ctx, params);
 
     if (result.success) {
       // 支付宝要求返回 "success" 字符串表示成功
@@ -54,6 +83,15 @@ export async function POST(request: NextRequest) {
         headers: { 'Content-Type': 'text/plain' },
       });
     } else {
+      await recordPaymentEvent(ctx, {
+        event: 'FINALIZE_FAILED',
+        level: 'warn',
+        paymentId: params.out_trade_no || 'unknown',
+        provider: 'alipay',
+        providerOrderId: params.trade_no,
+        status: params.trade_status,
+        errorCode: result.error,
+      });
       console.error('[Alipay Callback] Processing failed:', result.error);
       return new NextResponse('fail', {
         status: 200,
@@ -61,6 +99,13 @@ export async function POST(request: NextRequest) {
       });
     }
   } catch (error: any) {
+    await recordPaymentEvent(ctx, {
+      event: 'CALLBACK_ERROR',
+      level: 'error',
+      paymentId: 'unknown',
+      provider: 'alipay',
+      errorMessage: error?.message || String(error),
+    });
     console.error('[Alipay Callback] Error:', error);
     return new NextResponse('fail', {
       status: 200,
@@ -138,49 +183,43 @@ async function verifyAlipaySignature(params: Record<string, string>): Promise<bo
 /**
  * 更新支付宝支付状态
  */
-async function updateAlipayPaymentStatus(params: Record<string, string>): Promise<{
+async function updateAlipayPaymentStatus(
+  ctx: ReturnType<typeof buildPaymentRequestContext>,
+  params: Record<string, string>
+): Promise<{
   success: boolean;
   error?: string;
 }> {
   try {
-    const { getServiceDbClient } = await import('@/lib/db-client');
-    const db = await getServiceDbClient();
-
     const tradeStatus = params.trade_status;
     const paymentId = params.out_trade_no;
     const tradeNo = params.trade_no;
 
-    let status = 'pending';
+    let status: 'pending' | 'completed' | 'cancelled' = 'pending';
     if (tradeStatus === 'TRADE_SUCCESS' || tradeStatus === 'TRADE_FINISHED') {
       status = 'completed';
     } else if (tradeStatus === 'TRADE_CLOSED') {
       status = 'cancelled';
     }
 
-    const updateData: any = {
-      status,
-      updated_at: new Date().toISOString(),
-      provider_order_id: tradeNo,
+    const finalize = await finalizeCnPayment({
+      paymentId,
+      newStatus: status,
+      provider: 'alipay',
+      providerOrderId: tradeNo,
+      providerAmountYuan: params.total_amount,
       metadata: {
         alipay_trade_no: tradeNo,
         trade_status: tradeStatus,
         buyer_id: params.buyer_id,
         total_amount: params.total_amount,
       },
-    };
+      ctx,
+    });
 
-    if (status === 'completed') {
-      updateData.completed_at = new Date().toISOString();
-    }
-
-    const { error } = await db
-      .from('payments')
-      .update(updateData)
-      .eq('id', paymentId);
-
-    if (error) {
-      console.error('[Alipay Callback] Update status error:', error);
-      return { success: false, error: error.message };
+    if (!finalize.ok) {
+      console.error('[Alipay Callback] Finalize failed:', finalize.error, { paymentId, tradeNo });
+      return { success: false, error: finalize.error };
     }
 
     console.log('[Alipay Callback] Payment status updated:', {

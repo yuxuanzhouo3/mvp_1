@@ -151,6 +151,34 @@ export async function GET(request: NextRequest) {
       sortOrder: pkg.sort_order,
     }));
 
+    const rawTestMode = process.env.PAYMENT_TEST_MODE;
+    const isTestModeEnabled =
+      isCN &&
+      currency === 'CNY' &&
+      typeof rawTestMode === 'string' &&
+      ['true', 'ture', '1', 'yes', 'on'].includes(rawTestMode.toLowerCase());
+
+    if (isTestModeEnabled) {
+      formattedPackages.push({
+        id: 'test_0_01',
+        name: '微信支付测试单',
+        nameEn: 'WeChat Test Order',
+        nameZh: '微信支付测试单',
+        credits: 1,
+        price: 0.01,
+        priceUsd: 0.01,
+        priceCny: 0.01,
+        originalPrice: null,
+        originalPriceUsd: null,
+        originalPriceCny: null,
+        discountPercent: 0,
+        bonuses: { boost: 0, premiumDays: 0, vipDays: 0 },
+        isPopular: false,
+        isBestValue: false,
+        sortOrder: 999,
+      });
+    }
+
     return NextResponse.json({
       success: true,
       data: {

@@ -11,6 +11,7 @@ import {
   findOrCreateWeChatUser,
   createUserSession,
 } from '@/lib/services/auth/wechat-db';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 
 // 微信 Access Token 接口
 const WECHAT_ACCESS_TOKEN_URL = 'https://api.weixin.qq.com/sns/oauth2/access_token';
@@ -45,12 +46,7 @@ interface WeChatUserInfo {
  * GET 请求 - 处理微信授权重定向回调
  */
 export async function GET(request: NextRequest) {
-  // 仅在 CN 环境可用
-  const deploymentRegion =
-    process.env.DEPLOYMENT_REGION || process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
-  const isCN = deploymentRegion === 'CN';
-
-  if (!isCN) {
+  if (!isChinaDeployment()) {
     return NextResponse.json(
       { error: 'WeChat OAuth only available in CN deployment' },
       { status: 400 }
@@ -81,9 +77,28 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 解析 state 判断登录类型
-    const loginType = parseLoginType(state);
+    const parsedState = parseState(state);
+    const loginType = parseLoginType(state, parsedState);
     console.log(`[WeChat Callback] Processing ${loginType} login`);
+
+    if (parsedState?.nonce) {
+      const cookieNonce = request.cookies.get('wechat_oauth_state')?.value;
+      const isSecureCookie = isSecureCookieRequest(request);
+      if (!cookieNonce || cookieNonce !== parsedState.nonce) {
+        const errorUrl = new URL('/auth/login', request.url);
+        errorUrl.searchParams.set('error', 'invalid_state');
+        errorUrl.searchParams.set('provider', 'wechat');
+        const res = NextResponse.redirect(errorUrl);
+        res.cookies.set('wechat_oauth_state', '', {
+          httpOnly: true,
+          secure: isSecureCookie,
+          sameSite: 'lax',
+          maxAge: 0,
+          path: '/',
+        });
+        return res;
+      }
+    }
 
     // 获取对应的 AppID 和 Secret
     const { appId, appSecret } = getWeChatConfig(loginType);
@@ -104,7 +119,7 @@ export async function GET(request: NextRequest) {
 
     // 2. 获取用户信息
     let userInfo: WeChatUserInfo | null = null;
-    if (access_token && openid && tokenData.scope?.includes('snsapi_userinfo')) {
+    if (access_token && openid) {
       userInfo = await getWeChatUserInfo(access_token, openid);
     }
 
@@ -122,37 +137,19 @@ export async function GET(request: NextRequest) {
     console.log(`[WeChat Callback] User authenticated: ${user.id}`);
 
     // 5. 解析重定向地址
-    let redirectPath = '/dashboard';
-    if (state) {
-      try {
-        if (state.startsWith('wechat_')) {
-          // 简单的 state 格式
-        } else {
-          const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
-          if (stateData.redirect) {
-            redirectPath = stateData.redirect;
-          }
-        }
-      } catch {
-        // state 解析失败，使用默认路径
-      }
-    }
+    const redirectPath = normalizeRedirectPath(parsedState?.redirectPath || null);
 
     // 设置会话 cookie 并重定向
     const successUrl = new URL(redirectPath, request.url);
     const response = NextResponse.redirect(successUrl);
     
     // 设置认证 cookie
-    const forwardedProto = request.headers.get('x-forwarded-proto');
-    const isSecureRequest = forwardedProto
-      ? forwardedProto.split(',')[0].trim() === 'https'
-      : request.url.startsWith('https://');
     const host = request.headers.get('host') || '';
     const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
-    const isSecureCookie = isSecureRequest || !isLocalhost;
+    const isSecureCookie = isSecureCookieRequest(request) || !isLocalhost;
 
     response.cookies.set('cn_session', user.id, {
-      httpOnly: false,
+      httpOnly: true,
       secure: isSecureCookie,
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60, // 7天
@@ -161,10 +158,20 @@ export async function GET(request: NextRequest) {
 
     if (!isLocalhost) {
       response.cookies.set('cn_session_cross', user.id, {
-        httpOnly: false,
+        httpOnly: true,
         secure: true,
         sameSite: 'none',
         maxAge: 7 * 24 * 60 * 60,
+        path: '/',
+      });
+    }
+
+    if (parsedState?.nonce) {
+      response.cookies.set('wechat_oauth_state', '', {
+        httpOnly: true,
+        secure: isSecureCookie,
+        sameSite: 'lax',
+        maxAge: 0,
         path: '/',
       });
     }
@@ -175,7 +182,16 @@ export async function GET(request: NextRequest) {
     const errorUrl = new URL('/auth/login', request.url);
     errorUrl.searchParams.set('error', 'wechat_login_failed');
     errorUrl.searchParams.set('message', encodeURIComponent(error.message));
-    return NextResponse.redirect(errorUrl);
+    const res = NextResponse.redirect(errorUrl);
+    const isSecureCookie = isSecureCookieRequest(request);
+    res.cookies.set('wechat_oauth_state', '', {
+      httpOnly: true,
+      secure: isSecureCookie,
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    });
+    return res;
   }
 }
 
@@ -183,11 +199,7 @@ export async function GET(request: NextRequest) {
  * POST 请求 - 用于客户端 AJAX 调用
  */
 export async function POST(request: NextRequest) {
-  const deploymentRegion =
-    process.env.DEPLOYMENT_REGION || process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
-  const isCN = deploymentRegion === 'CN';
-
-  if (!isCN) {
+  if (!isChinaDeployment()) {
     return NextResponse.json(
       { error: 'WeChat OAuth only available in CN deployment' },
       { status: 400 }
@@ -262,14 +274,45 @@ export async function POST(request: NextRequest) {
 
 // ============ 辅助函数 ============
 
-/**
- * 解析登录类型
- */
-function parseLoginType(state: string | null): string {
+function parseState(state: string | null): { nonce?: string; redirectPath?: string; loginType?: string } | null {
+  if (!state) return null;
+  if (state.startsWith('wechat_')) return null;
+  try {
+    const decoded = JSON.parse(Buffer.from(state, 'base64url').toString('utf-8')) as any;
+    return {
+      nonce: typeof decoded?.n === 'string' ? decoded.n : undefined,
+      redirectPath: typeof decoded?.r === 'string' ? decoded.r : undefined,
+      loginType: typeof decoded?.t === 'string' ? decoded.t : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseLoginType(state: string | null, parsedState?: { loginType?: string } | null): string {
+  const fromState = parsedState?.loginType;
+  if (fromState === 'miniprogram' || fromState === 'open') return fromState;
   if (!state) return 'open';
   if (state.startsWith('wechat_open_')) return 'open';
   if (state.startsWith('wechat_mini_')) return 'miniprogram';
   return 'open';
+}
+
+function normalizeRedirectPath(input: string | null): string {
+  if (!input) return '/dashboard';
+  if (!input.startsWith('/')) return '/dashboard';
+  if (input.startsWith('//')) return '/dashboard';
+  return input;
+}
+
+function isSecureCookieRequest(request: NextRequest): boolean {
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const isSecureRequest = forwardedProto
+    ? forwardedProto.split(',')[0].trim() === 'https'
+    : request.url.startsWith('https://');
+  const host = request.headers.get('host') || '';
+  const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+  return isSecureRequest || !isLocalhost;
 }
 
 /**

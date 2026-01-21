@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import CreditRecharge from '@/components/payment/CreditRecharge';
@@ -12,8 +11,6 @@ import { useTranslations } from '@/lib/i18n';
 export default function PaymentRechargePage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const { language } = useLanguage();
   const t = useTranslations(language);
@@ -38,29 +35,12 @@ export default function PaymentRechargePage() {
   }, [user]);
 
   useEffect(() => {
-    checkAuth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const checkAuth = async () => {
-    try {
-      const { data: { user }, error } = await supabase.auth.getUser();
-
-      if (error || !user) {
-        router.push('/auth/login');
-        return;
-      }
-
-      setIsAuthenticated(true);
-    } catch (error) {
-      console.error('Auth check error:', error);
+    if (!authLoading && !user) {
       router.push('/auth/login');
-    } finally {
-      setIsLoading(false);
     }
-  };
+  }, [authLoading, user, router]);
 
-  if (isLoading || authLoading) {
+  if (authLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
@@ -71,7 +51,7 @@ export default function PaymentRechargePage() {
     );
   }
 
-  if (!isAuthenticated || !user) {
+  if (!user) {
     return null;
   }
 

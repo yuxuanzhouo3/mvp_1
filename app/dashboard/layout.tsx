@@ -106,12 +106,9 @@ export default function DashboardLayout({
   useEffect(() => {
     // 获取所有可能的认证数据
     const cnUserData = localStorage.getItem('cn_user');
-    const cnSessionCookie = document.cookie
-      .split(';')
-      .find((c) => c.trim().startsWith('cn_session=') || c.trim().startsWith('cn_session_cross='));
     const isCN = isChinaDeployment();
     
-    console.log(`🛡️ DashboardLayout auth check: loading=${loading}, user=${!!user}, isCN=${isCN}, cnUserData=${!!cnUserData}, cnSessionCookie=${!!cnSessionCookie}`);
+    console.log(`🛡️ DashboardLayout auth check: loading=${loading}, user=${!!user}, isCN=${isCN}, cnUserData=${!!cnUserData}`);
     
     // 如果 AuthProvider 正在加载，等待
     if (loading) {
@@ -136,32 +133,7 @@ export default function DashboardLayout({
       // localStorage 中有用户数据，说明用户确实登录过
       // AuthProvider 可能还没完成状态恢复，继续等待
       console.log('🔄 DashboardLayout: cn_user exists in localStorage, waiting for AuthProvider...');
-      
-      // 确保 cookie 也存在
-      if (!cnSessionCookie) {
-        try {
-          const userData = JSON.parse(cnUserData);
-          if (userData && userData.id) {
-            console.log('🔧 DashboardLayout: Restoring cn_session cookie from localStorage');
-            const isSecure = window.location.protocol === 'https:';
-            const secureFlag = isSecure ? '; Secure' : '';
-            document.cookie = `cn_session=${userData.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${secureFlag}`;
-            if (isSecure) {
-              document.cookie = `cn_session_cross=${userData.id}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=None; Secure`;
-            }
-          }
-        } catch (e) {
-          console.error('Failed to parse CN user data:', e);
-        }
-      }
       // 不重定向，继续等待
-      return;
-    }
-    
-    if (cnSessionCookie) {
-      // 有 cookie 但没有 localStorage，可能是数据不完整
-      // 也继续等待，给 AuthProvider 机会恢复
-      console.log('🔄 DashboardLayout: cn_session cookie exists, waiting for AuthProvider...');
       return;
     }
     
@@ -231,12 +203,7 @@ export default function DashboardLayout({
   // Show loading state while checking authentication
   // 或者当有认证数据但 user 状态还未恢复时
   const cnUserData = typeof window !== 'undefined' ? localStorage.getItem('cn_user') : null;
-  const cnSessionCookie = typeof window !== 'undefined' 
-    ? document.cookie
-        .split(';')
-        .find((c) => c.trim().startsWith('cn_session=') || c.trim().startsWith('cn_session_cross='))
-    : null;
-  const hasAuthData = !!(cnUserData || cnSessionCookie);
+  const hasAuthData = !!cnUserData;
   
   if (loading || (!user && hasAuthData)) {
     return (

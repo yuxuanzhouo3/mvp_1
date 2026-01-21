@@ -8,8 +8,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthService } from '@/lib/services/auth';
+import { getAuthServiceAsync } from '@/lib/services/auth';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { getExternalRequestOrigin } from '@/lib/http/request-origin';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const authService = getAuthService();
+    const authService = await getAuthServiceAsync();
     const isCN = isChinaDeployment();
 
     // 验证提供商是否可用
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
     // 发起 OAuth 登录
     const result = await authService.signInWithOAuth(
       provider,
-      redirectUrl || `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`
+      redirectUrl || `${getExternalRequestOrigin(request)}/auth/callback`
     );
 
     if (!result.success) {
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
 
 // 获取可用的 OAuth 提供商
 export async function GET() {
-  const authService = getAuthService();
+  const authService = await getAuthServiceAsync();
   const isCN = isChinaDeployment();
 
   const providers = authService.getAvailableOAuthProviders();

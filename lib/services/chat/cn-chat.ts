@@ -181,6 +181,8 @@ function convertEasemobMessage(msg: any, roomId: string): ChatMessage {
   let type: ChatMessage['type'] = 'text';
   let metadata: ChatMessage['metadata'] = {};
 
+  const ext = msg?.ext || msg?.body?.ext || msg?.payload?.ext || msg?.customExts || {};
+
   // 环信历史消息的 type 可能是数字或字符串
   const msgType = msg.type || msg.contentsType;
 
@@ -195,7 +197,7 @@ function convertEasemobMessage(msg: any, roomId: string): ChatMessage {
       content = '[图片]';
       type = 'image';
       // 优先使用扩展字段中的 Cloudbase URL
-      const cloudbaseImgUrl = msg.ext?.cloudbaseUrl;
+      const cloudbaseImgUrl = ext?.cloudbaseUrl;
       metadata = {
         imageUrl: cloudbaseImgUrl || msg.url || msg.body?.url || msg.thumb || msg.body?.thumb,
         thumbnailUrl: cloudbaseImgUrl || msg.thumb || msg.body?.thumb || msg.url || msg.body?.url,
@@ -208,19 +210,22 @@ function convertEasemobMessage(msg: any, roomId: string): ChatMessage {
       content = '[语音]';
       type = 'audio';
       // 优先使用扩展字段中的 Cloudbase URL
-      const cloudbaseAudioUrl = msg.ext?.cloudbaseUrl;
+      const cloudbaseAudioUrl = ext?.cloudbaseUrl;
       metadata = {
         audioUrl: cloudbaseAudioUrl || msg.url || msg.body?.url,
-        duration: msg.ext?.duration || msg.length || msg.body?.length,
+        duration: ext?.duration || msg.length || msg.body?.length,
       };
       break;
     case 'video':
     case 'VIDEO':
       content = '[视频]';
       type = 'video';
+      const cloudbaseVideoUrl = ext?.cloudbaseUrl;
       metadata = {
-        videoUrl: msg.url || msg.body?.url,
+        videoUrl: cloudbaseVideoUrl || msg.url || msg.body?.url,
         thumbnailUrl: msg.thumb || msg.body?.thumb,
+        cloudbaseFileId: ext?.cloudbaseFileId,
+        cloudbasePath: ext?.cloudbasePath,
       };
       break;
     case 'loc':
@@ -308,7 +313,10 @@ export class CnChatService implements IChatService {
       });
 
       if (!tokenResponse.ok) {
-        throw new Error('Failed to get Easemob token');
+        const errorText = await tokenResponse.text().catch(() => '');
+        throw new Error(
+          `Failed to get Easemob token (status ${tokenResponse.status})${errorText ? `: ${errorText}` : ''}`
+        );
       }
 
       const { accessToken } = await tokenResponse.json();
@@ -628,6 +636,21 @@ export class CnChatService implements IChatService {
             url: request.metadata?.audioUrl,
             length: request.metadata?.duration,
             ext: { cloudbaseUrl: request.metadata?.audioUrl, duration: request.metadata?.duration },
+          });
+          break;
+        case 'video':
+          msg = sdk.message.create({
+            type: 'video',
+            chatType: 'singleChat',
+            to: request.roomId,
+            url: request.metadata?.videoUrl,
+            length: request.metadata?.duration,
+            ext: {
+              cloudbaseUrl: request.metadata?.videoUrl,
+              cloudbaseFileId: request.metadata?.cloudbaseFileId,
+              cloudbasePath: request.metadata?.cloudbasePath,
+              duration: request.metadata?.duration,
+            },
           });
           break;
         case 'location':

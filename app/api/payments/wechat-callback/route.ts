@@ -8,6 +8,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { finalizeCnPayment } from '@/lib/payment/cn-payment-finalize';
+import { buildPaymentRequestContext, recordPaymentEvent } from '@/lib/observability/payment-events';
 
 export async function POST(request: NextRequest) {
   // 仅在 CN 环境可用
@@ -18,6 +20,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const ctx = buildPaymentRequestContext(request);
   try {
     const body = await request.text();
 
@@ -28,12 +31,28 @@ export async function POST(request: NextRequest) {
     const serial = request.headers.get('Wechatpay-Serial');
 
     if (!timestamp || !nonce || !signature) {
+      await recordPaymentEvent(ctx, {
+        event: 'CALLBACK_REJECTED',
+        level: 'warn',
+        paymentId: 'unknown',
+        provider: 'wechat',
+        errorCode: 'MISSING_SIGNATURE_HEADERS',
+        metadata: { serial },
+      });
       console.error('[WeChat Pay Callback] Missing signature headers');
       return NextResponse.json(
         { code: 'FAIL', message: '缺少签名信息' },
         { status: 400 }
       );
     }
+
+    await recordPaymentEvent(ctx, {
+      event: 'CALLBACK_RECEIVED',
+      level: 'info',
+      paymentId: 'unknown',
+      provider: 'wechat',
+      metadata: { serial },
+    });
 
     console.log('[WeChat Pay V3 Callback] Received notification, serial:', serial);
 
@@ -46,6 +65,13 @@ export async function POST(request: NextRequest) {
     );
 
     if (!signatureVerified) {
+      await recordPaymentEvent(ctx, {
+        event: 'SIGNATURE_VERIFY_FAILED',
+        level: 'warn',
+        paymentId: 'unknown',
+        provider: 'wechat',
+        metadata: { serial },
+      });
       console.error('[WeChat Pay Callback] Signature verification failed');
       return NextResponse.json(
         { code: 'FAIL', message: '签名验证失败' },
@@ -53,12 +79,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    await recordPaymentEvent(ctx, {
+      event: 'SIGNATURE_VERIFIED',
+      level: 'info',
+      paymentId: 'unknown',
+      provider: 'wechat',
+      metadata: { serial },
+    });
+
     // 解析通知数据
     const notification = JSON.parse(body);
     
     // V3 通知内容是加密的，需要解密
     const { resource } = notification;
     if (!resource) {
+      await recordPaymentEvent(ctx, {
+        event: 'CALLBACK_REJECTED',
+        level: 'warn',
+        paymentId: 'unknown',
+        provider: 'wechat',
+        errorCode: 'MISSING_RESOURCE',
+      });
       console.error('[WeChat Pay Callback] Missing resource in notification');
       return NextResponse.json(
         { code: 'FAIL', message: '无效的通知数据' },
@@ -70,12 +111,29 @@ export async function POST(request: NextRequest) {
     const decrypted = await decryptResource(resource);
     
     if (!decrypted) {
+      await recordPaymentEvent(ctx, {
+        event: 'DECRYPT_FAILED',
+        level: 'error',
+        paymentId: 'unknown',
+        provider: 'wechat',
+      });
       console.error('[WeChat Pay Callback] Failed to decrypt resource');
       return NextResponse.json(
         { code: 'FAIL', message: '解密失败' },
         { status: 500 }
       );
     }
+
+    const paymentId = decrypted.out_trade_no;
+    await recordPaymentEvent(ctx, {
+      event: 'PAYLOAD_DECRYPTED',
+      level: 'info',
+      paymentId: paymentId || 'unknown',
+      provider: 'wechat',
+      providerOrderId: decrypted.transaction_id,
+      status: decrypted.trade_state,
+      receivedAmountCents: decrypted.amount?.total,
+    });
 
     console.log('[WeChat Pay V3 Callback] Decrypted data:', {
       trade_state: decrypted.trade_state,
@@ -84,24 +142,65 @@ export async function POST(request: NextRequest) {
 
     // 处理支付结果
     if (decrypted.trade_state === 'SUCCESS') {
-      // 支付成功，更新订单状态
-      await updatePaymentStatus(decrypted.out_trade_no, 'completed', {
-        transaction_id: decrypted.transaction_id,
-        paid_at: decrypted.success_time,
-        payer_openid: decrypted.payer?.openid,
+      const result = await finalizeCnPayment({
+        paymentId,
+        newStatus: 'completed',
+        provider: 'wechat',
+        providerOrderId: decrypted.transaction_id,
+        providerAmountCents: decrypted.amount?.total,
+        paidAt: decrypted.success_time,
+        metadata: {
+          transaction_id: decrypted.transaction_id,
+          paid_at: decrypted.success_time,
+          payer_openid: decrypted.payer?.openid,
+          trade_state: decrypted.trade_state,
+        },
+        ctx,
       });
+
+      if (!result.ok) {
+        await recordPaymentEvent(ctx, {
+          event: 'FINALIZE_FAILED',
+          level: 'warn',
+          paymentId: paymentId || 'unknown',
+          provider: 'wechat',
+          providerOrderId: decrypted.transaction_id,
+          errorCode: result.error,
+        });
+        console.error('[WeChat Pay V3 Callback] Finalize failed:', result.error, {
+          out_trade_no: decrypted.out_trade_no,
+        });
+        return NextResponse.json(
+          { code: 'FAIL', message: '订单校验失败' },
+          { status: 400 }
+        );
+      }
 
       console.log(`[WeChat Pay V3 Callback] Payment success: ${decrypted.out_trade_no}`);
     } else if (decrypted.trade_state === 'CLOSED') {
-      // 订单关闭
-      await updatePaymentStatus(decrypted.out_trade_no, 'cancelled', {
-        transaction_id: decrypted.transaction_id,
+      await finalizeCnPayment({
+        paymentId,
+        newStatus: 'cancelled',
+        provider: 'wechat',
+        providerOrderId: decrypted.transaction_id,
+        metadata: {
+          transaction_id: decrypted.transaction_id,
+          trade_state: decrypted.trade_state,
+        },
+        ctx,
       });
     }
 
     // V3 要求返回 200 状态码和 JSON
     return NextResponse.json({ code: 'SUCCESS', message: '成功' });
   } catch (error: any) {
+    await recordPaymentEvent(ctx, {
+      event: 'CALLBACK_ERROR',
+      level: 'error',
+      paymentId: 'unknown',
+      provider: 'wechat',
+      errorMessage: error?.message || String(error),
+    });
     console.error('[WeChat Pay V3 Callback] Error:', error);
     return NextResponse.json(
       { code: 'FAIL', message: error.message || '服务器错误' },
@@ -185,52 +284,3 @@ async function verifyWeChatV3Signature(
     return false;
   }
 }
-
-/**
- * 更新支付状态
- */
-async function updatePaymentStatus(
-  orderId: string,
-  status: string,
-  metadata: Record<string, any>
-): Promise<void> {
-  try {
-    const { getServiceDbClient } = await import('@/lib/db-client');
-    const db = await getServiceDbClient();
-
-    const updateData: any = {
-      status,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (status === 'completed') {
-      updateData.completed_at = new Date().toISOString();
-    }
-
-    if (metadata) {
-      updateData.metadata = metadata;
-      if (metadata.transaction_id) {
-        updateData.provider_order_id = metadata.transaction_id;
-      }
-    }
-
-    const { error } = await db
-      .from('payments')
-      .update(updateData)
-      .eq('id', orderId);
-
-    if (error) {
-      console.error('[WeChat Pay Callback] Update status error:', error);
-      throw error;
-    }
-
-    console.log('[WeChat Pay Callback] Payment status updated:', {
-      orderId,
-      status,
-    });
-  } catch (error: any) {
-    console.error('[WeChat Pay Callback] Update payment status error:', error);
-    throw error;
-  }
-}
-

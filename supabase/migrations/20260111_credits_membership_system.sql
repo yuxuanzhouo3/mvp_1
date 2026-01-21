@@ -68,12 +68,12 @@ INSERT INTO public.membership_tiers (id, name_en, name_zh, monthly_price_usd, mo
 VALUES
     ('free', 'Free', '免费版', 0.00, 0.00, 0, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, 1,
      '["每日有限 Like", "基础匹配功能", "含广告"]'::JSONB),
-    ('basic', 'Basic', '基础版', 4.99, 35.99, 100, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, 2,
+    ('basic', 'Basic', '基础版', 3.99, 25.99, 100, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, 2,
      '["无限 Like", "每月赠送 100 积分", "去广告"]'::JSONB),
-    ('premium', 'Premium', '高级版', 9.99, 71.99, 300, TRUE, TRUE, TRUE, FALSE, FALSE, TRUE, FALSE, 3,
-     '["包含基础版所有权益", "优先匹配", "查看谁喜欢我", "每月赠送 300 积分"]'::JSONB),
-    ('vip', 'VIP', 'VIP尊享版', 19.99, 143.99, 600, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, 4,
-     '["包含高级版所有权益", "隐身模式", "修改定位", "24/7 专属客服", "每月赠送 600 积分"]'::JSONB)
+    ('premium', 'Premium', '高级版', 6.99, 45.99, 200, TRUE, TRUE, TRUE, FALSE, FALSE, TRUE, FALSE, 3,
+     '["包含基础版所有权益", "优先匹配", "查看谁喜欢我", "每月赠送 200 积分"]'::JSONB),
+    ('vip', 'VIP', 'VIP尊享版', 9.99, 69.99, 300, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, 4,
+     '["包含高级版所有权益", "隐身模式", "修改定位", "24/7 专属客服", "每月赠送 300 积分"]'::JSONB)
 ON CONFLICT (id) DO NOTHING;
 
 -- =========================================================

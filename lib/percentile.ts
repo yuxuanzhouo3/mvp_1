@@ -133,30 +133,24 @@ export async function getScoreStatistics(
   gender?: GenderEnum | null
 ): Promise<ScoreStatistics | null> {
   try {
-    const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase
-      .rpc('get_score_statistics', {
-        p_gender: gender || null
-      });
-    
-    if (error) {
-      console.error('Failed to get score statistics:', error);
+    const searchParams = new URLSearchParams();
+    if (gender) {
+      searchParams.set('gender', gender);
+    }
+    const url = `/api/score/statistics${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
       return null;
     }
-    
-    if (!data || data.length === 0) {
-      return null;
-    }
-    
-    const stats = data[0];
-    return {
-      avgScore: stats.avg_score,
-      medianScore: stats.median_score,
-      minScore: stats.min_score,
-      maxScore: stats.max_score,
-      totalUsers: stats.total_users
-    };
+
+    const stats = (await response.json()) as ScoreStatistics | null;
+    return stats;
   } catch (error) {
     console.error('Score statistics error:', error);
     return null;

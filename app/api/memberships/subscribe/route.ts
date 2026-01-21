@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { getPaymentService } from '@/lib/services/payment';
 import { createClient } from '@supabase/supabase-js';
+import { buildPaymentRequestContext, recordPaymentEvent } from '@/lib/observability/payment-events';
+import { getExternalRequestOrigin } from '@/lib/http/request-origin';
 
 // INTL 环境: 创建用于 token 验证的 anon 客户端
 function createAnonClientForAuth() {
@@ -33,13 +35,18 @@ function createAnonClientForAuth() {
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
   const authHeader = request.headers.get('authorization');
   
-  if (!authHeader) {
-    return null;
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-
   if (isChinaDeployment()) {
+    if (!authHeader) {
+      const cnSession =
+        request.cookies.get('cn_session')?.value || request.cookies.get('cn_session_cross')?.value;
+      if (cnSession) {
+        return { userId: cnSession };
+      }
+      return null;
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+
     // CN 环境: 从 token 中解析用户信息 (JWT)
     try {
       const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
@@ -51,6 +58,12 @@ async function authenticateUser(request: NextRequest): Promise<{ userId: string;
       return null;
     }
   } else {
+    if (!authHeader) {
+      return null;
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+
     // INTL 环境: 使用 Supabase 验证 token
     try {
       const anonClient = createAnonClientForAuth();
@@ -85,7 +98,7 @@ const STRIPE_PRICE_IDS: Record<string, { usd: string; cny?: string }> = {
 
 interface SubscribeRequest {
   tierId: 'basic' | 'premium' | 'vip';
-  paymentMethod: 'stripe' | 'paypal' | 'wechat' | 'alipay';
+  paymentMethod: 'stripe' | 'paypal' | 'wechat' | 'alipay' | 'alipay_wap';
   currency?: 'USD' | 'CNY';
 }
 
@@ -95,10 +108,18 @@ interface SubscribeRequest {
  */
 export async function POST(request: NextRequest) {
   try {
+    const ctx = buildPaymentRequestContext(request);
     // 验证用户身份
     const authUser = await authenticateUser(request);
     
     if (!authUser) {
+      await recordPaymentEvent(ctx, {
+        event: 'MEMBERSHIP_SUBSCRIBE_REJECTED',
+        level: 'warn',
+        paymentId: 'unknown',
+        provider: 'unknown',
+        errorCode: 'UNAUTHORIZED',
+      });
       return NextResponse.json(
         { error: 'No authorization header or invalid token' },
         { status: 401 }
@@ -108,6 +129,7 @@ export async function POST(request: NextRequest) {
     const db = await getDbClient();
     const serviceDb = await getServiceDbClient();
     const isCN = isChinaDeployment();
+    const baseOrigin = getExternalRequestOrigin(request);
 
     const body: SubscribeRequest = await request.json();
     const { tierId, paymentMethod, currency = isCN ? 'CNY' : 'USD' } = body;
@@ -121,7 +143,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate payment method for region
-    const validMethods = isCN ? ['wechat', 'alipay'] : ['stripe', 'paypal'];
+    const validMethods = isCN ? ['wechat', 'alipay', 'alipay_wap'] : ['stripe', 'paypal'];
     if (!validMethods.includes(paymentMethod)) {
       return NextResponse.json(
         { 
@@ -159,8 +181,10 @@ export async function POST(request: NextRequest) {
         authUser,
         tier,
         tierId,
-        paymentMethod as 'wechat' | 'alipay',
-        serviceDb
+        paymentMethod as 'wechat' | 'alipay' | 'alipay_wap',
+        baseOrigin,
+        serviceDb,
+        ctx
       );
     }
 
@@ -197,8 +221,10 @@ async function handleCNSubscription(
   user: { userId: string; email?: string },
   tier: any,
   tierId: string,
-  method: 'wechat' | 'alipay',
-  db: any
+  method: 'wechat' | 'alipay' | 'alipay_wap',
+  baseOrigin: string,
+  db: any,
+  ctx: ReturnType<typeof buildPaymentRequestContext>
 ) {
   try {
     const paymentService = getPaymentService();
@@ -209,44 +235,50 @@ async function handleCNSubscription(
       amount: tier.monthly_price_cny,
       currency: 'CNY',
       credits: tier.monthly_credits,
-      method: (method === 'wechat' ? 'wechat_native' : 'alipay_face') as any,
+      method: method as any,
       packageId: `membership_${tierId}`,
-      returnUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/payment/success?type=membership&tier=${tierId}`,
-      cancelUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/payment/cancel`,
+      returnUrl: `${baseOrigin}/payment/success?type=membership&tier=${tierId}`,
+      cancelUrl: `${baseOrigin}/payment/cancel`,
       metadata: {
         type: 'membership',
         tier_id: tierId,
         userEmail: user.email,
+        origin: baseOrigin,
       },
     });
 
     if (!result.success) {
+      await recordPaymentEvent(ctx, {
+        event: 'MEMBERSHIP_PAYMENT_CREATE_FAILED',
+        level: 'error',
+        paymentId: result.paymentId || 'unknown',
+        userId: user.userId,
+        provider: method === 'alipay_wap' ? 'alipay' : method,
+        errorCode: result.errorCode,
+        errorMessage: result.error,
+        metadata: { tierId, amount: tier.monthly_price_cny, credits: tier.monthly_credits },
+      });
       return NextResponse.json(
         { error: result.error || '创建支付订单失败' },
         { status: 500 }
       );
     }
 
-    // 创建支付记录
-    await db
-      .from('payments')
-      .insert({
-        user_id: user.userId,
-        amount: tier.monthly_price_cny,
-        currency: 'CNY',
-        credits: tier.monthly_credits,
-        payment_method: method,
-        status: 'pending',
-        metadata: {
-          type: 'membership',
-          tier_id: tierId,
-        },
-      });
+    await recordPaymentEvent(ctx, {
+      event: 'MEMBERSHIP_PAYMENT_CREATED',
+      level: 'info',
+      paymentId: result.paymentId || 'unknown',
+      userId: user.userId,
+      provider: method === 'alipay_wap' ? 'alipay' : method,
+      status: 'pending',
+      metadata: { tierId, amount: tier.monthly_price_cny, credits: tier.monthly_credits },
+    });
 
     return NextResponse.json({
       success: true,
       data: {
         paymentId: result.paymentId,
+        redirectUrl: result.redirectUrl,
         qrCodeUrl: result.qrCodeUrl,
         qrCodeBase64: result.qrCodeBase64,
         tier: tierId,

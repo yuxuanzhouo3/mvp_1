@@ -74,7 +74,7 @@ export default function ChatRoomPage() {
   const { user } = useAuth();
   const { language } = useLanguage();
   const { toast } = useToast();
-  const roomId = params.roomId as string;
+  const roomId = typeof params?.roomId === 'string' ? params.roomId : '';
 
   const [mounted, setMounted] = useState(false);
   const [chatUser, setChatUser] = useState<ChatUser | null>(null);

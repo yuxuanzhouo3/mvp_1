@@ -112,6 +112,7 @@ interface PaymentMonitorProps {
   amount: number;
   paymentAddress?: string;
   qrCodeUrl?: string;
+  qrCodeBase64?: string;
   account?: string;
   network?: string;
   onPaymentVerified?: () => void;
@@ -128,6 +129,7 @@ export default function PaymentMonitor({
   amount,
   paymentAddress,
   qrCodeUrl,
+  qrCodeBase64,
   account,
   network,
   onPaymentVerified
@@ -141,6 +143,9 @@ export default function PaymentMonitor({
   const [transactionId, setTransactionId] = useState('');
   const [fromAddress, setFromAddress] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  const qrImageSrc =
+    qrCodeBase64 ||
+    (qrCodeUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrCodeUrl)}` : undefined);
 
   useEffect(() => {
     checkPaymentStatus();
@@ -352,22 +357,42 @@ export default function PaymentMonitor({
             </div>
           )}
 
-          {(paymentMethod === 'alipay' || paymentMethod === 'wechat') && qrCodeUrl && (
+          {(paymentMethod === 'alipay' || paymentMethod === 'wechat') && (qrCodeBase64 || qrCodeUrl) && (
             <div className="space-y-4">
               <div>
                 <Label className="text-sm font-medium">
                   {paymentMethod === 'wechat' ? t.wechatQrCode : t.alipayQrCode}
                 </Label>
                 <div className="mt-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={qrCodeUrl}
-                    alt={paymentMethod === 'wechat' ? 'WeChat Pay QR Code' : 'Alipay QR Code'}
-                    className="border rounded-lg"
-                    style={{ maxWidth: '200px' }}
-                  />
+                  {qrImageSrc && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={qrImageSrc}
+                      alt={paymentMethod === 'wechat' ? 'WeChat Pay QR Code' : 'Alipay QR Code'}
+                      className="border rounded-lg"
+                      style={{ maxWidth: '200px' }}
+                    />
+                  )}
                 </div>
               </div>
+
+              {qrCodeUrl && (
+                <div>
+                  <Label className="text-sm font-medium">
+                    {language === 'zh' ? '支付链接' : 'Payment Link'}
+                  </Label>
+                  <div className="flex items-center space-x-2 mt-1">
+                    <Input value={qrCodeUrl} readOnly className="font-mono text-sm" />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(qrCodeUrl, language === 'zh' ? '支付链接' : 'Payment Link')}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {account && (
                 <div>

@@ -19,6 +19,23 @@ const EASEMOB_CLIENT_SECRET = process.env.EASEMOB_CLIENT_SECRET || '';
 let adminToken: string | null = null;
 let tokenExpiresAt: number = 0;
 
+function parseEasemobAppKey(appKey: string): { orgName: string; appName: string } | null {
+  const [orgName, appName] = appKey.split('#');
+  if (!orgName || !appName) return null;
+  return { orgName, appName };
+}
+
+function validateEasemobConfigConsistency(): void {
+  const publicAppKey = process.env.NEXT_PUBLIC_EASEMOB_APP_KEY || '';
+  const parsed = publicAppKey ? parseEasemobAppKey(publicAppKey) : null;
+  if (!parsed) return;
+  if (parsed.orgName !== EASEMOB_ORG_NAME || parsed.appName !== EASEMOB_APP_NAME) {
+    throw new Error(
+      `Easemob config mismatch: NEXT_PUBLIC_EASEMOB_APP_KEY expects ${parsed.orgName}/${parsed.appName}, but server is configured for ${EASEMOB_ORG_NAME}/${EASEMOB_APP_NAME}`
+    );
+  }
+}
+
 /**
  * 获取管理员 Token
  */
@@ -43,7 +60,9 @@ async function getAdminToken(): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error('Failed to get Easemob admin token');
+    const error = await response.text().catch(() => '');
+    console.error('[Easemob] Get admin token failed:', response.status, error);
+    throw new Error(`Failed to get Easemob admin token (status ${response.status})`);
   }
 
   const data = await response.json();
@@ -76,8 +95,8 @@ async function getUserToken(userId: string): Promise<{ accessToken: string; expi
 
   if (!response.ok) {
     const error = await response.text();
-    console.error('[Easemob] Get user token failed:', error);
-    throw new Error('Failed to get Easemob user token');
+    console.error('[Easemob] Get user token failed:', response.status, error);
+    throw new Error(`Failed to get Easemob user token (status ${response.status})`);
   }
 
   const data = await response.json();
@@ -97,23 +116,35 @@ async function ensureUserExists(userId: string, username?: string): Promise<void
   // 尝试创建用户，如果已存在会返回错误，忽略即可
   const url = `${EASEMOB_API_BASE}/${EASEMOB_ORG_NAME}/${EASEMOB_APP_NAME}/users`;
   
-  try {
-    await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${adminAccessToken}`,
-      },
-      body: JSON.stringify({
-        username: userId,
-        password: `user_${userId}_pwd`, // 使用固定密码格式
-        nickname: username || userId,
-      }),
-    });
-  } catch (error) {
-    // 忽略用户已存在的错误
-    console.log('[Easemob] User may already exist:', userId);
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminAccessToken}`,
+    },
+    body: JSON.stringify({
+      username: userId,
+      password: `user_${userId}_pwd`,
+      nickname: username || userId,
+    }),
+  });
+
+  if (response.ok) {
+    return;
   }
+
+  const errorText = await response.text().catch(() => '');
+  const mayAlreadyExist =
+    response.status === 409 ||
+    /duplicate|already exists|exist/i.test(errorText) ||
+    /duplicate_unique_property_exists/i.test(errorText);
+
+  if (mayAlreadyExist) {
+    return;
+  }
+
+  console.error('[Easemob] Create user failed:', response.status, errorText);
+  throw new Error(`Failed to ensure Easemob user exists (status ${response.status})`);
 }
 
 /**
@@ -185,6 +216,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    validateEasemobConfigConsistency();
     const { userId, username } = await request.json();
 
     if (!userId) {

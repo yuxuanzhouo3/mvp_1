@@ -32,21 +32,16 @@ interface MembershipTier {
   sort_order: number;
 }
 
-// Fallback tiers if database is not yet migrated
-interface FallbackTier extends Omit<MembershipTier, 'features'> {
-  features_en: string[];
-  features_zh: string[];
-}
-
-const FALLBACK_TIERS_DATA: FallbackTier[] = [
+const DEFAULT_TIERS: MembershipTier[] = [
   {
     id: 'free',
     name_en: 'Free',
     name_zh: '免费版',
-    monthly_price_usd: 0.00,
-    monthly_price_cny: 0.00,
+    monthly_price_usd: 0,
+    monthly_price_cny: 0,
     monthly_credits: 0,
-    features_en: ['Limited daily Likes', 'Basic matching', 'Contains ads'],
+    features: ['每日有限 Like', '基础匹配功能', '含广告'],
+    features_en: ['Daily limited likes', 'Basic matching', 'Includes ads'],
     features_zh: ['每日有限 Like', '基础匹配功能', '含广告'],
     unlimited_likes: false,
     can_see_who_likes_me: false,
@@ -61,10 +56,11 @@ const FALLBACK_TIERS_DATA: FallbackTier[] = [
     id: 'basic',
     name_en: 'Basic',
     name_zh: '基础版',
-    monthly_price_usd: 4.99,
-    monthly_price_cny: 35.99,
+    monthly_price_usd: 3.99,
+    monthly_price_cny: 25.99,
     monthly_credits: 100,
-    features_en: ['Unlimited Likes', '100 credits/month', 'No ads'],
+    features: ['无限 Like', '每月赠送 100 积分', '去广告'],
+    features_en: ['Unlimited likes', '100 monthly credits', 'No ads'],
     features_zh: ['无限 Like', '每月赠送 100 积分', '去广告'],
     unlimited_likes: true,
     can_see_who_likes_me: false,
@@ -79,11 +75,17 @@ const FALLBACK_TIERS_DATA: FallbackTier[] = [
     id: 'premium',
     name_en: 'Premium',
     name_zh: '高级版',
-    monthly_price_usd: 9.99,
-    monthly_price_cny: 71.99,
-    monthly_credits: 300,
-    features_en: ['All Basic benefits', 'Priority matching', 'See who likes me', '300 credits/month'],
-    features_zh: ['包含基础版所有权益', '优先匹配', '查看谁喜欢我', '每月赠送 300 积分'],
+    monthly_price_usd: 6.99,
+    monthly_price_cny: 45.99,
+    monthly_credits: 200,
+    features: ['包含基础版所有权益', '优先匹配', '查看谁喜欢我', '每月赠送 200 积分'],
+    features_en: [
+      'All Basic benefits',
+      'Priority matching',
+      'See who likes you',
+      '200 monthly credits',
+    ],
+    features_zh: ['包含基础版所有权益', '优先匹配', '查看谁喜欢我', '每月赠送 200 积分'],
     unlimited_likes: true,
     can_see_who_likes_me: true,
     priority_matching: true,
@@ -97,11 +99,18 @@ const FALLBACK_TIERS_DATA: FallbackTier[] = [
     id: 'vip',
     name_en: 'VIP',
     name_zh: 'VIP尊享版',
-    monthly_price_usd: 19.99,
-    monthly_price_cny: 143.99,
-    monthly_credits: 600,
-    features_en: ['All Premium benefits', 'Invisible mode', 'Change location', '24/7 VIP support', '600 credits/month'],
-    features_zh: ['包含高级版所有权益', '隐身模式', '修改定位', '24/7 专属客服', '每月赠送 600 积分'],
+    monthly_price_usd: 9.99,
+    monthly_price_cny: 69.99,
+    monthly_credits: 300,
+    features: ['包含高级版所有权益', '隐身模式', '修改定位', '24/7 专属客服', '每月赠送 300 积分'],
+    features_en: [
+      'All Premium benefits',
+      'Invisible mode',
+      'Change location',
+      '24/7 VIP support',
+      '300 monthly credits',
+    ],
+    features_zh: ['包含高级版所有权益', '隐身模式', '修改定位', '24/7 专属客服', '每月赠送 300 积分'],
     unlimited_likes: true,
     can_see_who_likes_me: true,
     priority_matching: true,
@@ -136,10 +145,11 @@ export async function GET(request: NextRequest) {
 
     // Use fallback if database query fails or returns empty
     const useFallback = error || !tiers || tiers.length === 0;
+    const fallbackTiers = useFallback ? DEFAULT_TIERS : null;
 
     // Format tiers based on currency preference
     const formattedTiers = useFallback
-      ? FALLBACK_TIERS_DATA.map((tier) => ({
+      ? (fallbackTiers || []).map((tier) => ({
           id: tier.id,
           name: isChineseLocale ? tier.name_zh : tier.name_en,
           nameEn: tier.name_en,
@@ -148,7 +158,9 @@ export async function GET(request: NextRequest) {
           monthlyPriceUsd: tier.monthly_price_usd,
           monthlyPriceCny: tier.monthly_price_cny,
           monthlyCredits: tier.monthly_credits,
-          features: isChineseLocale ? tier.features_zh : tier.features_en,
+          features: isChineseLocale
+            ? (tier.features_zh && tier.features_zh.length > 0 ? tier.features_zh : tier.features)
+            : (tier.features_en && tier.features_en.length > 0 ? tier.features_en : tier.features),
           benefits: {
             unlimitedLikes: tier.unlimited_likes,
             canSeeWhoLikesMe: tier.can_see_who_likes_me,

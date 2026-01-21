@@ -55,7 +55,7 @@ async function uploadToStorage(
   buffer: Buffer,
   fileType: string,
   chatId: string
-): Promise<{ url: string; path: string } | null> {
+): Promise<{ url: string; path: string; fileId?: string } | null> {
   const fileExt = fileType.includes('mp4') ? 'mp4' : fileType.includes('webm') ? 'webm' : 'mov';
   const safeName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
   const filePath = `chat-video/${chatId}/${userId}/${safeName}`;
@@ -77,12 +77,13 @@ async function uploadToStorage(
         fileContent: buffer
       });
 
+      const fileId = uploadResult.fileID || `cloud://${envId}.${filePath}`;
       const urlResult = await app.getTempFileURL({
-        fileList: [uploadResult.fileID || `cloud://${envId}.${filePath}`]
+        fileList: [fileId]
       });
 
       const url = urlResult.fileList?.[0]?.tempFileURL || `https://${envId}.tcb.qcloud.la/${filePath}`;
-      return { url, path: filePath };
+      return { url, path: filePath, fileId };
     } catch (error) {
       console.error('[CN Storage] Video upload error:', error);
       return null;
@@ -144,6 +145,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       video_url: uploadResult.url,
+      file_id: uploadResult.fileId,
+      file_path: uploadResult.path,
       duration,
       file_type: video.type,
       file_size: video.size

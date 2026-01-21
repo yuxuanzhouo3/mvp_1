@@ -39,6 +39,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+function tryParseCloudbaseFilePathFromUrl(input?: string | null): string | null {
+  if (!input) return null;
+  try {
+    const url = new URL(input);
+    const host = url.hostname || '';
+    if (!host.includes('tcb.qcloud.la')) return null;
+    const pathname = url.pathname || '';
+    const trimmed = pathname.replace(/^\/+/, '');
+    return trimmed || null;
+  } catch {
+    return null;
+  }
+}
+
 export default function CnChatPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,6 +64,8 @@ export default function CnChatPage() {
   const [rooms, setRooms] = useState<ChatRoomWithUser[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoomWithUser | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [resolvedVideoUrls, setResolvedVideoUrls] = useState<Record<string, string>>({});
+  const [videoLoadFailures, setVideoLoadFailures] = useState<Record<string, boolean>>({});
   const [loadingRooms, setLoadingRooms] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,6 +92,60 @@ export default function CnChatPage() {
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const recordingDurationRef = useRef<number>(0);
   const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
+  const videoRefreshInFlightRef = useRef<Set<string>>(new Set());
+
+  const prevUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const current = user?.id || null;
+    if (prevUserIdRef.current !== current) {
+      prevUserIdRef.current = current;
+      setResolvedVideoUrls({});
+      setVideoLoadFailures({});
+    }
+  }, [user?.id]);
+
+  const refreshVideoUrl = useCallback(async (message: ChatMessage) => {
+    if (!user?.id) return false;
+    if (!message?.id) return false;
+    if (videoRefreshInFlightRef.current.has(message.id)) return false;
+
+    const fileId = (message.metadata as any)?.cloudbaseFileId as string | undefined;
+    const filePath =
+      ((message.metadata as any)?.cloudbasePath as string | undefined) ||
+      tryParseCloudbaseFilePathFromUrl((message.metadata as any)?.videoUrl as string | undefined);
+
+    if (!fileId && !filePath) return false;
+
+    videoRefreshInFlightRef.current.add(message.id);
+    try {
+      const params = new URLSearchParams();
+      if (fileId) params.set('fileId', fileId);
+      if (filePath) params.set('filePath', filePath);
+
+      const response = await fetch(`/api/chat/cloudbase-file-url?${params.toString()}`, {
+        cache: 'no-store',
+        headers: { Authorization: `Bearer cn_${user.id}` },
+      });
+      if (!response.ok) return false;
+      const data = await response.json();
+      if (data?.success && data?.url) {
+        setResolvedVideoUrls((prev) => ({ ...prev, [message.id]: data.url }));
+        setVideoLoadFailures((prev) => {
+          if (!prev[message.id]) return prev;
+          const next = { ...prev };
+          delete next[message.id];
+          return next;
+        });
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    } finally {
+      videoRefreshInFlightRef.current.delete(message.id);
+    }
+  }, [user?.id]);
 
   // 初始化聊天服务
   const initChatService = useCallback(async () => {
@@ -106,7 +176,7 @@ export default function CnChatPage() {
       });
 
       // 检查URL参数是否有指定的会话
-      const roomId = searchParams.get('room');
+      const roomId = searchParams?.get('room');
       if (roomId) {
         const room = roomList.find(r => r.id === roomId || r.otherUser?.id === roomId);
         if (room) {
@@ -118,6 +188,31 @@ export default function CnChatPage() {
       setLoadingRooms(false);
     }
   }, [user?.id, searchParams]);
+
+  useEffect(() => {
+    const resolveUrls = async () => {
+      if (!user?.id) return;
+
+      const pending = messages.filter(
+        (m) =>
+          m?.type === 'video' &&
+          (
+            (m?.metadata as any)?.cloudbaseFileId ||
+            (m?.metadata as any)?.cloudbasePath ||
+            tryParseCloudbaseFilePathFromUrl((m?.metadata as any)?.videoUrl)
+          ) &&
+          !resolvedVideoUrls[m.id]
+      );
+
+      if (pending.length === 0) return;
+
+      await Promise.all(
+        pending.map(async (m) => refreshVideoUrl(m))
+      );
+    };
+
+    resolveUrls();
+  }, [messages, refreshVideoUrl, resolvedVideoUrls, user?.id]);
 
   // 选择会话
   const handleSelectRoom = async (room: ChatRoomWithUser) => {
@@ -292,8 +387,8 @@ export default function CnChatPage() {
         );
 
       case 'video':
-        const videoUrl = message.metadata?.videoUrl;
-        if (!videoUrl) {
+        const videoUrl = resolvedVideoUrls[message.id] || message.metadata?.videoUrl;
+        if (!videoUrl || videoLoadFailures[message.id]) {
           return <p className="text-sm text-gray-400">[视频加载失败]</p>;
         }
         return (
@@ -302,9 +397,11 @@ export default function CnChatPage() {
               src={videoUrl}
               controls
               className="rounded-lg max-h-64 w-full"
-              onError={(e) => {
-                (e.target as HTMLVideoElement).style.display = 'none';
-                (e.target as HTMLVideoElement).parentElement!.innerHTML = '<p class="text-sm text-gray-400">[视频加载失败]</p>';
+              onError={async () => {
+                const ok = await refreshVideoUrl(message);
+                if (!ok) {
+                  setVideoLoadFailures((prev) => ({ ...prev, [message.id]: true }));
+                }
               }}
             />
           </div>
@@ -359,10 +456,10 @@ export default function CnChatPage() {
   if (!mounted) return null;
 
   return (
-    <div className="h-full flex bg-gray-100 dark:bg-gray-900">
+    <div className="h-full min-h-0 flex bg-gray-100 dark:bg-gray-900">
       {/* 左侧会话列表 */}
       <div className={cn(
-        "w-full md:w-80 lg:w-96 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col",
+        "w-full md:w-80 lg:w-96 min-h-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col",
         !showMobileList && "hidden md:flex"
       )}>
         {/* 头部 */}
@@ -460,13 +557,13 @@ export default function CnChatPage() {
 
       {/* 右侧聊天区域 */}
       <div className={cn(
-        "flex-1 flex flex-col bg-gray-50 dark:bg-gray-900",
+        "flex-1 min-h-0 flex flex-col bg-gray-50 dark:bg-gray-900",
         showMobileList && "hidden md:flex"
       )}>
         {selectedRoom ? (
-          <div className="flex-1 flex">
+          <div className="flex-1 min-h-0 flex">
             {/* 聊天主区域 */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
             {/* 聊天头部 */}
             <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -547,7 +644,7 @@ export default function CnChatPage() {
             </div>
 
             {/* 消息区域 */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               {showSearchMessages && (
                 <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 pb-3">
                   <div className="relative">
@@ -716,7 +813,11 @@ export default function CnChatPage() {
                         roomId,
                         content: '[视频]',
                         type: 'video',
-                        metadata: { videoUrl: result.video_url },
+                        metadata: {
+                          videoUrl: result.video_url,
+                          cloudbaseFileId: result.file_id,
+                          cloudbasePath: result.file_path,
+                        },
                       });
                       if (sendResult.success && sendResult.message) {
                         setMessages(prev => [...prev, sendResult.message!]);

@@ -55,7 +55,7 @@ export default function ChatDetailPage() {
   const [mounted, setMounted] = useState(false);
   const { language } = useLanguage();
   const t = useTranslations(language);
-  const chatId = params.chatId as string;
+  const chatId = typeof params?.chatId === 'string' ? params.chatId : '';
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [chatUser, setChatUser] = useState<ChatUser | null>(null);

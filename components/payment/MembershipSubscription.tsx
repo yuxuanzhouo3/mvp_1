@@ -8,7 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
-import { getSupabaseClient } from '@/lib/supabase/client';
+import { useAuth } from '@/app/providers/AuthProvider';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
+import PaymentMonitor from './PaymentMonitor';
 import {
   Crown,
   Star,
@@ -27,6 +29,7 @@ import {
   Wallet,
   Bitcoin,
   DollarSign,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface MembershipTier {
@@ -72,6 +75,8 @@ export default function MembershipSubscription() {
   const router = useRouter();
   const { language } = useLanguage();
   const t = useTranslations(language);
+  const { user, session } = useAuth();
+  const isCN = isChinaDeployment();
 
   const [tiers, setTiers] = useState<MembershipTier[]>([]);
   const [currentMembership, setCurrentMembership] = useState<CurrentMembership | null>(null);
@@ -80,44 +85,70 @@ export default function MembershipSubscription() {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [paymentData, setPaymentData] = useState<{
+    paymentId: string;
+    paymentMethod: 'wechat' | 'alipay';
+    amount: number;
+    qrCodeUrl?: string;
+    qrCodeBase64?: string;
+  } | null>(null);
+  const [showPaymentMonitor, setShowPaymentMonitor] = useState(false);
 
-  const currencySymbol = language === 'zh' ? '¥' : '$';
+  const currencySymbol = isCN ? '¥' : '$';
 
   // Payment methods
-  const paymentMethods: PaymentMethod[] = [
-    {
-      id: 'stripe',
-      name: language === 'zh' ? '信用卡/借记卡' : 'Credit/Debit Card',
-      icon: CreditCard,
-      description: language === 'zh' ? 'Visa, Mastercard, 银联' : 'Visa, Mastercard, UnionPay',
-      gradient: 'from-indigo-500 to-purple-500',
-    },
-    {
-      id: 'paypal',
-      name: 'PayPal',
-      icon: Wallet,
-      description: language === 'zh' ? 'PayPal 账户支付' : 'Pay with PayPal account',
-      gradient: 'from-blue-600 to-blue-800',
-    },
-  ];
+  const paymentMethods: PaymentMethod[] = isCN
+    ? [
+        {
+          id: 'wechat',
+          name: language === 'zh' ? '微信支付' : 'WeChat Pay',
+          icon: Wallet,
+          description: language === 'zh' ? '微信扫码支付' : 'Scan with WeChat',
+          gradient: 'from-green-500 to-green-600',
+        },
+        {
+          id: 'alipay',
+          name: language === 'zh' ? '支付宝' : 'Alipay',
+          icon: DollarSign,
+          description: language === 'zh' ? '支付宝扫码支付' : 'Scan with Alipay',
+          gradient: 'from-blue-500 to-blue-600',
+        },
+      ]
+    : [
+        {
+          id: 'stripe',
+          name: language === 'zh' ? '信用卡/借记卡' : 'Credit/Debit Card',
+          icon: CreditCard,
+          description: language === 'zh' ? 'Visa, Mastercard, 银联' : 'Visa, Mastercard, UnionPay',
+          gradient: 'from-indigo-500 to-purple-500',
+        },
+        {
+          id: 'paypal',
+          name: 'PayPal',
+          icon: Wallet,
+          description: language === 'zh' ? 'PayPal 账户支付' : 'Pay with PayPal account',
+          gradient: 'from-blue-600 to-blue-800',
+        },
+      ];
 
   // Fetch session token
   useEffect(() => {
-    const getToken = async () => {
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.access_token) {
-        setSessionToken(session.access_token);
-      }
-    };
-    getToken();
-  }, []);
+    if (session?.access_token) {
+      setSessionToken(session.access_token);
+      return;
+    }
+    if (user?.id) {
+      setSessionToken(`cn_${user.id}`);
+      return;
+    }
+    setSessionToken(null);
+  }, [session?.access_token, user?.id]);
 
   // Fetch tiers and current membership
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const currency = language === 'zh' ? 'CNY' : 'USD';
+        const currency = isCN ? 'CNY' : 'USD';
 
         // Fetch tiers
         const tiersResponse = await fetch(`/api/memberships/tiers?currency=${currency}`, {
@@ -128,13 +159,22 @@ export default function MembershipSubscription() {
           setTiers(tiersData.data?.tiers || []);
         }
 
-        // Fetch current membership status
-        const statusResponse = await fetch('/api/memberships/status', {
-          cache: 'no-store',
-        });
-        if (statusResponse.ok) {
-          const statusData = await statusResponse.json();
-          setCurrentMembership(statusData.data?.membership || null);
+        if (sessionToken) {
+          const statusResponse = await fetch('/api/memberships/status', {
+            cache: 'no-store',
+            credentials: 'include',
+            headers: {
+              'Authorization': `Bearer ${sessionToken}`,
+            },
+          });
+          if (statusResponse.ok) {
+            const statusData = await statusResponse.json();
+            setCurrentMembership(statusData.data?.membership || null);
+          } else {
+            setCurrentMembership(null);
+          }
+        } else {
+          setCurrentMembership(null);
         }
       } catch (error) {
         console.error('Error fetching membership data:', error);
@@ -144,7 +184,7 @@ export default function MembershipSubscription() {
     };
 
     fetchData();
-  }, [language]);
+  }, [language, isCN, sessionToken]);
 
   const handleSubscribe = async () => {
     if (!selectedTier || selectedTier.id === 'free') {
@@ -175,6 +215,10 @@ export default function MembershipSubscription() {
     setIsProcessing(true);
 
     try {
+      const isMobileDevice =
+        typeof window !== 'undefined' && /mobile|android|iphone|ipad/i.test(window.navigator.userAgent);
+      const paymentMethodToSend =
+        isCN && selectedPaymentMethod.id === 'alipay' && isMobileDevice ? 'alipay_wap' : selectedPaymentMethod.id;
       const response = await fetch('/api/memberships/subscribe', {
         method: 'POST',
         headers: {
@@ -183,17 +227,28 @@ export default function MembershipSubscription() {
         },
         body: JSON.stringify({
           tierId: selectedTier.id,
-          paymentMethod: selectedPaymentMethod.id,
-          currency: language === 'zh' ? 'CNY' : 'USD',
+          paymentMethod: paymentMethodToSend,
+          currency: isCN ? 'CNY' : 'USD',
         }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        if (data.data?.checkoutUrl) {
+        if (data.data?.redirectUrl && typeof window !== 'undefined') {
+          window.location.href = data.data.redirectUrl;
+        } else if (data.data?.checkoutUrl) {
           window.location.href = data.data.checkoutUrl;
         } else if (data.data?.approvalUrl) {
           window.location.href = data.data.approvalUrl;
+        } else if (isCN && data.data?.paymentId) {
+          setPaymentData({
+            paymentId: data.data.paymentId,
+            paymentMethod: (selectedPaymentMethod.id === 'wechat' ? 'wechat' : 'alipay') as any,
+            amount: selectedTier.monthlyPriceCny,
+            qrCodeUrl: data.data.qrCodeUrl,
+            qrCodeBase64: data.data.qrCodeBase64,
+          });
+          setShowPaymentMonitor(true);
         }
       } else {
         throw new Error('Subscription failed');
@@ -269,6 +324,37 @@ export default function MembershipSubscription() {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (showPaymentMonitor && paymentData) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setShowPaymentMonitor(false);
+              setPaymentData(null);
+            }}
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>{language === 'zh' ? '返回' : 'Back'}</span>
+          </Button>
+        </div>
+
+        <PaymentMonitor
+          paymentId={paymentData.paymentId}
+          paymentMethod={paymentData.paymentMethod}
+          amount={paymentData.amount}
+          qrCodeUrl={paymentData.qrCodeUrl}
+          qrCodeBase64={paymentData.qrCodeBase64}
+          onPaymentVerified={() => {
+            router.push('/dashboard');
+          }}
+        />
       </div>
     );
   }

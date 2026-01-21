@@ -162,8 +162,7 @@ export default function DashboardPage() {
           // 身份不匹配，清除所有认证数据并重定向到登录页
           console.log('🧹 Clearing mismatched auth data and redirecting to login...');
           localStorage.removeItem('cn_user');
-          document.cookie = 'cn_session=; path=/; max-age=0; SameSite=Lax';
-          document.cookie = 'cn_session_cross=; path=/; max-age=0; SameSite=None; Secure';
+          fetch('/api/auth/cn-logout', { method: 'POST', credentials: 'include' }).catch(() => {});
           
           toast({
             title: '身份验证异常 / Authentication Error',
@@ -253,11 +252,10 @@ export default function DashboardPage() {
       // 关键：不依赖 isChinaDeployment()，直接检查 localStorage 和 cookie
       // 这样即使环境变量配置错误也能正常工作
       const cnUserData = localStorage.getItem('cn_user');
-      const cnSessionCookie = document.cookie.split(';').find(c => c.trim().startsWith('cn_session='));
       
       // 如果 localStorage 或 cookie 存在，说明用户可能已登录，等待 AuthProvider 恢复
-      if (cnUserData || cnSessionCookie) {
-        console.log('🔄 Dashboard page: Auth data exists (cnUserData:', !!cnUserData, ', cnSessionCookie:', !!cnSessionCookie, '), waiting for AuthProvider...');
+      if (cnUserData) {
+        console.log('🔄 Dashboard page: Auth data exists (cnUserData:', !!cnUserData, '), waiting for AuthProvider...');
         // 不重定向，不清除数据，等待 AuthProvider
         return;
       }
