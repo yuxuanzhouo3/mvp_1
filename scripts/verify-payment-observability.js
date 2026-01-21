@@ -12,6 +12,13 @@ function mustInclude(name, content, needles) {
   }
 }
 
+function mustNotInclude(name, content, needles) {
+  const found = needles.filter((n) => content.includes(n));
+  if (found.length) {
+    throw new Error(`${name} must not include: ${found.join(', ')}`);
+  }
+}
+
 function main() {
   const paymentEvents = read('lib/observability/payment-events.ts');
   mustInclude('payment-events.ts', paymentEvents, [
@@ -36,7 +43,9 @@ function main() {
     'buildPaymentRequestContext',
     'recordPaymentEvent',
     "provider: 'wechat'",
+    'getWeChatPlatformPublicKeyPem',
   ]);
+  mustNotInclude('wechat-callback route', wechatCb, ['WECHAT_PAY_PUBLIC_KEY']);
 
   const alipayCb = read('app/api/payments/alipay-callback/route.ts');
   mustInclude('alipay-callback route', alipayCb, [
@@ -52,8 +61,18 @@ function main() {
     "dynamic = 'force-dynamic'",
   ]);
 
+  const verifyManual = read('app/api/payments/verify-manual/route.ts');
+  mustInclude('verify-manual route', verifyManual, ['finalizeCnPayment']);
+  mustNotInclude('verify-manual route', verifyManual, [".from('user_profiles')\n        .update"]);
+
+  const verifyRoute = read('app/api/payments/verify/route.ts');
+  mustInclude('verify route', verifyRoute, ['finalizeCnPayment']);
+  mustNotInclude('verify route', verifyRoute, [".from('user_profiles')\n        .update"]);
+
+  const statusRoute = read('app/api/payments/status/[paymentId]/route.ts');
+  mustInclude('payments status route', statusRoute, ['queryWeChatOrderStatus', 'finalizeCnPayment']);
+
   console.log('verify-payment-observability: ok');
 }
 
 main();
-

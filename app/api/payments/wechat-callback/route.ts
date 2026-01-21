@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { finalizeCnPayment } from '@/lib/payment/cn-payment-finalize';
 import { buildPaymentRequestContext, recordPaymentEvent } from '@/lib/observability/payment-events';
+import { getWeChatPlatformPublicKeyPem } from '@/lib/wechatpay/platform-certs';
 
 export async function POST(request: NextRequest) {
   // 仅在 CN 环境可用
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     const signature = request.headers.get('Wechatpay-Signature');
     const serial = request.headers.get('Wechatpay-Serial');
 
-    if (!timestamp || !nonce || !signature) {
+    if (!timestamp || !nonce || !signature || !serial) {
       await recordPaymentEvent(ctx, {
         event: 'CALLBACK_REJECTED',
         level: 'warn',
@@ -61,7 +62,8 @@ export async function POST(request: NextRequest) {
       timestamp,
       nonce,
       body,
-      signature
+      signature,
+      serial
     );
 
     if (!signatureVerified) {
@@ -231,6 +233,9 @@ async function decryptResource(resource: {
     
     // 密钥需要是 32 字节
     const key = Buffer.from(apiKey, 'utf8');
+    if (key.length !== 32) {
+      throw new Error('WECHAT_PAY_API_V3_KEY must be 32 bytes');
+    }
     const nonce = Buffer.from(resource.nonce, 'utf8');
     const ciphertext = Buffer.from(resource.ciphertext, 'base64');
     const associatedData = Buffer.from(resource.associated_data || '', 'utf8');
@@ -261,14 +266,14 @@ async function verifyWeChatV3Signature(
   timestamp: string,
   nonce: string,
   body: string,
-  signature: string
+  signature: string,
+  serial: string
 ): Promise<boolean> {
   try {
     const crypto = require('crypto');
-    const publicKey = process.env.WECHAT_PAY_PUBLIC_KEY || '';
-
-    if (!publicKey) {
-      console.error('[WeChat Pay V3] Missing public key');
+    const publicKeyPem = await getWeChatPlatformPublicKeyPem(serial);
+    if (!publicKeyPem) {
+      console.error('[WeChat Pay V3] Missing platform certificate for serial:', serial);
       return false;
     }
 
@@ -277,8 +282,7 @@ async function verifyWeChatV3Signature(
     verify.update(message);
     verify.end();
 
-    const formattedKey = publicKey.replace(/\\n/g, '\n');
-    return verify.verify(formattedKey, signature, 'base64');
+    return verify.verify(publicKeyPem, signature, 'base64');
   } catch (error) {
     console.error('[WeChat Pay V3] Signature verification error:', error);
     return false;

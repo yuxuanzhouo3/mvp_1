@@ -300,18 +300,36 @@ export async function finalizeCnPayment(params: {
   }
 
   if (newStatus === 'completed' && payment.status === 'completed') {
+    const alreadyFulfilled =
+      Boolean(payment.metadata?.fulfilled_at || payment.metadata?.fulfilled === true) ||
+      (await hasFulfilledByTransaction(db, paymentId));
+
+    if (alreadyFulfilled) {
+      await recordPaymentEvent(requestContext, {
+        event: 'FINALIZE_IDEMPOTENT',
+        level: 'info',
+        paymentId,
+        userId: payment.user_id,
+        provider,
+        status: 'completed',
+        providerOrderId,
+        idempotent: true,
+        durationMs: Date.now() - start,
+      });
+      return { ok: true as const, alreadyCompleted: true as const, alreadyFulfilled: true as const };
+    }
+
     await recordPaymentEvent(requestContext, {
-      event: 'FINALIZE_IDEMPOTENT',
-      level: 'info',
+      event: 'FINALIZE_RETRY_FULFILLMENT',
+      level: 'warn',
       paymentId,
       userId: payment.user_id,
       provider,
       status: 'completed',
       providerOrderId,
-      idempotent: true,
       durationMs: Date.now() - start,
+      metadata: { reason: 'status_completed_but_not_fulfilled' },
     });
-    return { ok: true as const, alreadyCompleted: true as const };
   }
 
   if (newStatus === 'completed') {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { verifyUSDTPayment, verifyAlipayPayment } from '@/lib/payment/payment-receivers';
+import { finalizeCnPayment } from '@/lib/payment/cn-payment-finalize';
 
 interface VerifyManualRequest {
   paymentId: string;
@@ -109,7 +110,7 @@ export async function POST(request: NextRequest) {
       
       case 'wechat':
         // 微信支付：查询微信支付订单状态
-        verificationResult = await verifyWeChatPayment(db, paymentId, userId);
+        verificationResult = await verifyWeChatPayment(paymentId, userId);
         break;
       
       default:
@@ -144,7 +145,7 @@ export async function POST(request: NextRequest) {
  * 验证微信支付订单状态
  * 通过微信支付 API 查询订单状态，并更新数据库
  */
-async function verifyWeChatPayment(db: any, paymentId: string, userId: string): Promise<boolean> {
+async function verifyWeChatPayment(paymentId: string, userId: string): Promise<boolean> {
   try {
     // 获取微信支付配置
     const appId = process.env.WECHAT_PAY_APPID || '';
@@ -200,52 +201,27 @@ async function verifyWeChatPayment(db: any, paymentId: string, userId: string): 
 
     // 检查支付状态
     if (data.trade_state === 'SUCCESS') {
-      // 更新支付记录状态
-      const { error: updateError } = await db
-        .from('payments')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          metadata: {
-            wechat_transaction_id: data.transaction_id,
-            trade_state: data.trade_state,
-            verified_at: new Date().toISOString(),
-          },
-        })
-        .eq('id', paymentId)
-        .eq('user_id', userId);
+      const finalizeResult = await finalizeCnPayment({
+        paymentId,
+        newStatus: 'completed',
+        provider: 'wechat',
+        providerOrderId: data.transaction_id,
+        providerAmountCents:
+          typeof data.amount?.total === 'number' && Number.isFinite(data.amount.total)
+            ? data.amount.total
+            : undefined,
+        paidAt: data.success_time,
+        metadata: {
+          wechat_transaction_id: data.transaction_id,
+          trade_state: data.trade_state,
+          verified_at: new Date().toISOString(),
+          verification_source: 'manual',
+        },
+      });
 
-      if (updateError) {
-        console.error('[WeChat Verify] Update payment failed:', updateError);
+      if (!finalizeResult.ok) {
+        console.error('[WeChat Verify] Finalize failed:', finalizeResult.error);
         return false;
-      }
-
-      // 更新用户积分
-      const { data: payment } = await db
-        .from('payments')
-        .select('credits')
-        .eq('id', paymentId)
-        .single();
-
-      if (payment?.credits) {
-        // 获取当前积分
-        const { data: profile } = await db
-          .from('user_profiles')
-          .select('credits')
-          .eq('user_id', userId)
-          .single();
-
-        const currentCredits = profile?.credits || 0;
-        const newCredits = currentCredits + payment.credits;
-
-        // 更新积分
-        await db
-          .from('user_profiles')
-          .update({ credits: newCredits, updated_at: new Date().toISOString() })
-          .eq('user_id', userId);
-
-        console.log(`[WeChat Verify] Credits updated: ${currentCredits} + ${payment.credits} = ${newCredits}`);
       }
 
       return true;

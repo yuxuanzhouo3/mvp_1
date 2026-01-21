@@ -306,12 +306,27 @@ export class CnPaymentService implements IPaymentService {
         };
       }
 
+      const notifyUrl = this.wechatNotifyUrl || `${this.apiBaseUrl}/api/payments/wechat-callback`;
+      try {
+        if (!notifyUrl || !notifyUrl.startsWith('https://')) {
+          throw new Error('INVALID_NOTIFY_URL');
+        }
+        new URL(notifyUrl);
+      } catch {
+        console.error('[WeChat Pay V3] Invalid notify_url, callback may never arrive');
+        return {
+          success: false,
+          error: '微信支付回调地址配置错误（必须为公网可达的 https URL）',
+          errorCode: 'INVALID_NOTIFY_URL',
+        };
+      }
+
       const requestBody = {
         mchid: this.wechatMchId,
         out_trade_no: paymentRecord.id,
         appid: this.wechatPayAppId, // 与商户号关联的公众号/小程序 AppID
         description: `PersonaLink - ${request.credits}积分`,
-        notify_url: this.wechatNotifyUrl || `${this.apiBaseUrl}/api/payments/wechat-callback`,
+        notify_url: notifyUrl,
         amount: {
           total: Math.round(request.amount * 100), // 单位：分
           currency: 'CNY',
@@ -416,12 +431,27 @@ export class CnPaymentService implements IPaymentService {
         };
       }
       
+      const notifyUrl = this.wechatNotifyUrl || `${this.apiBaseUrl}/api/payments/wechat-callback`;
+      try {
+        if (!notifyUrl || !notifyUrl.startsWith('https://')) {
+          throw new Error('INVALID_NOTIFY_URL');
+        }
+        new URL(notifyUrl);
+      } catch {
+        console.error('[WeChat JSAPI V3] Invalid notify_url, callback may never arrive');
+        return {
+          success: false,
+          error: '微信支付回调地址配置错误（必须为公网可达的 https URL）',
+          errorCode: 'INVALID_NOTIFY_URL',
+        };
+      }
+
       const requestBody = {
         mchid: this.wechatMchId,
         out_trade_no: paymentRecord.id,
         appid: this.wechatPayAppId,
         description: `PersonaLink - ${request.credits}积分`,
-        notify_url: this.wechatNotifyUrl || `${this.apiBaseUrl}/api/payments/wechat-callback`,
+        notify_url: notifyUrl,
         amount: {
           total: Math.round(request.amount * 100),
           currency: 'CNY',
@@ -532,12 +562,27 @@ export class CnPaymentService implements IPaymentService {
         };
       }
       
+      const notifyUrl = this.wechatNotifyUrl || `${this.apiBaseUrl}/api/payments/wechat-callback`;
+      try {
+        if (!notifyUrl || !notifyUrl.startsWith('https://')) {
+          throw new Error('INVALID_NOTIFY_URL');
+        }
+        new URL(notifyUrl);
+      } catch {
+        console.error('[WeChat H5 V3] Invalid notify_url, callback may never arrive');
+        return {
+          success: false,
+          error: '微信支付回调地址配置错误（必须为公网可达的 https URL）',
+          errorCode: 'INVALID_NOTIFY_URL',
+        };
+      }
+
       const requestBody = {
         mchid: this.wechatMchId,
         out_trade_no: paymentRecord.id,
         appid: this.wechatPayAppId,
         description: `PersonaLink - ${request.credits}积分`,
-        notify_url: this.wechatNotifyUrl || `${this.apiBaseUrl}/api/payments/wechat-callback`,
+        notify_url: notifyUrl,
         amount: {
           total: Math.round(request.amount * 100),
           currency: 'CNY',

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import Stripe from 'stripe';
 import { getPayPalOrder } from '@/lib/payment/paypal';
+import { finalizeCnPayment } from '@/lib/payment/cn-payment-finalize';
 
 // 延迟初始化 Stripe，避免在构建时因缺少环境变量而失败
 function getStripeClient(): Stripe | null {
@@ -278,8 +279,22 @@ async function verifyCnPayment(db: any, userId: string, paymentId: string, provi
     );
   }
 
-  // 如果支付状态已经是 completed，直接返回结果
+  // 若已 completed 但未履约，尝试补偿履约（避免历史数据或异常路径导致的 completed 但未发放积分）
   if (payment.status === 'completed') {
+    const fulfilled = Boolean(payment.metadata?.fulfilled_at || payment.metadata?.fulfilled === true);
+    if (!fulfilled) {
+      await finalizeCnPayment({
+        paymentId,
+        newStatus: 'completed',
+        provider,
+        providerOrderId: payment.provider_order_id || undefined,
+        metadata: {
+          verified_at: new Date().toISOString(),
+          verification_source: 'verify_endpoint',
+        },
+      });
+    }
+
     const { data: profile } = await db
       .from('user_profiles')
       .select('credits')
@@ -294,6 +309,7 @@ async function verifyCnPayment(db: any, userId: string, paymentId: string, provi
       transactionId: paymentId,
       currentCredits: profile?.credits || 0,
       status: payment.status,
+      verified: true,
     });
   }
 
@@ -381,43 +397,27 @@ async function queryWeChatPaymentStatus(db: any, paymentId: string, userId: stri
     console.log('[WeChat Query] Result:', { paymentId, status: response.status, tradeState: data.trade_state });
 
     if (data.trade_state === 'SUCCESS') {
-      // 更新支付记录
-      await db
-        .from('payments')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          metadata: {
-            wechat_transaction_id: data.transaction_id,
-            trade_state: data.trade_state,
-            verified_at: new Date().toISOString(),
-          },
-        })
-        .eq('id', paymentId)
-        .eq('user_id', userId);
+      const finalizeResult = await finalizeCnPayment({
+        paymentId,
+        newStatus: 'completed',
+        provider: 'wechat',
+        providerOrderId: data.transaction_id,
+        providerAmountCents:
+          typeof data.amount?.total === 'number' && Number.isFinite(data.amount.total)
+            ? data.amount.total
+            : undefined,
+        paidAt: data.success_time,
+        metadata: {
+          wechat_transaction_id: data.transaction_id,
+          trade_state: data.trade_state,
+          verified_at: new Date().toISOString(),
+          verification_source: 'verify_endpoint',
+        },
+      });
 
-      // 更新用户积分
-      const { data: payment } = await db
-        .from('payments')
-        .select('credits')
-        .eq('id', paymentId)
-        .single();
-
-      if (payment?.credits) {
-        const { data: profile } = await db
-          .from('user_profiles')
-          .select('credits')
-          .eq('user_id', userId)
-          .single();
-
-        const currentCredits = profile?.credits || 0;
-        const newCredits = currentCredits + payment.credits;
-
-        await db
-          .from('user_profiles')
-          .update({ credits: newCredits, updated_at: new Date().toISOString() })
-          .eq('user_id', userId);
+      if (!finalizeResult.ok) {
+        console.error('[WeChat Query] Finalize failed:', finalizeResult.error);
+        return false;
       }
 
       return true;
