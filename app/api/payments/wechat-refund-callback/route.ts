@@ -121,7 +121,7 @@ async function decryptResource(resource: {
   nonce: string;
 }): Promise<any> {
   try {
-    const apiKey = process.env.WECHAT_PAY_API_KEY || '';
+    const apiKey = process.env.WECHAT_PAY_API_V3_KEY || '';
     
     if (resource.algorithm !== 'AEAD_AES_256_GCM') {
       throw new Error(`Unsupported algorithm: ${resource.algorithm}`);

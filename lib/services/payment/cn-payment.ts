@@ -219,19 +219,24 @@ export class CnPaymentService implements IPaymentService {
   private apiBaseUrl: string;
 
   constructor() {
-    // 微信支付 V3 配置
-    this.wechatMchId = process.env.WECHAT_PAY_MCH_ID || '';
-    this.wechatApiKey = process.env.WECHAT_PAY_API_KEY || '';
-    this.wechatCertSerialNo = process.env.WECHAT_PAY_CERT_SERIAL_NO || '';
+    // 微信支付 V3 配置（使用参考项目的环境变量命名）
+    this.wechatPayAppId = process.env.WECHAT_PAY_APPID || '';
+    this.wechatMchId = process.env.WECHAT_PAY_MCHID || '';
+    this.wechatCertSerialNo = process.env.WECHAT_PAY_SERIAL_NO || '';
+    this.wechatApiKey = process.env.WECHAT_PAY_API_V3_KEY || '';
     // 处理私钥中的换行符：支持 \n 转义、\\n 字面量、以及实际换行
     this.wechatPrivateKey = normalizePrivateKey(process.env.WECHAT_PAY_PRIVATE_KEY || '');
     this.wechatNotifyUrl = process.env.WECHAT_PAY_NOTIFY_URL || '';
-    // 支付用 AppID - 优先使用专门的支付 AppID，否则回退到通用配置
-    // 注意：微信支付需要的是与商户号关联的公众号/小程序 AppID，不是开放平台的网站应用 AppID
-    this.wechatPayAppId = 
-      process.env.WECHAT_PAY_APP_ID ||      // 专门用于支付的 AppID（推荐）
-      process.env.WECHAT_APP_ID ||          // 通用微信 AppID
-      '';
+    
+    // 打印配置检查日志（隐藏敏感信息）
+    console.log('[WeChat Pay] Config check:', {
+      appId: this.wechatPayAppId ? `${this.wechatPayAppId.slice(0, 4)}****` : 'MISSING',
+      mchId: this.wechatMchId ? `${this.wechatMchId.slice(0, 4)}****` : 'MISSING',
+      serialNo: this.wechatCertSerialNo ? `${this.wechatCertSerialNo.slice(0, 8)}****` : 'MISSING',
+      privateKey: this.wechatPrivateKey ? 'SET' : 'MISSING',
+      apiV3Key: this.wechatApiKey ? 'SET' : 'MISSING',
+    });
+    
     // 支付宝配置
     this.alipayAppId = process.env.ALIPAY_APP_ID || '';
     // 处理支付宝私钥中的换行符
@@ -293,10 +298,10 @@ export class CnPaymentService implements IPaymentService {
       
       // 检查支付 AppID 是否配置
       if (!this.wechatPayAppId) {
-        console.error('[WeChat Pay V3] Missing WECHAT_PAY_APP_ID or WECHAT_APP_ID');
+        console.error('[WeChat Pay V3] Missing WECHAT_PAY_APPID');
         return {
           success: false,
-          error: '微信支付 AppID 未配置，请设置 WECHAT_PAY_APP_ID 环境变量',
+          error: '微信支付 AppID 未配置，请设置 WECHAT_PAY_APPID 环境变量',
           errorCode: 'MISSING_APP_ID',
         };
       }
@@ -958,8 +963,9 @@ export class CnPaymentService implements IPaymentService {
   getAvailablePaymentMethods(): PaymentMethodConfig[] {
     const methods: PaymentMethodConfig[] = [];
     
-    // 检查微信支付 V3 配置
+    // 检查微信支付 V3 配置（包括 AppID）
     const hasWeChatConfig = !!(
+      this.wechatPayAppId &&
       this.wechatMchId && 
       this.wechatApiKey && 
       this.wechatCertSerialNo && 
