@@ -59,6 +59,31 @@ const CN_CREDIT_PACKAGES: CreditPackage[] = [
 ];
 
 /**
+ * 规范化私钥字符串
+ * 处理环境变量中各种形式的换行符：
+ * - \\n (字面量反斜杠n)
+ * - \n (转义的换行符)
+ * - 实际的换行符
+ * - 引号包裹的情况
+ */
+function normalizePrivateKey(key: string): string {
+  if (!key) return '';
+  
+  let normalized = key
+    // 移除首尾引号
+    .replace(/^["']|["']$/g, '')
+    // 处理字面量 \\n（在某些环境变量配置中）
+    .replace(/\\\\n/g, '\n')
+    // 处理转义的 \n
+    .replace(/\\n/g, '\n')
+    // 处理 Windows 风格换行符
+    .replace(/\r\n/g, '\n')
+    .trim();
+  
+  return normalized;
+}
+
+/**
  * 生成随机字符串
  */
 function generateNonceStr(length: number = 32): string {
@@ -197,11 +222,13 @@ export class CnPaymentService implements IPaymentService {
     this.wechatMchId = process.env.WECHAT_PAY_MCH_ID || '';
     this.wechatApiKey = process.env.WECHAT_PAY_API_KEY || '';
     this.wechatCertSerialNo = process.env.WECHAT_PAY_CERT_SERIAL_NO || '';
-    this.wechatPrivateKey = process.env.WECHAT_PAY_PRIVATE_KEY || '';
+    // 处理私钥中的换行符：支持 \n 转义、\\n 字面量、以及实际换行
+    this.wechatPrivateKey = normalizePrivateKey(process.env.WECHAT_PAY_PRIVATE_KEY || '');
     this.wechatNotifyUrl = process.env.WECHAT_PAY_NOTIFY_URL || '';
     // 支付宝配置
     this.alipayAppId = process.env.ALIPAY_APP_ID || '';
-    this.alipayPrivateKey = process.env.ALIPAY_PRIVATE_KEY || '';
+    // 处理支付宝私钥中的换行符
+    this.alipayPrivateKey = normalizePrivateKey(process.env.ALIPAY_PRIVATE_KEY || '');
     this.alipayGatewayUrl =
       process.env.ALIPAY_GATEWAY_URL ||
       process.env.ALIPAY_NOTIFY_URL ||
