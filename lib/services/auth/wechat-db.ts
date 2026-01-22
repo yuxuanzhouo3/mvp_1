@@ -82,7 +82,11 @@ export async function createWeChatUser(
 ): Promise<UserRecord> {
   const db = await getServiceDbClient();
 
+  // 生成唯一的用户ID
+  const userId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+
   const newUser = {
+    id: userId,
     display_name: wechatData.nickname || `微信用户${wechatData.openid.slice(-4)}`,
     avatar_url: wechatData.avatar,
     wechat_openid: wechatData.openid,
