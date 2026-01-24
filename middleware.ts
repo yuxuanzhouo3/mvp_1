@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { geoRouter } from "@/lib/architecture-modules/core/geo-router";
 import { RegionType } from "@/lib/architecture-modules/core/types";
+import { fingerprintToken, verifySessionToken } from "@/lib/auth/session-edge";
 
 // Routes that require authentication
 const protectedRoutes = [
@@ -72,6 +73,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const normalizeLang = (value: string | null): "zh" | "en" | null => {
+    if (!value) return null;
+    return value === "zh" || value === "en" ? value : null;
+  };
+
+  const urlLang = normalizeLang(searchParams.get("lang"));
+  if (urlLang) {
+    const redirectUrl = new URL(request.url);
+    redirectUrl.searchParams.delete("lang");
+    const redirectResponse = NextResponse.redirect(redirectUrl);
+    redirectResponse.cookies.set({
+      name: "lang",
+      value: urlLang,
+      path: "/",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+    return redirectResponse;
+  }
+
+  const cookieLang = normalizeLang(request.cookies.get("lang")?.value || null);
+  const acceptLanguage = (request.headers.get("accept-language") || "").toLowerCase();
+  const inferredLang: "zh" | "en" =
+    acceptLanguage.includes("zh") ? "zh" : isInternationalDeployment ? "en" : "zh";
+  const lang = cookieLang || inferredLang;
+
   // 跳过所有支付相关 API 路由，让它们直接通过
   if (pathname.startsWith("/api/payments/")) {
     return NextResponse.next();
@@ -83,7 +110,18 @@ export async function middleware(request: NextRequest) {
   }
 
   // Create response for potential modifications
-  let response = NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-lang", lang);
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
+  if (!cookieLang) {
+    response.cookies.set({
+      name: "lang",
+      value: lang,
+      path: "/",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  }
 
   // Authentication check for protected and auth routes
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
@@ -93,7 +131,28 @@ export async function middleware(request: NextRequest) {
     const cnSession =
       request.cookies.get("cn_session")?.value ||
       request.cookies.get("cn_session_cross")?.value;
-    const hasCnSession = !!cnSession;
+    let hasCnSession = false;
+    if (cnSession) {
+      const fp = await fingerprintToken(cnSession);
+      const verified = await verifySessionToken(cnSession);
+      if (verified.ok) {
+        hasCnSession = true;
+      } else {
+        console.warn(
+          JSON.stringify({
+            ts: new Date().toISOString(),
+            category: "Auth",
+            event: "cn_session_invalid",
+            route: pathname,
+            reason: verified.reason,
+            code: verified.code,
+            tokenFingerprint: fp,
+          })
+        );
+        response.cookies.set({ name: "cn_session", value: "", maxAge: 0, path: "/" });
+        response.cookies.set({ name: "cn_session_cross", value: "", maxAge: 0, path: "/" });
+      }
+    }
 
     let hasIntlSession = false;
     if (!hasCnSession) {

@@ -1,30 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isChinaDeployment } from '@/lib/db-client';
+import { requireUser } from '@/lib/auth/requireUser';
 
 export const dynamic = 'force-dynamic';
-
-function authenticateCnUser(request: NextRequest): string | null {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader?.startsWith('Bearer ')) {
-    const token = authHeader.substring('Bearer '.length);
-    if (token.startsWith('cn_')) {
-      const userId = token.substring(3);
-      return userId || null;
-    }
-  }
-
-  const cnSession =
-    request.cookies.get('cn_session')?.value || request.cookies.get('cn_session_cross')?.value;
-  return cnSession || null;
-}
 
 export async function GET(request: NextRequest) {
   if (!isChinaDeployment()) {
     return NextResponse.json({ success: false, error: 'Only available in CN region' }, { status: 400 });
   }
 
-  const userId = authenticateCnUser(request);
-  if (!userId) {
+  try {
+    await requireUser(request);
+  } catch {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -63,4 +50,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
-

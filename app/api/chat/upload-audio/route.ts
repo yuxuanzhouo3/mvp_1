@@ -7,6 +7,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
+import { requireUser } from '@/lib/auth/requireUser';
+import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,31 +24,11 @@ function createSupabaseAdmin() {
 }
 
 async function authenticateUser(request: NextRequest): Promise<{ userId: string } | null> {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-
-  const token = authHeader.split(' ')[1];
-
-  if (isChinaDeployment()) {
-    if (token.startsWith('cn_')) {
-      const userId = token.substring(3);
-      if (userId) return { userId };
-    }
-    try {
-      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-      return { userId: payload.sub || payload.uid };
-    } catch {
-      return null;
-    }
-  } else {
-    try {
-      const supabase = createSupabaseAdmin();
-      const { data: { user }, error } = await supabase.auth.getUser(token);
-      if (error || !user) return null;
-      return { userId: user.id };
-    } catch {
-      return null;
-    }
+  try {
+    const user = await requireUser(request);
+    return { userId: user.userId };
+  } catch {
+    return null;
   }
 }
 
@@ -110,6 +92,15 @@ export async function POST(request: NextRequest) {
     const authUser = await authenticateUser(request);
     if (!authUser) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const ip = getRequestIp(request) || 'unknown';
+    const rlIp = await rateLimit({ key: `rl:chat_upload_audio:ip:${ip}`, limit: 60, windowMs: 60_000 });
+    const rlUser = await rateLimit({ key: `rl:chat_upload_audio:user:${authUser.userId}`, limit: 20, windowMs: 60_000 });
+    if (!rlIp.allowed || !rlUser.allowed) {
+      const resetAtMs = Math.min(rlIp.resetAtMs, rlUser.resetAtMs);
+      const retryAfterSeconds = Math.max(1, Math.ceil((resetAtMs - Date.now()) / 1000));
+      return NextResponse.json({ success: false, error: 'Too Many Requests' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } });
     }
 
     const formData = await request.formData();

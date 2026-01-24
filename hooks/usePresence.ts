@@ -117,8 +117,10 @@ export function usePresence({ roomId, enabled = true }: UsePresenceOptions) {
     // 处理页面可见性变化
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        enterRoom();
-        startHeartbeat();
+        setTimeout(() => {
+          enterRoom();
+          startHeartbeat();
+        }, 0);
       } else {
         // 页面隐藏时不立即离开，让 TTL 自然过期
         stopHeartbeat();

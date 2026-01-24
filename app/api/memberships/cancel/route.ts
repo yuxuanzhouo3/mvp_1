@@ -9,65 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
-import { createClient } from '@supabase/supabase-js';
-
-// INTL 环境: 创建用于 token 验证的 anon 客户端
-function createAnonClientForAuth() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
-    throw new Error('Supabase configuration missing');
-  }
-
-  return createClient(url, key, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
-}
-
-// 从请求中验证用户身份
-async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
-  const authHeader = request.headers.get('authorization');
-  
-  if (!authHeader) {
-    return null;
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-
-  if (isChinaDeployment()) {
-    // CN 环境: 从 token 中解析用户信息 (JWT)
-    try {
-      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-      return {
-        userId: payload.sub || payload.uid,
-        email: payload.email,
-      };
-    } catch {
-      return null;
-    }
-  } else {
-    // INTL 环境: 使用 Supabase 验证 token
-    try {
-      const anonClient = createAnonClientForAuth();
-      const { data: { user }, error } = await anonClient.auth.getUser(token);
-      
-      if (error || !user) {
-        return null;
-      }
-      
-      return {
-        userId: user.id,
-        email: user.email,
-      };
-    } catch {
-      return null;
-    }
-  }
-}
+import { AuthError, jsonAuthError, requireUser } from '@/lib/auth/requireUser';
 
 /**
  * POST /api/memberships/cancel
@@ -78,18 +20,10 @@ async function authenticateUser(request: NextRequest): Promise<{ userId: string;
  */
 export async function POST(request: NextRequest) {
   try {
-    // 验证用户身份
-    const authUser = await authenticateUser(request);
-    
-    if (!authUser) {
-      return NextResponse.json(
-        { error: 'No authorization header or invalid token' },
-        { status: 401 }
-      );
-    }
+    const authUser = await requireUser(request);
 
     const db = await getDbClient();
-    const isCN = isChinaDeployment();
+    const isCN = authUser.region === 'CN' || isChinaDeployment();
 
     // Get user's current membership
     const { data: membership, error: membershipError } = await db
@@ -250,6 +184,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return jsonAuthError(error);
+    }
     console.error('Membership cancel API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

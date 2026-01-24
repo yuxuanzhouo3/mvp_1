@@ -11,3 +11,5 @@ node_modules
 /database
 .DS_Store
 docs
+.agent
+.shared

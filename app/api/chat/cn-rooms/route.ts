@@ -5,34 +5,18 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { isChinaDeployment, getServiceDbClient } from '@/lib/db-client';
+import { requireUser } from '@/lib/auth/requireUser';
 
 export async function GET(request: NextRequest) {
   if (!isChinaDeployment()) {
     return NextResponse.json({ error: 'Only available in CN region' }, { status: 400 });
   }
-
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader) {
+  let userId: string;
+  try {
+    const authUser = await requireUser(request);
+    userId = authUser.userId;
+  } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // 从 token 中获取用户 ID
-  const token = authHeader.replace('Bearer ', '');
-  let userId: string | null = null;
-
-  if (token.startsWith('cn_')) {
-    userId = token.substring(3);
-  } else {
-    try {
-      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-      userId = payload.sub || payload.uid;
-    } catch {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-  }
-
-  if (!userId) {
-    return NextResponse.json({ error: 'User ID not found' }, { status: 401 });
   }
 
   try {

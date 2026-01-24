@@ -518,9 +518,7 @@ export class CnChatService implements IChatService {
     try {
       // 通过 API 获取 CloudBase 聊天室数据，避免在客户端导入服务端模块
       const response = await fetch('/api/chat/cn-rooms', {
-        headers: {
-          'Authorization': `Bearer cn_${userId}`,
-        },
+        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -604,7 +602,6 @@ export class CnChatService implements IChatService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer cn_${this.currentUserId}`,
         },
         body: JSON.stringify({
           action: 'message',

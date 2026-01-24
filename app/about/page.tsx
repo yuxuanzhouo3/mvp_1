@@ -12,7 +12,8 @@ import {
   Award,
   Target,
   Lightbulb,
-  ArrowRight
+  ArrowRight,
+  ArrowLeft
 } from 'lucide-react';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
@@ -35,9 +36,25 @@ export default function AboutPage() {
 
   return (
     <div className="max-w-6xl mx-auto py-8 sm:py-12 px-4">
+      {/* 返回首页按钮 */}
+      <div className="mb-6">
+        <Link href="/">
+          <Button variant="ghost" className="flex items-center gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            {t.header.backToHome}
+          </Button>
+        </Link>
+      </div>
+
       {/* Hero Section */}
-      <div className="text-center mb-12 sm:mb-16">
-        <h1 className="text-3xl sm:text-5xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+      <div className="relative overflow-hidden text-center mb-12 sm:mb-16 rounded-3xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 py-10 sm:py-14 px-4">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-16 -left-16 h-72 w-72 rounded-full bg-primary/20 blur-3xl motion-safe:animate-blob motion-reduce:animate-none" />
+          <div className="absolute -bottom-20 -right-20 h-80 w-80 rounded-full bg-primary/15 blur-3xl motion-safe:animate-blob motion-safe:animation-delay-2000 motion-reduce:animate-none" />
+          <div className="absolute top-1/3 -right-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl motion-safe:animate-blob motion-safe:animation-delay-4000 motion-reduce:animate-none" />
+        </div>
+        <div className="relative z-10 motion-safe:fade-in motion-reduce:animate-none">
+        <h1 className="text-3xl sm:text-5xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
           {t.about.title}
         </h1>
         <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-6 sm:mb-8">
@@ -54,6 +71,7 @@ export default function AboutPage() {
               {t.about.contactUs}
             </Link>
           </Button>
+        </div>
         </div>
       </div>
 
@@ -74,7 +92,7 @@ export default function AboutPage() {
             </div>
           </div>
           <div className="relative">
-            <div className="bg-gradient-to-br from-blue-100 to-purple-100 rounded-2xl p-4 sm:p-8">
+            <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl p-4 sm:p-8">
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <div className="bg-white rounded-lg p-4 text-center">
                   <Heart className="h-8 w-8 text-red-500 mx-auto mb-2" />
@@ -106,7 +124,7 @@ export default function AboutPage() {
       <div className="mb-12 sm:mb-16">
         <h2 className="text-2xl sm:text-3xl font-bold text-center mb-8 sm:mb-12">{t.about.features.whyChoose}</h2>
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8">
-          <Card className="text-center">
+          <Card className="text-center transition-transform duration-300 hover:-translate-y-1">
             <CardHeader>
               <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
                 <Zap className="h-6 w-6 text-blue-600" />
@@ -118,7 +136,7 @@ export default function AboutPage() {
             </CardHeader>
           </Card>
 
-          <Card className="text-center">
+          <Card className="text-center transition-transform duration-300 hover:-translate-y-1">
             <CardHeader>
               <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
                 <Shield className="h-6 w-6 text-green-600" />
@@ -130,7 +148,7 @@ export default function AboutPage() {
             </CardHeader>
           </Card>
 
-          <Card className="text-center">
+          <Card className="text-center transition-transform duration-300 hover:-translate-y-1">
             <CardHeader>
               <div className="mx-auto w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mb-4">
                 <Heart className="h-6 w-6 text-purple-600" />
@@ -304,7 +322,7 @@ export default function AboutPage() {
       </div>
 
       {/* CTA Section */}
-      <div className="text-center bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-12">
+      <div className="text-center bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl p-12 motion-safe:slide-up motion-reduce:animate-none">
         <h2 className="text-3xl font-bold mb-4">{t.about.cta.title}</h2>
         <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
           {t.about.cta.description}

@@ -1,6 +1,7 @@
 // AI服务 - 前端API调用封装
 
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 
 const supabase = getSupabaseClient();
 
@@ -36,41 +37,25 @@ export interface ChatMessage {
   show_reminder: boolean;
 }
 
-async function resolveAuthToken(): Promise<string> {
+async function resolveOptionalAuthHeader(): Promise<Record<string, string>> {
+  if (isChinaDeployment()) {
+    return {};
+  }
+
   const { data: { session } } = await supabase.auth.getSession();
-
-  if (typeof window !== 'undefined') {
-    const cnUserData = localStorage.getItem('cn_user');
-    if (cnUserData) {
-      try {
-        const cnUser = JSON.parse(cnUserData);
-        if (cnUser?.id) {
-          return `cn_${cnUser.id}`;
-        }
-      } catch {}
-    }
-  }
-
-  if (session?.access_token) {
-    return session.access_token;
-  }
-
-  throw new Error('Not authenticated');
+  const token = session?.access_token;
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
 }
 
 // 获取AI使用限额
 export async function getAIUsageLimits(): Promise<AIUsageLimits | null> {
-  let authToken = '';
-  try {
-    authToken = await resolveAuthToken();
-  } catch {
-    return null;
-  }
+  const authHeader = await resolveOptionalAuthHeader();
 
   const response = await fetch('/api/ai/usage-limits', {
     method: 'GET',
     headers: {
-      Authorization: `Bearer ${authToken}`,
+      ...authHeader,
     },
     cache: 'no-store',
   });
@@ -93,13 +78,13 @@ export async function analyzePersonality(targetUserId: string): Promise<{
   cached: boolean;
   tokens_used?: number;
 }> {
-  const authToken = await resolveAuthToken();
+  const authHeader = await resolveOptionalAuthHeader();
 
   const response = await fetch('/api/ai/personality-analysis', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`,
+      ...authHeader,
     },
     body: JSON.stringify({ target_user_id: targetUserId }),
   });
@@ -114,13 +99,13 @@ export async function analyzePersonality(targetUserId: string): Promise<{
 
 // 开始AI对话会话
 export async function startChatSession(targetUserId: string): Promise<ChatSession> {
-  const authToken = await resolveAuthToken();
+  const authHeader = await resolveOptionalAuthHeader();
 
   const response = await fetch('/api/ai/chat/start', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`,
+      ...authHeader,
     },
     body: JSON.stringify({ target_user_id: targetUserId }),
   });
@@ -135,13 +120,13 @@ export async function startChatSession(targetUserId: string): Promise<ChatSessio
 
 // 发送AI对话消息
 export async function sendChatMessage(sessionId: string, message: string): Promise<ChatMessage> {
-  const authToken = await resolveAuthToken();
+  const authHeader = await resolveOptionalAuthHeader();
 
   const response = await fetch('/api/ai/chat/message', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`,
+      ...authHeader,
     },
     body: JSON.stringify({ session_id: sessionId, message }),
   });

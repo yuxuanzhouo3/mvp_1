@@ -6,4 +6,5 @@
 export * from './types';
 export * from './algorithms';
 export * from './utils';
+export * from './dynamic-matching';
 

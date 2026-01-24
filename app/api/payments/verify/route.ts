@@ -4,6 +4,7 @@ import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import Stripe from 'stripe';
 import { getPayPalOrder } from '@/lib/payment/paypal';
 import { finalizeCnPayment } from '@/lib/payment/cn-payment-finalize';
+import { requireUser } from '@/lib/auth/requireUser';
 
 // 延迟初始化 Stripe，避免在构建时因缺少环境变量而失败
 function getStripeClient(): Stripe | null {
@@ -15,22 +16,6 @@ function getStripeClient(): Stripe | null {
   });
 }
 
-/**
- * 从请求中获取 CN 环境的用户 ID
- */
-function getCnUserId(request: NextRequest): string | null {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring('Bearer '.length);
-    if (token.startsWith('cn_')) {
-      return token.substring(3) || null;
-    }
-  }
-  const cnSession =
-    request.cookies.get('cn_session')?.value || request.cookies.get('cn_session_cross')?.value;
-  return cnSession || null;
-}
-
 interface VerifyRequest {
   sessionId?: string;
   paymentId?: string;
@@ -39,30 +24,8 @@ interface VerifyRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    let userId: string | null = null;
-    let supabase: any = null;
-
-    // CN 环境认证
-    if (isChinaDeployment()) {
-      userId = getCnUserId(request);
-      if (!userId) {
-        return NextResponse.json(
-          { error: 'Unauthorized' },
-          { status: 401 }
-        );
-      }
-    } else {
-      // INTL 环境使用 Supabase 认证
-      supabase = createClient();
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        return NextResponse.json(
-          { error: 'Unauthorized' },
-          { status: 401 }
-        );
-      }
-      userId = user.id;
-    }
+    const authUser = await requireUser(request);
+    const userId = authUser.userId;
 
     const body: VerifyRequest = await request.json();
     const { sessionId, paymentId, provider } = body;

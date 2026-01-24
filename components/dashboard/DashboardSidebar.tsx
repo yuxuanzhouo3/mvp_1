@@ -22,7 +22,8 @@ import {
   TrendingUp,
   Receipt,
   Menu,
-  X
+  X,
+  Zap
 } from 'lucide-react'
 import { useState, useEffect } from 'react';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
@@ -108,8 +109,9 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
           {[
             { name: language === 'zh' ? '首页' : 'Home', href: '/dashboard', icon: Home },
             { name: language === 'zh' ? '匹配' : 'Match', href: '/matching', icon: Heart },
+            { name: language === 'zh' ? '赞' : 'Likes', href: '/matching/history', icon: Heart },
             { name: language === 'zh' ? '消息' : 'Messages', href: chatHref, icon: MessageSquare },
-            { name: language === 'zh' ? '我的' : 'Me', href: '/dashboard/settings', icon: User },
+            { name: language === 'zh' ? '个人资料' : 'Profile', href: '/dashboard/settings', icon: User },
           ].map((item) => {
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href))
             return (
@@ -146,7 +148,7 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
 
         <div className={`flex flex-col ${open ? 'w-64' : 'w-20'} h-[calc(100vh-73px)] bg-background border-r transition-all duration-200 fixed top-[73px] left-0 z-50 overflow-y-auto`}>
       <div className="flex items-center justify-center h-16 border-b px-4">
-          <h1 className={`text-xl font-bold text-primary transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>PersonaLink</h1>
+          <h1 className={`text-xl font-bold text-primary transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{isChinaDeployment() ? '邻客' : 'PersonaLink'}</h1>
       </div>
       <div className="flex-1 flex flex-col">
           <nav className="flex-1 px-2 py-6 space-y-2">

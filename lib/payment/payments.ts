@@ -91,27 +91,34 @@ export async function createPaymentRecord(
   amount: number,
   paymentMethod: string,
   packageId: string,
-  credits: number
+  credits: number,
+  idempotencyKey?: string
 ) {
   const supabase = createServiceClient();
   const currency = getDefaultCurrency(); // Get currency based on deployment region (USD for INTL, CNY for CN)
 
-  const { data: payment, error } = await supabase
-    .from('payments')
-    .insert({
-      user_id: userId,
-      amount: amount,
-      currency: currency,
-      credits: credits,
-      payment_method: paymentMethod,
-      status: 'pending',
-      metadata: {
-        packageId,
-        description: `Purchase ${credits} credits - ${packageId} package`,
-      }
-    })
-    .select()
-    .single();
+  const insertData: any = {
+    user_id: userId,
+    amount: amount,
+    currency: currency,
+    credits: credits,
+    payment_method: paymentMethod,
+    status: 'pending',
+    metadata: {
+      packageId,
+      description: `Purchase ${credits} credits - ${packageId} package`,
+    },
+  };
+
+  if (idempotencyKey) {
+    insertData.idempotency_key = idempotencyKey;
+  }
+
+  const query = idempotencyKey
+    ? supabase.from('payments').upsert(insertData, { onConflict: 'user_id,idempotency_key' }).select().single()
+    : supabase.from('payments').insert(insertData).select().single();
+
+  const { data: payment, error } = await query;
 
   if (error) {
     throw new Error(`Failed to create payment record: ${error.message}`);
@@ -332,11 +339,89 @@ async function handleStripeCheckoutCompleted(session: Stripe.Checkout.Session, s
     sessionId: session.id,
   });
 
+  const { data: payment, error: paymentError } = await supabase
+    .from('payments')
+    .select('id,user_id,amount,currency,status,credits,metadata,stripe_checkout_session_id')
+    .eq('id', paymentId)
+    .single();
+
+  if (paymentError || !payment) {
+    throw new Error(`Payment not found for checkout completion: ${paymentError?.message || paymentId}`);
+  }
+
+  if (payment.user_id !== userId) {
+    throw new Error('Payment user mismatch for checkout completion');
+  }
+
+  if (payment.status === 'completed') {
+    console.log('[Stripe Webhook] Payment already completed:', paymentId);
+    return;
+  }
+
+  if (payment.stripe_checkout_session_id && payment.stripe_checkout_session_id !== session.id) {
+    await supabase
+      .from('payments')
+      .update({
+        status: 'failed',
+        updated_at: new Date().toISOString(),
+        metadata: {
+          ...(payment.metadata || {}),
+          stripe_amount_mismatch: true,
+          stripe_session_id: session.id,
+          stripe_expected_session_id: payment.stripe_checkout_session_id,
+        },
+      })
+      .eq('id', paymentId);
+    throw new Error('Stripe session mismatch for payment');
+  }
+
+  const sessionCurrency = (session.currency || '').toLowerCase();
+  const paymentCurrency = (payment.currency || '').toLowerCase();
+  const expectedMinor = Math.round(Number(payment.amount) * 100);
+  const receivedMinor = session.amount_total ?? null;
+
+  if (sessionCurrency && paymentCurrency && sessionCurrency !== paymentCurrency) {
+    await supabase
+      .from('payments')
+      .update({
+        status: 'failed',
+        updated_at: new Date().toISOString(),
+        metadata: {
+          ...(payment.metadata || {}),
+          stripe_currency_mismatch: true,
+          stripe_session_id: session.id,
+          stripe_session_currency: sessionCurrency,
+          expected_currency: paymentCurrency,
+        },
+      })
+      .eq('id', paymentId);
+    throw new Error('Stripe currency mismatch for payment');
+  }
+
+  if (typeof receivedMinor === 'number' && receivedMinor !== expectedMinor) {
+    await supabase
+      .from('payments')
+      .update({
+        status: 'failed',
+        updated_at: new Date().toISOString(),
+        metadata: {
+          ...(payment.metadata || {}),
+          stripe_amount_mismatch: true,
+          stripe_session_id: session.id,
+          stripe_amount_total: receivedMinor,
+          expected_amount_minor: expectedMinor,
+        },
+      })
+      .eq('id', paymentId);
+    throw new Error('Stripe amount mismatch for payment');
+  }
+
   // 更新支付状态和 payment_intent_id
   const updateData: any = {
     status: 'completed',
     updated_at: new Date().toISOString(),
     metadata: {
+      ...(payment.metadata || {}),
       stripe_session_id: session.id,
       stripe_charge_id: session.payment_intent,
     },
@@ -423,11 +508,60 @@ async function handleMembershipCheckoutCompleted(session: Stripe.Checkout.Sessio
   // Update payment record status to completed
   const { data: payment } = await supabase
     .from('payments')
-    .select('id')
+    .select('id,user_id,amount,currency,status,metadata')
     .eq('stripe_checkout_session_id', session.id)
     .single();
 
   if (payment) {
+    if (payment.user_id && payment.user_id !== userId) {
+      throw new Error('Membership payment user mismatch');
+    }
+
+    if (payment.status === 'completed') {
+      console.log('[Stripe Webhook] Membership payment already completed:', payment.id);
+    } else {
+      const sessionCurrency = (session.currency || '').toLowerCase();
+      const paymentCurrency = (payment.currency || '').toLowerCase();
+      const expectedMinor = Math.round(Number(payment.amount) * 100);
+      const receivedMinor = session.amount_total ?? null;
+
+      if (sessionCurrency && paymentCurrency && sessionCurrency !== paymentCurrency) {
+        await supabase
+          .from('payments')
+          .update({
+            status: 'failed',
+            updated_at: new Date().toISOString(),
+            metadata: {
+              ...(payment.metadata || {}),
+              stripe_currency_mismatch: true,
+              stripe_session_id: session.id,
+              stripe_session_currency: sessionCurrency,
+              expected_currency: paymentCurrency,
+            },
+          })
+          .eq('id', payment.id);
+        throw new Error('Stripe currency mismatch for membership payment');
+      }
+
+      if (typeof receivedMinor === 'number' && receivedMinor !== expectedMinor) {
+        await supabase
+          .from('payments')
+          .update({
+            status: 'failed',
+            updated_at: new Date().toISOString(),
+            metadata: {
+              ...(payment.metadata || {}),
+              stripe_amount_mismatch: true,
+              stripe_session_id: session.id,
+              stripe_amount_total: receivedMinor,
+              expected_amount_minor: expectedMinor,
+            },
+          })
+          .eq('id', payment.id);
+        throw new Error('Stripe amount mismatch for membership payment');
+      }
+    }
+
     await supabase
       .from('payments')
       .update({

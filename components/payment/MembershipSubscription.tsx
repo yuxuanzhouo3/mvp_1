@@ -137,12 +137,8 @@ export default function MembershipSubscription() {
       setSessionToken(session.access_token);
       return;
     }
-    if (user?.id) {
-      setSessionToken(`cn_${user.id}`);
-      return;
-    }
     setSessionToken(null);
-  }, [session?.access_token, user?.id]);
+  }, [session?.access_token]);
 
   // Fetch tiers and current membership
   useEffect(() => {
@@ -159,13 +155,11 @@ export default function MembershipSubscription() {
           setTiers(tiersData.data?.tiers || []);
         }
 
-        if (sessionToken) {
+        if (isCN || sessionToken) {
           const statusResponse = await fetch('/api/memberships/status', {
             cache: 'no-store',
             credentials: 'include',
-            headers: {
-              'Authorization': `Bearer ${sessionToken}`,
-            },
+            headers: !isCN && sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : undefined,
           });
           if (statusResponse.ok) {
             const statusData = await statusResponse.json();
@@ -203,7 +197,7 @@ export default function MembershipSubscription() {
       return;
     }
 
-    if (!sessionToken) {
+    if (!isCN && !sessionToken) {
       toast({
         title: t.membership.loginRequired,
         variant: 'destructive',
@@ -223,13 +217,15 @@ export default function MembershipSubscription() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`,
+          ...(!isCN && sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {}),
         },
         body: JSON.stringify({
           tierId: selectedTier.id,
           paymentMethod: paymentMethodToSend,
           currency: isCN ? 'CNY' : 'USD',
         }),
+        credentials: 'include',
+        cache: 'no-store',
       });
 
       if (response.ok) {

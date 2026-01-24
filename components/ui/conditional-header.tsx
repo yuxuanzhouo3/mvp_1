@@ -21,7 +21,7 @@ export function ConditionalHeader() {
     <>
       <GlobalHeader />
       {/* 为 fixed header 添加占位空间，dashboard 页面除外 */}
-      {!isDashboardPage && <div className="h-[73px]" />}
+      {!isDashboardPage && <div className="h-16 md:h-[73px]" />}
     </>
   );
 } 

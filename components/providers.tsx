@@ -4,9 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/app/providers/AuthProvider'
 import { ThemeProvider } from '@/context/ThemeProvider'
 import { LanguageProvider } from '@/components/language-provider'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { Language } from '@/lib/i18n'
+import { enablePassiveEventListeners } from '@/lib/utils/passive-events'
 
-export function Providers({ children }: { children: React.ReactNode }) {
+export function Providers({ children, initialLanguage }: { children: React.ReactNode; initialLanguage: Language }) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
@@ -16,9 +18,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
     },
   }))
 
+  useEffect(() => {
+    enablePassiveEventListeners()
+  }, [])
+
   return (
     <QueryClientProvider client={queryClient}>
-      <LanguageProvider>
+      <LanguageProvider initialLanguage={initialLanguage}>
         <ThemeProvider>
           <AuthProvider>
             {children}

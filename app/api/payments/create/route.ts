@@ -14,58 +14,39 @@ import type { PaymentMethod, Currency, CreatePaymentRequest } from '@/lib/servic
 import { createClient as createSupabaseClient } from '@/lib/supabase/server';
 import { buildPaymentRequestContext, recordPaymentEvent } from '@/lib/observability/payment-events';
 import { getExternalRequestOrigin } from '@/lib/http/request-origin';
-
-function getCnUserId(request: NextRequest): string | null {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring('Bearer '.length);
-    if (token.startsWith('cn_')) {
-      const userId = token.substring(3);
-      return userId || null;
-    }
-  }
-
-  const cnSession =
-    request.cookies.get('cn_session')?.value || request.cookies.get('cn_session_cross')?.value;
-  return cnSession || null;
-}
+import { requireUser } from '@/lib/auth/requireUser';
+import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
 
 export async function POST(request: NextRequest) {
   try {
     const ctx = buildPaymentRequestContext(request);
     let user: { id: string; email?: string } | null = null;
 
-    if (isChinaDeployment()) {
-      const userId = getCnUserId(request);
-      if (!userId) {
-        await recordPaymentEvent(ctx, {
-          event: 'PAYMENT_CREATE_REJECTED',
-          level: 'warn',
-          paymentId: 'unknown',
-          provider: 'unknown',
-          errorCode: 'UNAUTHORIZED',
-        });
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      user = { id: userId };
-    } else {
-      const supabase = createSupabaseClient();
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError || !authData?.user) {
-        await recordPaymentEvent(ctx, {
-          event: 'PAYMENT_CREATE_REJECTED',
-          level: 'warn',
-          paymentId: 'unknown',
-          provider: 'unknown',
-          errorCode: 'UNAUTHORIZED',
-        });
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      user = { id: authData.user.id, email: authData.user.email || undefined };
+    try {
+      const authUser = await requireUser(request);
+      user = { id: authUser.userId, email: authUser.email };
+    } catch {
+      await recordPaymentEvent(ctx, {
+        event: 'PAYMENT_CREATE_REJECTED',
+        level: 'warn',
+        paymentId: 'unknown',
+        provider: 'unknown',
+        errorCode: 'UNAUTHORIZED',
+      });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const ip = getRequestIp(request) || 'unknown';
+    const rlIp = await rateLimit({ key: `rl:payments_create:ip:${ip}`, limit: 30, windowMs: 60_000 });
+    const rlUser = await rateLimit({ key: `rl:payments_create:user:${user.id}`, limit: 20, windowMs: 60_000 });
+    if (!rlIp.allowed || !rlUser.allowed) {
+      const resetAtMs = Math.min(rlIp.resetAtMs, rlUser.resetAtMs);
+      const retryAfterSeconds = Math.max(1, Math.ceil((resetAtMs - Date.now()) / 1000));
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } });
     }
 
     const body = await request.json();

@@ -1,0 +1,302 @@
+/* D:\code\Project Two\mvp_1-main\styles\intl-modern-theme.css */
+
+/* INTL Modern Theme - 现代、简洁、个性 */
+
+.theme-intl-modern {
+  /* 主色调：现代紫/蓝渐变 */
+  --theme-primary: 262 83% 58%; /* 鲜艳紫色 */
+  --theme-secondary: 220 70% 50%; /* 深蓝色 */
+  --theme-accent: 280 75% 65%; /* 亮紫色 */
+  --theme-light: 262 60% 97%; /* 淡紫背景 */
+  --theme-dark: 262 70% 15%; /* 深紫色 */
+
+  /* 覆盖 Shadcn/ui 的 primary 变量 */
+  --primary: var(--theme-primary);
+  --primary-foreground: 0 0% 100%; /* 白色 */
+
+  /* 边框和输入框 */
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: var(--theme-primary);
+
+  /* 背景和前景 */
+  --background: 0 0% 100%;
+  --foreground: 224 71.4% 4.1%;
+
+  /* 字体：现代无衬线，中等字号 */
+  font-family: "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+  font-size: 15px; /* 标准字号 */
+}
+
+/* 针对深色模式的调整 */
+.dark .theme-intl-modern {
+  --background: 224 71.4% 4.1%;
+  --foreground: 210 20% 98%;
+  --border: 215 27.9% 16.9%;
+  --input: 215 27.9% 16.9%;
+  --ring: var(--theme-primary);
+  --theme-light: 262 50% 10%;
+}
+
+/* 渐变按钮样式 */
+.theme-intl-modern .btn-primary {
+  background: linear-gradient(135deg, hsl(var(--theme-primary)), hsl(var(--theme-secondary)));
+  color: hsl(var(--primary-foreground));
+  font-weight: 500;
+  padding: 10px 24px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.25);
+}
+
+.theme-intl-modern .btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.35);
+}
+
+.theme-intl-modern .btn-secondary {
+  background: transparent;
+  border: 1.5px solid hsl(var(--theme-primary) / 0.5);
+  color: hsl(var(--theme-primary));
+  border-radius: 12px;
+}
+
+.theme-intl-modern .btn-secondary:hover {
+  background: hsl(var(--theme-primary) / 0.1);
+}
+
+/* 卡片样式 - 玻璃拟态 */
+.theme-intl-modern .card-glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+.dark .theme-intl-modern .card-glass {
+  background: rgba(30, 30, 50, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 文本渐变 */
+.theme-intl-modern .text-gradient-theme {
+  background: linear-gradient(135deg, hsl(var(--theme-primary)), hsl(var(--theme-accent)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 背景渐变 */
+.theme-intl-modern .bg-gradient-theme {
+  background: linear-gradient(
+    135deg,
+    hsl(var(--theme-primary) / 0.05),
+    hsl(var(--theme-secondary) / 0.08),
+    hsl(var(--theme-accent) / 0.05)
+  );
+}
+
+/* 背景动态效果 */
+.theme-intl-modern .bg-animated {
+  background: linear-gradient(
+    -45deg,
+    hsl(var(--theme-primary) / 0.1),
+    hsl(var(--theme-secondary) / 0.1),
+    hsl(var(--theme-accent) / 0.1),
+    hsl(262 60% 97%)
+  );
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* 个人资料卡片 */
+.theme-intl-modern .intl-profile-card {
+  position: relative;
+  padding: 24px;
+  border-radius: 20px;
+  background: white;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.dark .theme-intl-modern .intl-profile-card {
+  background: hsl(224 71.4% 8%);
+}
+
+.theme-intl-modern .intl-profile-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, hsl(var(--theme-primary)), hsl(var(--theme-accent)));
+}
+
+/* 导航栏 */
+.theme-intl-modern .intl-navigation {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dark .theme-intl-modern .intl-navigation {
+  background: rgba(15, 15, 30, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* 标签/徽章 */
+.theme-intl-modern .badge-theme {
+  background: linear-gradient(135deg, hsl(var(--theme-primary)), hsl(var(--theme-accent)));
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 999px;
+}
+
+/* 输入框聚焦效果 */
+.theme-intl-modern input:focus,
+.theme-intl-modern textarea:focus {
+  outline: none;
+  border-color: hsl(var(--theme-primary));
+  box-shadow: 0 0 0 3px hsl(var(--theme-primary) / 0.2);
+}
+
+/* 滑动交互提示 */
+.theme-intl-modern .swipe-hint {
+  position: relative;
+  overflow: hidden;
+}
+
+.theme-intl-modern .swipe-hint::after {
+  content: "← →";
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 12px;
+  color: hsl(var(--theme-primary) / 0.5);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.theme-intl-modern .swipe-hint:hover::after {
+  opacity: 1;
+}
+
+/* 匹配动画 */
+.theme-intl-modern .match-animation {
+  animation: matchPulse 0.5s ease;
+}
+
+@keyframes matchPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 兼容性指示器 */
+.theme-intl-modern .compatibility-meter {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, 
+    hsl(0 80% 60%), 
+    hsl(40 90% 55%), 
+    hsl(120 60% 50%),
+    hsl(262 83% 58%)
+  );
+  position: relative;
+}
+
+.theme-intl-modern .compatibility-meter::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* 个性标签云 */
+.theme-intl-modern .interest-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: hsl(var(--theme-primary) / 0.1);
+  color: hsl(var(--theme-primary));
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.theme-intl-modern .interest-tag:hover {
+  background: hsl(var(--theme-primary) / 0.2);
+  transform: translateY(-1px);
+}
+
+/* 页面过渡动画 */
+.theme-intl-modern .page-transition {
+  animation: pageIn 0.4s ease;
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .theme-intl-modern {
+    font-size: 14px;
+  }
+  
+  .theme-intl-modern .intl-profile-card {
+    padding: 16px;
+    border-radius: 16px;
+  }
+  
+  .theme-intl-modern .btn-primary {
+    padding: 12px 20px;
+  }
+}
+

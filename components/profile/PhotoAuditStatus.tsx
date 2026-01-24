@@ -32,7 +32,7 @@ interface Photo {
 
 interface PhotoAuditStatusProps {
   userId: string;
-  token: string;
+  token?: string;
   onPhotoDeleted?: () => void;
   onUploadClick?: () => void;
 }
@@ -56,10 +56,9 @@ export default function PhotoAuditStatus({
     try {
       setIsLoading(true);
       const response = await fetch('/api/user/profile/photos', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         cache: 'no-store',
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -91,9 +90,8 @@ export default function PhotoAuditStatus({
       setDeletingId(photoId);
       const response = await fetch(`/api/user/profile/photos?id=${photoId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        credentials: 'include',
       });
 
       const result = await response.json();

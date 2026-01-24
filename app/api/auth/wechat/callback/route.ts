@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
     const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
     const isSecureCookie = isSecureCookieRequest(request) || !isLocalhost;
 
-    response.cookies.set('cn_session', user.id, {
+    response.cookies.set('cn_session', session, {
       httpOnly: true,
       secure: isSecureCookie,
       sameSite: 'lax',
@@ -159,7 +159,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!isLocalhost) {
-      response.cookies.set('cn_session_cross', user.id, {
+      response.cookies.set('cn_session_cross', session, {
         httpOnly: true,
         secure: true,
         sameSite: 'none',

@@ -24,7 +24,8 @@ import {
   MapPin,
   Baby
 } from 'lucide-react';
-import { ScoringFactor, type ScoreBreakdown, type WeightConfig } from '@/lib/scoring';
+import { ScoringFactor, type WeightConfig } from '@/lib/scoring-core';
+import type { ScoreBreakdown } from '@/lib/scoring';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 

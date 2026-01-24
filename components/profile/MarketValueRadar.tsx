@@ -101,7 +101,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
         {data.fullName}
       </p>
       <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
-        {data.score} / 100
+        {data.score.toFixed(1)} / 100
       </p>
     </div>
   );

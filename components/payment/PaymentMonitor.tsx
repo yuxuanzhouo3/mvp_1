@@ -36,8 +36,8 @@ const TRANSLATIONS = {
     followSteps: '请按照以下步骤完成支付',
     paymentAddress: '支付地址',
     importantTips: '重要提示：',
-    ensureNetwork: (network: string) => `请确保使用 ${network} 网络发送 USDT`,
-    sendAmount: (amount: number) => `发送金额必须为 ${amount} USDT`,
+    ensureNetwork: (network: string) => `请确保使用 ${network} 网络`,
+    sendAmount: (amount: number) => `发送金额必须为 ${amount}`,
     addPaymentIdNote: (paymentId: string) => `建议在备注中填写支付ID: ${paymentId}`,
     confirmTime: '支付确认可能需要 1-3 分钟',
     alipayQrCode: '支付宝收款码',
@@ -51,9 +51,9 @@ const TRANSLATIONS = {
     manualVerify: '手动验证支付',
     manualVerifyDesc: '如果您已完成支付但状态未更新，可以手动验证',
     transactionHash: '交易哈希',
-    enterUsdtHash: '输入USDT交易哈希',
+    enterTransactionHash: '输入交易哈希',
     sendAddress: '发送地址',
-    enterUsdtAddress: '输入您的USDT发送地址',
+    enterSendAddress: '输入您的发送地址',
     transactionId: '交易ID',
     enterAlipayId: '输入支付宝交易ID',
     verifying: '验证中...',
@@ -83,8 +83,8 @@ const TRANSLATIONS = {
     followSteps: 'Please follow the steps below to complete payment',
     paymentAddress: 'Payment Address',
     importantTips: 'Important:',
-    ensureNetwork: (network: string) => `Please ensure you send USDT using ${network} network`,
-    sendAmount: (amount: number) => `Amount must be ${amount} USDT`,
+    ensureNetwork: (network: string) => `Please ensure you send using ${network} network`,
+    sendAmount: (amount: number) => `Amount must be ${amount}`,
     addPaymentIdNote: (paymentId: string) => `Recommended to add Payment ID in memo: ${paymentId}`,
     confirmTime: 'Payment confirmation may take 1-3 minutes',
     alipayQrCode: 'Alipay QR Code',
@@ -98,9 +98,9 @@ const TRANSLATIONS = {
     manualVerify: 'Manual Verification',
     manualVerifyDesc: 'If you have completed payment but status not updated, you can verify manually',
     transactionHash: 'Transaction Hash',
-    enterUsdtHash: 'Enter USDT transaction hash',
+    enterTransactionHash: 'Enter transaction hash',
     sendAddress: 'Sending Address',
-    enterUsdtAddress: 'Enter your USDT sending address',
+    enterSendAddress: 'Enter your sending address',
     transactionId: 'Transaction ID',
     enterAlipayId: 'Enter Alipay transaction ID',
     verifying: 'Verifying...',
@@ -110,7 +110,7 @@ const TRANSLATIONS = {
 
 interface PaymentMonitorProps {
   paymentId: string;
-  paymentMethod: 'usdt' | 'alipay' | 'wechat';
+  paymentMethod: 'alipay' | 'wechat';
   amount: number;
   paymentAddress?: string;
   qrCodeUrl?: string;
@@ -155,9 +155,6 @@ export default function PaymentMonitor({
     if (session?.access_token) {
       return session.access_token;
     }
-    if (isChinaDeployment() && user?.id) {
-      return `cn_${user.id}`;
-    }
     return null;
   };
 
@@ -181,6 +178,7 @@ export default function PaymentMonitor({
       const response = await fetch(`/api/payments/status/${paymentId}`, {
         cache: 'no-store',
         headers,
+        credentials: 'include',
       });
       if (response.ok) {
         const data = await response.json();
@@ -243,6 +241,7 @@ export default function PaymentMonitor({
           amount,
           fromAddress,
         }),
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -356,40 +355,6 @@ export default function PaymentMonitor({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {paymentMethod === 'usdt' && paymentAddress && (
-            <div className="space-y-4">
-              <div>
-                <Label className="text-sm font-medium">{t.paymentAddress} ({network})</Label>
-                <div className="flex items-center space-x-2 mt-1">
-                  <Input
-                    value={paymentAddress}
-                    readOnly
-                    className="font-mono text-sm"
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyToClipboard(paymentAddress, t.paymentAddress)}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
-                <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">
-                  {t.importantTips}
-                </h4>
-                <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
-                  <li>• {t.ensureNetwork(network || '')}</li>
-                  <li>• {t.sendAmount(amount)}</li>
-                  <li>• {t.addPaymentIdNote(paymentId)}</li>
-                  <li>• {t.confirmTime}</li>
-                </ul>
-              </div>
-            </div>
-          )}
-
           {(paymentMethod === 'alipay' || paymentMethod === 'wechat') && (qrCodeBase64 || qrCodeUrl) && (
             <div className="space-y-4">
               <div>
@@ -472,31 +437,6 @@ export default function PaymentMonitor({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {paymentMethod === 'usdt' && (
-            <>
-              <div>
-                <Label htmlFor="transactionHash">{t.transactionHash}</Label>
-                <Input
-                  id="transactionHash"
-                  value={transactionHash}
-                  onChange={(e) => setTransactionHash(e.target.value)}
-                  placeholder={t.enterUsdtHash}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="fromAddress">{t.sendAddress}</Label>
-                <Input
-                  id="fromAddress"
-                  value={fromAddress}
-                  onChange={(e) => setFromAddress(e.target.value)}
-                  placeholder={t.enterUsdtAddress}
-                  className="mt-1"
-                />
-              </div>
-            </>
-          )}
-
           {paymentMethod === 'alipay' && (
             <div>
               <Label htmlFor="transactionId">{t.transactionId}</Label>

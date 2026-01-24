@@ -10,78 +10,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { getPaymentService } from '@/lib/services/payment';
-import { createClient } from '@supabase/supabase-js';
 import { buildPaymentRequestContext, recordPaymentEvent } from '@/lib/observability/payment-events';
 import { getExternalRequestOrigin } from '@/lib/http/request-origin';
-
-// INTL 环境: 创建用于 token 验证的 anon 客户端
-function createAnonClientForAuth() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
-    throw new Error('Supabase configuration missing');
-  }
-
-  return createClient(url, key, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
-}
-
-// 从请求中验证用户身份
-async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
-  const authHeader = request.headers.get('authorization');
-  
-  if (isChinaDeployment()) {
-    if (!authHeader) {
-      const cnSession =
-        request.cookies.get('cn_session')?.value || request.cookies.get('cn_session_cross')?.value;
-      if (cnSession) {
-        return { userId: cnSession };
-      }
-      return null;
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-
-    // CN 环境: 从 token 中解析用户信息 (JWT)
-    try {
-      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-      return {
-        userId: payload.sub || payload.uid,
-        email: payload.email,
-      };
-    } catch {
-      return null;
-    }
-  } else {
-    if (!authHeader) {
-      return null;
-    }
-
-    const token = authHeader.replace('Bearer ', '');
-
-    // INTL 环境: 使用 Supabase 验证 token
-    try {
-      const anonClient = createAnonClientForAuth();
-      const { data: { user }, error } = await anonClient.auth.getUser(token);
-      
-      if (error || !user) {
-        return null;
-      }
-      
-      return {
-        userId: user.id,
-        email: user.email,
-      };
-    } catch {
-      return null;
-    }
-  }
-}
+import { requireUser } from '@/lib/auth/requireUser';
+import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
 
 // Stripe Price IDs for membership tiers (to be configured in Stripe Dashboard)
 const STRIPE_PRICE_IDS: Record<string, { usd: string; cny?: string }> = {
@@ -109,8 +41,7 @@ interface SubscribeRequest {
 export async function POST(request: NextRequest) {
   try {
     const ctx = buildPaymentRequestContext(request);
-    // 验证用户身份
-    const authUser = await authenticateUser(request);
+    const authUser = await requireUser(request);
     
     if (!authUser) {
       await recordPaymentEvent(ctx, {
@@ -124,6 +55,15 @@ export async function POST(request: NextRequest) {
         { error: 'No authorization header or invalid token' },
         { status: 401 }
       );
+    }
+
+    const ip = getRequestIp(request) || 'unknown';
+    const rlIp = await rateLimit({ key: `rl:memberships_subscribe:ip:${ip}`, limit: 10, windowMs: 60_000 });
+    const rlUser = await rateLimit({ key: `rl:memberships_subscribe:user:${authUser.userId}`, limit: 5, windowMs: 60_000 });
+    if (!rlIp.allowed || !rlUser.allowed) {
+      const resetAtMs = Math.min(rlIp.resetAtMs, rlUser.resetAtMs);
+      const retryAfterSeconds = Math.max(1, Math.ceil((resetAtMs - Date.now()) / 1000));
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } });
     }
 
     const db = await getDbClient();

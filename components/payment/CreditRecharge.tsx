@@ -266,12 +266,8 @@ export default function CreditRecharge() {
       setSessionToken(session.access_token);
       return;
     }
-    if (user?.id) {
-      setSessionToken(`cn_${user.id}`);
-      return;
-    }
     setSessionToken(null);
-  }, [session?.access_token, user?.id]);
+  }, [session?.access_token]);
 
   const handlePackageSelect = (pkg: CreditPackage) => {
     setSelectedPackage(pkg);
@@ -295,7 +291,7 @@ export default function CreditRecharge() {
       return;
     }
 
-    if (!sessionToken) {
+    if (!isCN && !sessionToken) {
       toast({
         title: language === 'zh' ? '未登录' : 'Not logged in',
         description: language === 'zh' ? '请先登录后再进行支付' : 'Please login before making a payment',
@@ -321,18 +317,20 @@ export default function CreditRecharge() {
         : {
             packageId: selectedPackage.id,
             paymentMethod: selectedPaymentMethod.id,
-            amount: selectedPackage.price,
-            credits: selectedPackage.credits,
           };
 
       const response = await fetch(apiUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionToken}`,
-        },
+        headers: (() => {
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (!isCN && sessionToken) {
+            headers['Authorization'] = `Bearer ${sessionToken}`;
+          }
+          return headers;
+        })(),
         body: JSON.stringify(body),
         cache: 'no-store',
+        credentials: 'include',
       });
 
       if (response.ok) {
@@ -474,7 +472,7 @@ export default function CreditRecharge() {
       );
     }
 
-    // USDT/Alipay payment monitor
+    // Alipay payment monitor
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="mb-6">
@@ -493,7 +491,7 @@ export default function CreditRecharge() {
 
         <PaymentMonitor
           paymentId={paymentData.paymentId}
-          paymentMethod={paymentData.paymentMethod as 'usdt' | 'alipay'}
+          paymentMethod={paymentData.paymentMethod as 'alipay'}
           amount={paymentData.amount}
           paymentAddress={paymentData.paymentAddress}
           qrCodeUrl={paymentData.qrCodeUrl}

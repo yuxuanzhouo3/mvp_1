@@ -131,15 +131,3 @@ export function validatePaymentAccount(account: string): boolean {
   return account.length > 0 && account.trim() !== '';
 }
 
-// DEPRECATED: USDT functions (no longer supported)
-// @deprecated - USDT payment has been removed
-export function getActiveUSDTWallets() {
-  console.warn('USDT payment is no longer supported');
-  return [];
-}
-
-// @deprecated - USDT payment has been removed
-export function getWalletByNetwork(_network: string) {
-  console.warn('USDT payment is no longer supported');
-  return null;
-}

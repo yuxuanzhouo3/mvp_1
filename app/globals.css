@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CN版专属主题 - 家长相亲模式 */
+@import '../styles/cn-parent-theme.css';
+
+/* INTL版专属主题 - 现代个性模式 */
+@import '../styles/intl-modern-theme.css';
+
 @layer base {
   :root {
     --background: 0 0% 100%;

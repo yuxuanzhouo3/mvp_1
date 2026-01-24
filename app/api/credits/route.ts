@@ -10,17 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { getCreditsBalance, checkAndConsumeCredits, CREDIT_COSTS, CreditConsumeType } from '@/lib/credits/credits';
-
-// CN 环境认证
-function authenticateCnUser(request: NextRequest): string | null {
-  const authHeader = request.headers.get('authorization');
-  if (!authHeader) return null;
-  const token = authHeader.replace('Bearer ', '');
-  if (token.startsWith('cn_')) {
-    return token.substring(3);
-  }
-  return null;
-}
+import { requireUser } from '@/lib/auth/requireUser';
 
 /**
  * GET /api/credits
@@ -28,19 +18,10 @@ function authenticateCnUser(request: NextRequest): string | null {
  */
 export async function GET(request: NextRequest) {
   try {
-    const db = await getDbClient();
-
-    // Get current user
-    const { data: { user }, error: authError } = await db.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const authUser = await requireUser(request);
 
     // Get credits balance
-    const balance = await getCreditsBalance(user.id);
+    const balance = await getCreditsBalance(authUser.userId);
 
     return NextResponse.json({
       success: true,
@@ -67,26 +48,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    let userId: string | null = null;
-
-    // CN 环境认证
-    if (isChinaDeployment()) {
-      userId = authenticateCnUser(request);
-    } else {
-      // INTL 环境
-      const db = await getDbClient();
-      const { data: { user }, error: authError } = await db.auth.getUser();
-      if (!authError && user) {
-        userId = user.id;
-      }
-    }
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    const authUser = await requireUser(request);
+    const userId = authUser.userId;
 
     const { action } = await request.json();
 

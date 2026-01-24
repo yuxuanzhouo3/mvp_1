@@ -21,7 +21,6 @@ const LanguageContext = createContext<LanguageContextType | undefined>(
 );
 
 const STORAGE_KEY = "preferred-language";
-const STORAGE_REGION_KEY = "deployment-region-version";
 
 /**
  * 语言提供者组件
@@ -42,51 +41,44 @@ const STORAGE_REGION_KEY = "deployment-region-version";
  *    - 中国区域 (CN)：默认中文
  *    - 国际区域 (INTL)：默认英文
  */
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const initialLanguage: Language = isChinaDeployment() ? "zh" : "en";
+export function LanguageProvider({ children, initialLanguage }: { children: ReactNode; initialLanguage: Language }) {
   const [language, setLanguageState] = useState<Language>(initialLanguage);
-  const [mounted, setMounted] = useState(false);
 
-  // 初始化语言
   useEffect(() => {
-    setMounted(true);
+    const readCookie = (): Language | null => {
+      if (typeof document === "undefined") return null;
+      const parts = document.cookie.split(";").map((p) => p.trim());
+      const match = parts.find((p) => p.startsWith("lang="));
+      if (!match) return null;
+      const value = match.slice("lang=".length);
+      return value === "zh" || value === "en" ? value : null;
+    };
 
-    // 根据部署区域获取期望的默认语言
-    const isChinaRegion = isChinaDeployment();
-    const expectedLanguage: Language = isChinaRegion ? "zh" : "en";
-    const currentRegion = isChinaRegion ? "CN" : "INTL";
-
-    // 检查部署区域是否变更
-    const savedRegion = localStorage.getItem(STORAGE_REGION_KEY);
-    const regionChanged = savedRegion && savedRegion !== currentRegion;
-
-    // 如果部署区域变更，重置语言为新区域的默认语言
-    if (regionChanged) {
-      setLanguageState(expectedLanguage);
-      localStorage.setItem(STORAGE_KEY, expectedLanguage);
-      localStorage.setItem(STORAGE_REGION_KEY, currentRegion);
+    const cookieLang = readCookie();
+    if (cookieLang) {
+      setLanguageState(cookieLang);
+      localStorage.setItem(STORAGE_KEY, cookieLang);
       return;
     }
 
-    // 优先级1: 从 localStorage 读取用户选择（如果区域未变更）
     const saved = localStorage.getItem(STORAGE_KEY) as Language | null;
+    const resolved: Language =
+      saved && (saved === "zh" || saved === "en")
+        ? saved
+        : initialLanguage || (isChinaDeployment() ? "zh" : "en");
 
-    if (saved && (saved === "zh" || saved === "en")) {
-      setLanguageState(saved);
-      localStorage.setItem(STORAGE_REGION_KEY, currentRegion);
-      return;
-    }
-
-    // 优先级2: 根据部署区域推断默认语言（首次访问或存储损坏）
-    setLanguageState(expectedLanguage);
-    localStorage.setItem(STORAGE_KEY, expectedLanguage);
-    localStorage.setItem(STORAGE_REGION_KEY, currentRegion);
-  }, []);
+    setLanguageState(resolved);
+    localStorage.setItem(STORAGE_KEY, resolved);
+    document.cookie = `lang=${resolved}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+  }, [initialLanguage]);
 
   // 设置语言（带持久化）
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
     localStorage.setItem(STORAGE_KEY, lang);
+    if (typeof document !== "undefined") {
+      document.cookie = `lang=${lang}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+    }
   };
 
   // 切换语言（中英文互换）
@@ -94,21 +86,6 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     const newLang: Language = language === "zh" ? "en" : "zh";
     setLanguage(newLang);
   };
-
-  // 避免服务端渲染不匹配
-  if (!mounted) {
-    return (
-      <LanguageContext.Provider
-        value={{
-          language: initialLanguage,
-          setLanguage: () => {},
-          toggleLanguage: () => {},
-        }}
-      >
-        {children}
-      </LanguageContext.Provider>
-    );
-  }
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, toggleLanguage }}>

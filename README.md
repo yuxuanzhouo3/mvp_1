@@ -115,7 +115,6 @@ mvp_1/
 
 ### 💳 Payment Integration
 - Stripe payment processing
-- USDT cryptocurrency support
 - Alipay integration
 - Transaction history
 
@@ -138,7 +137,7 @@ mvp_1/
 - **Database:** Supabase (PostgreSQL)
 - **Caching:** Upstash Redis
 - **Authentication:** NextAuth.js
-- **Payments:** Stripe, USDT, Alipay
+- **Payments:** Stripe, Alipay
 - **Deployment:** Vercel
 - **Monitoring:** Vercel Analytics
 

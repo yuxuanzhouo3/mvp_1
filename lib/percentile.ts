@@ -1,10 +1,9 @@
 /**
- * Percentile Calculation Module - 百分位计算模块
- * 提供用户评分百分位排名相关功能
+ * Percentile Calculation Module - 百分位数计算模块
+ * 支持CN环境（Cloudbase）和INTL环境（Supabase）
  */
 
-import { getSupabaseClient } from '@/lib/supabase/client';
-import type { GenderEnum } from '@/types/database';
+import { getDbClient, isChinaDeployment } from './db-client';
 
 // ========================================
 // 类型定义
@@ -24,181 +23,198 @@ export interface ScoreDistribution {
   percentage: number;
 }
 
-// ========================================
-// 百分位计算函数
-// ========================================
-
 /**
- * 计算用户在同性别中的百分位排名
- * @param userId - 用户ID
- * @param totalScore - 用户总分
- * @returns 百分位 (0-100)
+ * 分数分布缓存接口
  */
-export async function calculatePercentile(
-  userId: string,
-  totalScore: number
-): Promise<number> {
-  try {
-    const supabase = getSupabaseClient();
-    
-    // 调用数据库函数计算百分位
-    const { data, error } = await supabase
-      .rpc('calculate_score_percentile', {
-        p_user_id: userId,
-        p_total_score: totalScore
-      });
-    
-    if (error) {
-      console.error('Failed to calculate percentile via RPC:', error);
-      // 降级到客户端计算
-      return calculatePercentileClient(userId, totalScore);
-    }
-    
-    return data ?? 50;
-  } catch (error) {
-    console.error('Percentile calculation error:', error);
-    return 50;
-  }
+interface ScoreDistributionCache {
+  scores: number[];
+  totalUsers: number;
+  timestamp: number;
 }
 
+// ========================================
+// 缓存配置
+// ========================================
+
+/** 缓存TTL（毫秒）- 5分钟 */
+const CACHE_TTL = 5 * 60 * 1000;
+
+/** 分数分布缓存 */
+let scoreDistributionCache: ScoreDistributionCache | null = null;
+
+// ========================================
+// 核心函数
+// ========================================
+
 /**
- * 客户端计算百分位（降级方案）
- * @param userId - 用户ID
- * @param totalScore - 用户总分
- * @returns 百分位 (0-100)
+ * 获取所有用户的市场价值分数（内部函数）
+ * @returns 分数数组（已排序）
  */
-async function calculatePercentileClient(
-  userId: string,
-  totalScore: number
-): Promise<number> {
+async function fetchAllScores(): Promise<number[]> {
+  // 检查缓存
+  if (scoreDistributionCache && Date.now() - scoreDistributionCache.timestamp < CACHE_TTL) {
+    return scoreDistributionCache.scores;
+  }
+
+  const db = await getDbClient();
+  const isCN = isChinaDeployment();
+
   try {
-    const supabase = getSupabaseClient();
-    
-    // 获取用户性别
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('gender')
-      .eq('id', userId)
-      .single();
-    
-    if (userError || !userData?.gender) {
-      return 50;
-    }
-    
-    // 查询同性别用户的分数
-    const { data: profiles, error: profileError } = await supabase
-      .from('users')
-      .select(`
-        id,
-        user_profiles!inner(market_value_score)
-      `)
-      .eq('gender', userData.gender)
-      .neq('id', userId);
-    
-    if (profileError || !profiles) {
-      return 50;
-    }
-    
-    // 统计
-    let lowerCount = 0;
-    let totalCount = 0;
-    
-    for (const user of profiles) {
-      const profile = user.user_profiles as unknown as { market_value_score: { totalScore?: number } | null };
-      if (profile?.market_value_score?.totalScore !== undefined) {
-        totalCount++;
-        if (profile.market_value_score.totalScore < totalScore) {
-          lowerCount++;
-        }
+    if (isCN) {
+      // CN环境：Cloudbase查询
+      const { data, error } = await db
+        .from('user_profiles')
+        .select('market_value_score');
+
+      if (error) {
+        console.error('[Percentile CN] Failed to fetch scores:', error);
+        return [];
       }
+
+      // 提取分数并过滤null值
+      const scores = (data || [])
+        .map((profile: any) => profile.market_value_score)
+        .filter((score: any) => score !== null && score !== undefined)
+        .sort((a: number, b: number) => a - b);
+
+      // 更新缓存
+      scoreDistributionCache = {
+        scores,
+        totalUsers: scores.length,
+        timestamp: Date.now(),
+      };
+
+      return scores;
+    } else {
+      // INTL环境：Supabase查询
+      const { data, error } = await db
+        .from('user_profiles')
+        .select('market_value_score')
+        .not('market_value_score', 'is', null);
+
+      if (error) {
+        console.error('[Percentile INTL] Failed to fetch scores:', error);
+        return [];
+      }
+
+      // 提取分数并排序
+      const scores = (data || [])
+        .map((profile: any) => profile.market_value_score)
+        .sort((a: number, b: number) => a - b);
+
+      // 更新缓存
+      scoreDistributionCache = {
+        scores,
+        totalUsers: scores.length,
+        timestamp: Date.now(),
+      };
+
+      return scores;
     }
-    
-    if (totalCount === 0) {
-      return 50;
-    }
-    
-    return Math.round((lowerCount / totalCount) * 100);
   } catch (error) {
-    console.error('Client percentile calculation error:', error);
-    return 50;
-  }
-}
-
-/**
- * 获取分数统计信息
- * @param gender - 可选，按性别筛选
- * @returns 统计信息
- */
-export async function getScoreStatistics(
-  gender?: GenderEnum | null
-): Promise<ScoreStatistics | null> {
-  try {
-    const searchParams = new URLSearchParams();
-    if (gender) {
-      searchParams.set('gender', gender);
-    }
-    const url = `/api/score/statistics${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-
-    const response = await fetch(url, {
-      method: 'GET',
-      credentials: 'include',
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const stats = (await response.json()) as ScoreStatistics | null;
-    return stats;
-  } catch (error) {
-    console.error('Score statistics error:', error);
-    return null;
-  }
-}
-
-/**
- * 获取分数分布
- * @param gender - 可选，按性别筛选
- * @param bucketSize - 分组大小，默认10分一组
- * @returns 分布数据
- */
-export async function getScoreDistribution(
-  gender?: GenderEnum | null,
-  bucketSize: number = 10
-): Promise<ScoreDistribution[]> {
-  try {
-    const supabase = getSupabaseClient();
-    
-    const { data, error } = await supabase
-      .rpc('get_score_distribution', {
-        p_gender: gender || null,
-        p_bucket_size: bucketSize
-      });
-    
-    if (error) {
-      console.error('Failed to get score distribution:', error);
-      return [];
-    }
-    
-    return (data || []).map((item: { score_range: string; user_count: number; percentage: number }) => ({
-      scoreRange: item.score_range,
-      userCount: item.user_count,
-      percentage: item.percentage
-    }));
-  } catch (error) {
-    console.error('Score distribution error:', error);
+    console.error('[Percentile] Error fetching score distribution:', error);
     return [];
   }
 }
 
 /**
- * 获取用户在特定分数区间的排名
- * @param totalScore - 用户总分
- * @param gender - 性别
+ * 计算百分位数
+ * @param totalScore - 用户的市场价值分数
+ * @returns 百分位数 (0-100)
+ */
+export async function calculatePercentile(totalScore: number): Promise<number> {
+  // 获取分数分布
+  const scores = await fetchAllScores();
+
+  // 如果没有数据，返回50（中位数）
+  if (scores.length === 0) {
+    return 50;
+  }
+
+  // 计算有多少用户的分数低于当前用户
+  let countBelow = 0;
+  for (const score of scores) {
+    if (score < totalScore) {
+      countBelow++;
+    } else {
+      break; // 因为scores已排序，可以提前退出
+    }
+  }
+
+  // 计算百分位数
+  const percentile = (countBelow / scores.length) * 100;
+
+  // 返回保留一位小数的百分位数
+  return Math.round(percentile * 10) / 10;
+}
+
+/**
+ * 批量计算百分位数（用于批量处理场景）
+ * @param userScores - 用户分数数组
+ * @returns 百分位数数组
+ */
+export async function calculatePercentilesInBatch(
+  userScores: number[]
+): Promise<number[]> {
+  // 获取分数分布（只查询一次）
+  const scores = await fetchAllScores();
+
+  if (scores.length === 0) {
+    return userScores.map(() => 50);
+  }
+
+  // 为每个用户分数计算百分位数
+  return userScores.map((userScore) => {
+    let countBelow = 0;
+    for (const score of scores) {
+      if (score < userScore) {
+        countBelow++;
+      } else {
+        break;
+      }
+    }
+    const percentile = (countBelow / scores.length) * 100;
+    return Math.round(percentile * 10) / 10;
+  });
+}
+
+/**
+ * 清除缓存（用于测试或强制刷新）
+ */
+export function clearPercentileCache(): void {
+  scoreDistributionCache = null;
+}
+
+/**
+ * 获取缓存统计信息
+ * @returns 缓存统计
+ */
+export function getPercentileCacheStats(): {
+  isCached: boolean;
+  totalUsers: number;
+  cacheAge: number;
+} {
+  if (!scoreDistributionCache) {
+    return {
+      isCached: false,
+      totalUsers: 0,
+      cacheAge: 0,
+    };
+  }
+
+  return {
+    isCached: true,
+    totalUsers: scoreDistributionCache.totalUsers,
+    cacheAge: Date.now() - scoreDistributionCache.timestamp,
+  };
+}
+
+/**
+ * 获取用户在特定分数区间的排名描述
+ * @param percentile - 百分位数
  * @returns 排名描述
  */
-export function getScoreRanking(totalScore: number, percentile: number): string {
+export function getScoreRanking(percentile: number): string {
   if (percentile >= 95) {
     return 'Top 5%';
   } else if (percentile >= 90) {
@@ -214,6 +230,35 @@ export function getScoreRanking(totalScore: number, percentile: number): string 
   } else {
     return 'Bottom 30%';
   }
+}
+
+export async function getScoreStatistics(): Promise<ScoreStatistics | null> {
+  const scores = await fetchAllScores();
+
+  if (scores.length === 0) {
+    return null;
+  }
+
+  const totalUsers = scores.length;
+  const minScore = scores[0];
+  const maxScore = scores[scores.length - 1];
+
+  const sum = scores.reduce((acc, s) => acc + s, 0);
+  const avgScore = Math.round((sum / totalUsers) * 10) / 10;
+
+  const mid = Math.floor(totalUsers / 2);
+  const medianScore =
+    totalUsers % 2 === 0
+      ? Math.round(((scores[mid - 1] + scores[mid]) / 2) * 10) / 10
+      : scores[mid];
+
+  return {
+    avgScore,
+    medianScore,
+    minScore,
+    maxScore,
+    totalUsers,
+  };
 }
 
 /**
@@ -237,15 +282,15 @@ export function getScoreGrade(totalScore: number): 'S' | 'A' | 'B' | 'C' | 'D' {
 export function getGradeColor(grade: 'S' | 'A' | 'B' | 'C' | 'D'): string {
   switch (grade) {
     case 'S':
-      return 'text-amber-500'; // 金色
+      return 'text-amber-500';
     case 'A':
-      return 'text-purple-500'; // 紫色
+      return 'text-purple-500';
     case 'B':
-      return 'text-blue-500'; // 蓝色
+      return 'text-blue-500';
     case 'C':
-      return 'text-green-500'; // 绿色
+      return 'text-green-500';
     case 'D':
-      return 'text-gray-500'; // 灰色
+      return 'text-gray-500';
   }
 }
 
@@ -268,4 +313,3 @@ export function getGradeBgColor(grade: 'S' | 'A' | 'B' | 'C' | 'D'): string {
       return 'bg-gray-500/10 border-gray-500/20';
   }
 }
-

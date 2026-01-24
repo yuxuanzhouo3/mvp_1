@@ -687,36 +687,10 @@ export async function authenticateRequest(
   const token = authHeader.split(' ')[1];
 
   if (isChinaDeployment()) {
-    // CN 环境: 支持 cn_ 前缀的用户 ID token
-    if (token.startsWith('cn_')) {
-      const userId = token.substring(3);
-      if (userId) {
-        return { id: userId };
-      }
-    }
-
-    // 尝试从 Cloudbase 验证 token 或解析 JWT
-    try {
-      const db = await getServiceDbClient();
-      const { data, error } = await db.auth.getUser();
-      if (error || !data?.user) {
-        try {
-          const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-          return {
-            id: payload.sub || payload.uid,
-            email: payload.email
-          };
-        } catch {
-          return null;
-        }
-      }
-      return {
-        id: data.user.id,
-        email: data.user.email
-      };
-    } catch {
-      return null;
-    }
+    const { verifySessionToken } = await import('@/lib/auth/session');
+    const verified = await verifySessionToken(token);
+    if (!verified.ok) return null;
+    return { id: verified.value.userId, email: verified.value.email };
   } else {
     // INTL 环境: 使用 Supabase 验证 token
     if (!supabaseAdmin) {
@@ -734,6 +708,12 @@ export async function authenticateRequest(
     return { id: user.id, email: user.email };
   }
 }
+
+
+
+
+
+
 
 
 

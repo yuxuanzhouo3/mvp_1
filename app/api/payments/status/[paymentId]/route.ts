@@ -1,22 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createSupabaseClient } from '@/lib/supabase/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { finalizeCnPayment } from '@/lib/payment/cn-payment-finalize';
-
-function getCnUserId(request: NextRequest): string | null {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring('Bearer '.length);
-    if (token.startsWith('cn_')) {
-      const userId = token.substring(3);
-      return userId || null;
-    }
-  }
-
-  const cnSession =
-    request.cookies.get('cn_session')?.value || request.cookies.get('cn_session_cross')?.value;
-  return cnSession || null;
-}
+import { requireUser } from '@/lib/auth/requireUser';
 
 export async function GET(
   request: NextRequest,
@@ -32,13 +17,11 @@ export async function GET(
       );
     }
 
-    if (isChinaDeployment()) {
-      const userId = getCnUserId(request);
-      if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
+    const authUser = await requireUser(request);
+    const userId = authUser.userId;
+    const db = await getDbClient();
 
-      const db = await getDbClient();
+    if (isChinaDeployment()) {
       const { data: payment, error: paymentError } = await db
         .from('payments')
         .select('*')
@@ -142,22 +125,11 @@ export async function GET(
         updatedAt: refreshedPayment?.updated_at || payment.updated_at,
       });
     }
-
-    const supabase = createSupabaseClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { data: payment, error: paymentError } = await supabase
+    const { data: payment, error: paymentError } = await db
       .from('payments')
       .select('*')
       .eq('id', paymentId)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single();
 
     if (paymentError || !payment) {

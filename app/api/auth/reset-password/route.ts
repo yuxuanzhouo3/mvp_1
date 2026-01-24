@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@/lib/supabase/server';
+import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getRequestIp(request) || 'unknown';
+    const rlIp = await rateLimit({ key: `rl:reset_password:ip:${ip}`, limit: 10, windowMs: 60_000 });
+    if (!rlIp.allowed) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((rlIp.resetAtMs - Date.now()) / 1000));
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } });
+    }
+
     const { access_token, refresh_token, password } = await request.json();
 
     if (!access_token || !refresh_token || !password) {
@@ -60,6 +68,13 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const ip = getRequestIp(request) || 'unknown';
+    const rlIp = await rateLimit({ key: `rl:reset_password_verify:ip:${ip}`, limit: 20, windowMs: 60_000 });
+    if (!rlIp.allowed) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((rlIp.resetAtMs - Date.now()) / 1000));
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } });
+    }
+
     const { searchParams } = new URL(request.url);
     const access_token = searchParams.get('access_token');
     const refresh_token = searchParams.get('refresh_token');

@@ -1,59 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
-import { verifyUSDTPayment, verifyAlipayPayment } from '@/lib/payment/payment-receivers';
+import { verifyAlipayPayment } from '@/lib/payment/payment-receivers';
 import { finalizeCnPayment } from '@/lib/payment/cn-payment-finalize';
+import { requireUser } from '@/lib/auth/requireUser';
 
 interface VerifyManualRequest {
   paymentId: string;
-  paymentMethod: 'usdt' | 'alipay' | 'wechat';
+  paymentMethod: 'alipay' | 'wechat';
   transactionHash?: string;
   transactionId?: string;
   amount: number;
   fromAddress?: string;
 }
 
-/**
- * 从请求中获取 CN 环境的用户 ID
- */
-function getCnUserId(request: NextRequest): string | null {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring('Bearer '.length);
-    if (token.startsWith('cn_')) {
-      return token.substring(3) || null;
-    }
-  }
-  const cnSession =
-    request.cookies.get('cn_session')?.value || request.cookies.get('cn_session_cross')?.value;
-  return cnSession || null;
-}
-
 export async function POST(request: NextRequest) {
   try {
-    let userId: string | null = null;
-
-    // CN 环境认证
-    if (isChinaDeployment()) {
-      userId = getCnUserId(request);
-      if (!userId) {
-        return NextResponse.json(
-          { error: 'Unauthorized' },
-          { status: 401 }
-        );
-      }
-    } else {
-      // INTL 环境使用 Supabase 认证
-      const supabase = createClient();
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        return NextResponse.json(
-          { error: 'Unauthorized' },
-          { status: 401 }
-        );
-      }
-      userId = user.id;
-    }
+    const authUser = await requireUser(request);
+    const userId = authUser.userId;
 
     const body: VerifyManualRequest = await request.json();
     const { paymentId, paymentMethod, transactionHash, transactionId, amount, fromAddress } = body;
@@ -88,16 +52,6 @@ export async function POST(request: NextRequest) {
 
     // Verify based on payment method
     switch (paymentMethod) {
-      case 'usdt':
-        if (!transactionHash || !fromAddress) {
-          return NextResponse.json(
-            { error: 'Missing transaction hash or from address for USDT payment' },
-            { status: 400 }
-          );
-        }
-        verificationResult = await verifyUSDTPayment(paymentId, transactionHash, amount, fromAddress);
-        break;
-      
       case 'alipay':
         if (!transactionId) {
           return NextResponse.json(
@@ -107,12 +61,12 @@ export async function POST(request: NextRequest) {
         }
         verificationResult = await verifyAlipayPayment(paymentId, transactionId, amount);
         break;
-      
+
       case 'wechat':
         // 微信支付：查询微信支付订单状态
         verificationResult = await verifyWeChatPayment(paymentId, userId);
         break;
-      
+
       default:
         return NextResponse.json(
           { error: 'Unsupported payment method' },

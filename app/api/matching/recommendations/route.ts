@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
-import { createClient } from '@supabase/supabase-js';
+import { requireUser } from '@/lib/auth/requireUser';
 import { 
   generateDailyRecommendations, 
 } from '@/lib/matching/algorithms';
@@ -24,56 +24,49 @@ import {
 } from '@/lib/matching/types';
 import { filterSensitiveFields, isProfileVisible } from '@/lib/api/privacyFilter';
 
+function base64UrlEncode(input: string) {
+  return Buffer.from(input, 'utf8')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function base64UrlDecode(input: string) {
+  const padded = input.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (input.length % 4)) % 4);
+  return Buffer.from(padded, 'base64').toString('utf8');
+}
+
+type RecommendationCursor = { matchScore: number; createdAt: string; id: string };
+
+function encodeCursor(cursor: RecommendationCursor) {
+  return base64UrlEncode(JSON.stringify(cursor));
+}
+
+function decodeCursor(raw: string | null): RecommendationCursor | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(base64UrlDecode(raw));
+    if (
+      typeof parsed?.matchScore === 'number' &&
+      typeof parsed?.createdAt === 'string' &&
+      typeof parsed?.id === 'string'
+    ) {
+      return parsed as RecommendationCursor;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // 统一认证函数
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
-  const authHeader = request.headers.get('authorization');
-
-  if (isChinaDeployment()) {
-    // CN 环境
-    if (!authHeader) return null;
-    const token = authHeader.replace('Bearer ', '');
-    // CN 环境: 支持 cn_ 前缀的用户 ID token
-    if (token.startsWith('cn_')) {
-      const userId = token.substring(3);
-      if (userId) {
-        return { userId };
-      }
-    }
-    // 从 token 中解析用户信息 (JWT)
-    try {
-      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-      return {
-        userId: payload.sub || payload.uid,
-        email: payload.email,
-      };
-    } catch {
-      return null;
-    }
-  } else {
-    // INTL 环境: 使用 Supabase 验证 token
-    const db = await getDbClient();
-    const { data: { user }, error } = await db.auth.getUser();
-    if (error || !user) {
-      // 尝试从 header 验证
-      if (authHeader) {
-        try {
-          const token = authHeader.replace('Bearer ', '');
-          const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-          const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-          if (url && key) {
-            const anonClient = createClient(url, key, {
-              auth: { autoRefreshToken: false, persistSession: false }
-            });
-            const { data: { user: tokenUser }, error: tokenError } = await anonClient.auth.getUser(token);
-            if (!tokenError && tokenUser) {
-              return { userId: tokenUser.id, email: tokenUser.email };
-            }
-          }
-        } catch {}
-      }
-      return null;
-    }
-    return { userId: user.id, email: user.email };
+  try {
+    const user = await requireUser(request);
+    return { userId: user.userId, email: user.email };
+  } catch {
+    return null;
   }
 }
 
@@ -102,6 +95,7 @@ export async function GET(request: NextRequest) {
       MATCHING_CONFIG.MAX_RECOMMENDATION_COUNT
     );
     const includeViewed = searchParams.get('include_viewed') === 'true';
+    const cursor = decodeCursor(searchParams.get('cursor'));
 
     // 验证算法类型
     const validAlgorithms: AlgorithmType[] = ['compatible', 'romantic', 'pragmatic', 'serendipity'];
@@ -131,10 +125,22 @@ export async function GET(request: NextRequest) {
       .eq('status', 'pending')
       .gt('expires_at', new Date().toISOString())
       .order('match_score', { ascending: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .limit(limit);
 
     if (!includeViewed) {
       query = query.eq('is_viewed', false);
+    }
+
+    if (cursor && !isChinaDeployment()) {
+      query = query.or(
+        [
+          `match_score.lt.${cursor.matchScore}`,
+          `and(match_score.eq.${cursor.matchScore},created_at.lt.${cursor.createdAt})`,
+          `and(match_score.eq.${cursor.matchScore},created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`,
+        ].join(',')
+      );
     }
 
     const { data: recommendations, error: recError } = await query;
@@ -189,13 +195,20 @@ export async function GET(request: NextRequest) {
       expiresAt: rec.expires_at
     }));
 
+    const last = enrichedRecommendations[enrichedRecommendations.length - 1];
+    const nextCursor =
+      last && typeof last.matchScore === 'number' && typeof last.createdAt === 'string' && typeof last.id === 'string'
+        ? encodeCursor({ matchScore: last.matchScore, createdAt: last.createdAt, id: last.id })
+        : null;
+
     return NextResponse.json({
       success: true,
       data: {
         recommendations: enrichedRecommendations,
         algorithm: algorithm,
         algorithmName: ALGORITHM_NAMES[algorithm],
-        total: enrichedRecommendations.length
+        total: enrichedRecommendations.length,
+        nextCursor,
       }
     });
 
@@ -306,31 +319,47 @@ export async function POST(request: NextRequest) {
                         userProfile.gender === 'female' ? 'male' : null;
 
     // 获取候选人列表
-    let candidatesQuery = db
-      .from('v_active_users')
-      .select('*')
-      .neq('id', authUser.userId);
+    const pageSize = 200;
+    const maxPages = 10;
+    const desiredCandidates = Math.max(200, limit * 10);
+    let page = 0;
+    let candidates: any[] = [];
 
-    if (targetGender) {
-      candidatesQuery = candidatesQuery.eq('gender', targetGender);
+    while (page < maxPages && candidates.length < desiredCandidates) {
+      let candidatesQuery = db
+        .from('v_active_users')
+        .select('*')
+        .neq('id', authUser.userId)
+        .order('id', { ascending: true })
+        .range(page * pageSize, page * pageSize + pageSize - 1);
+
+      if (targetGender) {
+        candidatesQuery = candidatesQuery.eq('gender', targetGender);
+      }
+
+      const { data: candidatesData, error: candidatesError } = await candidatesQuery;
+
+      if (candidatesError) {
+        console.error('Error fetching candidates:', candidatesError);
+        return NextResponse.json(
+          { success: false, error: 'FETCH_CANDIDATES_FAILED', errorCode: 'FETCH_CANDIDATES_FAILED' },
+          { status: 500 }
+        );
+      }
+
+      const batch = candidatesData || [];
+      if (batch.length === 0) break;
+
+      const filtered = batch
+        .filter((c: any) => !excludeUserIds.has(c.id))
+        .filter((c: any) => isProfileVisible(c.privacy_settings, false))
+        .map((c: any) => transformDbUserToMatchProfile(c))
+        .filter((c: any): c is NonNullable<typeof c> => c !== null);
+
+      candidates = candidates.concat(filtered);
+      page += 1;
+      if (batch.length < pageSize) break;
     }
-
-    const { data: candidatesData, error: candidatesError } = await candidatesQuery.limit(500);
-
-    if (candidatesError) {
-      console.error('Error fetching candidates:', candidatesError);
-      return NextResponse.json(
-        { success: false, error: 'FETCH_CANDIDATES_FAILED', errorCode: 'FETCH_CANDIDATES_FAILED' },
-        { status: 500 }
-      );
-    }
-
-    // 过滤并转换候选人
-    const candidates = (candidatesData || [])
-      .filter((c: any) => !excludeUserIds.has(c.id))
-      .filter((c: any) => isProfileVisible(c.privacy_settings, false))
-      .map((c: any) => transformDbUserToMatchProfile(c))
-      .filter((c: any): c is NonNullable<typeof c> => c !== null);
 
     if (candidates.length === 0) {
       return NextResponse.json({

@@ -12,7 +12,7 @@ export function ContactCard({
   description?: string;
 }) {
   return (
-    <div className="bg-card p-6 rounded-xl border hover:shadow-lg transition-shadow">
+    <div className="bg-card p-6 rounded-xl border hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5">
       <div className="flex items-start gap-4">
         <div className="flex-shrink-0">
           <Icon className="h-8 w-8 text-primary" />

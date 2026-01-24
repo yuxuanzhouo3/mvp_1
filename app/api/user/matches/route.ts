@@ -9,53 +9,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
-import { createClient } from '@supabase/supabase-js';
+import { requireUser } from '@/lib/auth/requireUser';
 
 export const dynamic = 'force-dynamic';
 
 // 统一认证函数
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
-  const authHeader = request.headers.get('authorization');
-
-  if (!authHeader) return null;
-  const token = authHeader.replace('Bearer ', '');
-
-  if (isChinaDeployment()) {
-    // CN 环境: 支持 cn_ 前缀的用户 ID token
-    if (token.startsWith('cn_')) {
-      const userId = token.substring(3);
-      if (userId) {
-        return { userId };
-      }
-    }
-
-    // 尝试从 token 中解析用户信息 (JWT)
-    try {
-      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-      return {
-        userId: payload.sub || payload.uid,
-        email: payload.email,
-      };
-    } catch {
-      return null;
-    }
-  } else {
-    // INTL 环境: 使用 Supabase 验证 token
-    if (!authHeader) return null;
-    const token = authHeader.replace('Bearer ', '');
-    try {
-      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      if (url && key) {
-        const anonClient = createClient(url, key, {
-          auth: { autoRefreshToken: false, persistSession: false }
-        });
-        const { data: { user }, error } = await anonClient.auth.getUser(token);
-        if (!error && user) {
-          return { userId: user.id, email: user.email };
-        }
-      }
-    } catch {}
+  try {
+    const user = await requireUser(request);
+    return { userId: user.userId, email: user.email };
+  } catch {
     return null;
   }
 }

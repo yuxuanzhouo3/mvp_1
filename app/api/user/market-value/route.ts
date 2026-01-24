@@ -10,7 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
-import { createClient } from '@supabase/supabase-js';
+import { requireUser } from '@/lib/auth/requireUser';
 import {
   calculateMarketValue,
   transformUserToScoringData,
@@ -18,66 +18,13 @@ import {
 } from '@/lib/scoring';
 import type { GenderEnum } from '@/types/database';
 
-// INTL 环境: 创建用于认证的 Supabase 客户端
-function createSupabaseAdmin() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    }
-  );
-}
-
 // 从请求中验证用户身份
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
-  const authHeader = request.headers.get('authorization');
-
-  if (!authHeader) {
+  try {
+    const user = await requireUser(request);
+    return { userId: user.userId, email: user.email };
+  } catch {
     return null;
-  }
-
-  const token = authHeader.replace('Bearer ', '');
-
-  if (isChinaDeployment()) {
-    // CN 环境: 支持 cn_ 前缀的用户 ID token
-    if (token.startsWith('cn_')) {
-      const userId = token.substring(3);
-      if (userId) {
-        return { userId };
-      }
-    }
-
-    // 尝试从 token 中解析用户信息 (JWT)
-    try {
-      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-      return {
-        userId: payload.sub || payload.uid,
-        email: payload.email,
-      };
-    } catch {
-      return null;
-    }
-  } else {
-    // INTL 环境: 使用 Supabase 验证 token
-    try {
-      const supabase = createSupabaseAdmin();
-      const { data: { user }, error } = await supabase.auth.getUser(token);
-
-      if (error || !user) {
-        return null;
-      }
-
-      return {
-        userId: user.id,
-        email: user.email,
-      };
-    } catch {
-      return null;
-    }
   }
 }
 
@@ -197,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     // 计算市场价值
     const evaluatorGender: GenderEnum = userData.gender === 'male' ? 'female' : 'male';
-    const result = calculateMarketValue(
+    const result = await calculateMarketValue(
       scoringData,
       evaluatorGender,
       'compatible_match',

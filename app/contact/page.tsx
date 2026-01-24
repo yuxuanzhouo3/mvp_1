@@ -24,11 +24,18 @@ export default function ContactPage() {
 
   return (
     <div className="max-w-6xl mx-auto py-8 sm:py-12 px-4">
-      <div className="text-center mb-8 sm:mb-12">
-        <h1 className="text-3xl sm:text-4xl font-bold mb-3 sm:mb-4">{t.contact.title}</h1>
-        <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-          {t.contact.description}
-        </p>
+      <div className="relative overflow-hidden text-center mb-8 sm:mb-12 rounded-3xl bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 py-10 sm:py-14 px-4">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-16 -left-16 h-72 w-72 rounded-full bg-primary/20 blur-3xl motion-safe:animate-blob motion-reduce:animate-none" />
+          <div className="absolute -bottom-20 -right-20 h-80 w-80 rounded-full bg-primary/15 blur-3xl motion-safe:animate-blob motion-safe:animation-delay-2000 motion-reduce:animate-none" />
+          <div className="absolute top-1/3 -right-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl motion-safe:animate-blob motion-safe:animation-delay-4000 motion-reduce:animate-none" />
+        </div>
+        <div className="relative z-10 motion-safe:fade-in motion-reduce:animate-none">
+          <h1 className="text-3xl sm:text-4xl font-bold mb-3 sm:mb-4">{t.contact.title}</h1>
+          <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
+            {t.contact.description}
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12">

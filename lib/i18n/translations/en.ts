@@ -40,18 +40,26 @@ export const en = {
     dashboard: 'Dashboard',
     profile: 'Profile',
     backToHome: 'Back to Home',
+    nav: {
+      home: 'Home',
+      algorithms: 'Algorithms',
+      about: 'About',
+      contact: 'Contact',
+      terms: 'Terms',
+      privacy: 'Privacy',
+    },
     switchLanguage: 'Switch Language',
     notifications: 'Notifications',
   },
 
-  // Home Page
+  // Home Page - INTL Version (Personal Dating Mode)
   home: {
-    badge: '🚀 AI-Powered Friend Matching Platform',
-    heroTitle: 'Find Your Ideal',
-    heroSubtitle: 'AI Friend Match',
-    heroDescription: 'Connect with AI companions that match your personality, interests, and communication style. Experience meaningful conversations and genuine connections that feel real.',
+    badge: '🚀 AI-Powered Compatibility Matching',
+    heroTitle: 'Find Your',
+    heroSubtitle: 'Perfect Match',
+    heroDescription: 'Discover meaningful connections through our scientific 10-dimension compatibility scoring system. Your personality, interests, and life goals matter – let AI help you find someone who truly gets you.',
     startMatching: 'Start Matching Now',
-    learnMore: 'Learn More',
+    learnMore: 'How It Works',
 
     // Stats
     stats: {
@@ -146,6 +154,11 @@ export const en = {
       welcomeBack: 'Welcome back!',
       redirecting: 'Welcome! Redirecting to dashboard...',
       rememberMe: 'Remember me',
+      agreeToTerms: 'I agree to the',
+      termsOfService: 'Terms of Service',
+      and: 'and',
+      privacyPolicy: 'Privacy Policy',
+      mustAgreeToTerms: 'You must agree to the Terms of Service and Privacy Policy',
     },
 
     // Register
@@ -474,31 +487,31 @@ export const en = {
     // Four matching algorithms
     algorithms: {
       compatible: {
-        name: 'Perfect Match',
-        shortDesc: 'Similar Conditions',
-        description: 'Similarity matching, finding people with similar conditions to reduce conflicts',
-        persona: 'Conservative seeking stability',
+        name: 'Compatibility Match',
+        shortDesc: 'Soul Connection',
+        description: 'Find your match based on shared values, interests, and life goals for lasting compatibility',
+        persona: 'Quality-focused romantic',
         icon: 'gem',
       },
       romantic: {
-        name: 'Brave Love',
-        shortDesc: 'Aim Higher',
-        description: 'Upward matching, prioritize more excellent candidates, suitable for ambitious people',
-        persona: 'Ambitious go-getter',
+        name: 'Dream Big',
+        shortDesc: 'Reach Higher',
+        description: 'Connect with exceptional people who inspire you to grow and become your best self',
+        persona: 'Ambitious dreamer',
         icon: 'rocket',
       },
       pragmatic: {
-        name: 'Steady Happiness',
-        shortDesc: 'Practical Choice',
-        description: 'Downward matching, higher success rate, suitable for those who want to settle down quickly',
-        persona: 'Practical realist',
+        name: 'Real Connection',
+        shortDesc: 'Higher Success Rate',
+        description: 'Smart matching with higher response rates – find someone ready to connect right now',
+        persona: 'Practical romantic',
         icon: 'target',
       },
       serendipity: {
-        name: 'Mystery Box',
-        shortDesc: 'Believe in Fate',
-        description: 'Random matching within limits, simulating love at first sight, for those seeking surprises',
-        persona: 'Adventurer seeking excitement',
+        name: 'Serendipity',
+        shortDesc: 'Leave It to Fate',
+        description: 'Embrace the unexpected! Sometimes the best connections happen when you least expect them',
+        persona: 'Adventure seeker',
         icon: 'gift',
       },
     },
@@ -515,10 +528,10 @@ export const en = {
 
     // Match detail messages
     scoreMessages: {
-      compatible: 'You have similar conditions',
-      romantic: 'Go for it!',
-      pragmatic: 'Steady happiness awaits',
-      serendipity: 'Fate works in mysterious ways',
+      compatible: 'Great compatibility match!',
+      romantic: 'Aim high, you got this!',
+      pragmatic: 'High chance of connection',
+      serendipity: 'Serendipity brought you together ✨',
     },
 
     // API error messages
@@ -719,7 +732,7 @@ export const en = {
     getInTouch: 'Get in Touch',
     emailSupport: {
       title: 'Email Support',
-      details: 'support@personalink.ai',
+      details: 'mornscience@gmail.com',
       description: 'We typically respond within 24 hours',
     },
     phoneSupport: {
@@ -829,7 +842,7 @@ export const en = {
     policyChangesDesc: 'We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new policy on this page and updating the "Last updated" date.',
     contactUs: 'Contact Us',
     contactUsDesc: 'If you have any questions about this Privacy Policy or our data practices, please contact us at:',
-    contactEmail: 'Email: privacy@personalink.ai',
+    contactEmail: 'Email: mornscience@gmail.com',
     contactAddress: 'Address: PersonaLink, San Francisco, CA',
     contactPhone: 'Phone: +1 (555) 123-4567',
     locationApproximate: 'Approximate location',
@@ -864,7 +877,7 @@ export const en = {
     termsChanges: '10. Changes to Terms',
     termsChangesDesc: 'We reserve the right, at our sole discretion, to modify or replace these Terms at any time. If a revision is material, we will provide at least 30 days notice prior to any new terms taking effect.',
     contactInfo: '11. Contact Information',
-    contactInfoDesc: 'If you have any questions about these Terms of Service, please contact us at legal@personalink.ai',
+    contactInfoDesc: 'If you have any questions about these Terms of Service, please contact us at mornscience@gmail.com',
   },
 
   // Help Page
@@ -908,7 +921,7 @@ export const en = {
       },
       {
         question: 'What payment methods are supported?',
-        answer: 'We support Credit/Debit cards (via Stripe), PayPal, Alipay, and USDT cryptocurrency.',
+        answer: 'We support Credit/Debit cards (via Stripe), PayPal, and Alipay.',
         category: 'payment',
       },
       {
@@ -1727,6 +1740,8 @@ export const en = {
     allRightsReserved: 'All rights reserved.',
     privacy: {
       title: 'Privacy Policy',
+      dataController: 'Data Controller',
+      dataControllerDesc: 'PersonaLink ("we") acts as the data controller for the personal information described in this policy, where applicable.',
       dataCollection: 'Data Collection',
       dataCollectionDesc: 'We collect the following types of information to provide and improve our services:',
       profileInfo: 'Profile Information',
@@ -1772,6 +1787,10 @@ export const en = {
       security4: 'Access controls and authentication',
       dataRetention: 'Data Retention',
       dataRetentionDesc: 'We retain your information for as long as your account is active or as needed to provide services. You may request deletion of your account and associated data at any time.',
+      lawfulBasis: 'Legal Bases (where applicable)',
+      lawfulBasisDesc: 'Where required by law, we process personal information based on contract necessity, legitimate interests, your consent, or legal obligations.',
+      automatedDecisionMaking: 'Automated Decision-Making (where applicable)',
+      automatedDecisionMakingDesc: 'We may use automated processing (e.g., matching algorithms) to provide recommendations. We do not make decisions producing legal or similarly significant effects solely by automated means unless permitted by law with appropriate safeguards.',
       yourRights: 'Your Rights',
       yourRightsDesc: 'You have the right to:',
       accessInfo: 'Access and review your personal information',
@@ -1822,7 +1841,7 @@ export const en = {
       contactUsDesc: 'If you have any questions about this Privacy Policy or our data practices, please contact us at:',
       contact: 'Contact Us',
       contactDesc: 'If you have any questions about this Privacy Policy or our data practices, please contact us at:',
-      contactEmail: 'Email: privacy@personalink.ai',
+      contactEmail: 'Email: mornscience@gmail.com',
       contactAddress: 'Address: PersonaLink, San Francisco, CA',
       contactPhone: 'Phone: +1 (555) 123-4567',
     },
@@ -1832,8 +1851,14 @@ export const en = {
       acceptTermsDesc: 'By accessing or using PersonaLink, you agree to be bound by these Terms of Service.',
       serviceDesc: 'Description of Service',
       serviceDescText: 'PersonaLink is an AI-powered social matching platform that connects users based on personality compatibility and shared interests.',
+      eligibility: 'Eligibility and Age Requirements',
+      eligibilityDesc: 'You must be at least 18 years old (or the age of majority in your jurisdiction) to use the service.',
       userAccounts: 'User Accounts',
       userAccountsDesc: 'You are responsible for maintaining the confidentiality of your account and password.',
+      subscriptions: 'Subscriptions and Payments',
+      subscriptionsDesc: 'Some features may require a paid subscription or one-time purchase. If auto-renewal is enabled, you authorize us to charge the displayed price at the start of each billing cycle until you cancel.',
+      cancellationRefunds: 'Cancellation and Refunds',
+      cancellationRefundsDesc: 'Except as required by applicable law, fees are generally non-refundable. You can cancel renewal following the in-app instructions; cancellation takes effect at the end of the current billing period.',
       userConduct: 'User Conduct',
       userConductDesc: 'Users agree to use the platform responsibly and respect other users.',
       conduct1: 'Be respectful to other users',
@@ -1843,10 +1868,21 @@ export const en = {
       conduct5: 'Follow all applicable laws',
       privacyData: 'Privacy and Data',
       privacyDataDesc: 'Your privacy is important to us. Please review our Privacy Policy.',
+      userContent: 'User Content and License',
+      userContentDesc: 'You retain rights to content you submit (e.g., profile details, photos, messages). To provide the service, you grant us a non-exclusive, worldwide license to host, store, process, and display such content as necessary.',
+      prohibitedUse: 'Prohibited Use',
+      prohibitedUseDesc: 'You must not engage in any of the following:',
+      prohibited1: 'Harassment, threats, hate speech, or discriminatory content',
+      prohibited2: 'Illegal, sexual, fraudulent, or rights-infringing content',
+      prohibited3: 'Spam, bulk outreach, scraping, reverse engineering, or bypassing security measures',
+      prohibited4: 'Malware distribution, unauthorized access attempts, or account compromise',
+      prohibited5: 'Commercial solicitation, advertising, or unauthorized data collection',
       intellectualProperty: 'Intellectual Property',
       intellectualPropertyDesc: 'All content on this platform is protected by intellectual property laws.',
       intellectual: 'Intellectual Property',
       intellectualDesc: 'All content on this platform is protected by intellectual property laws.',
+      thirdParty: 'Third-Party Services',
+      thirdPartyDesc: 'The service may include third-party links or integrations. Third-party services are governed by their own terms and policies, and we are not responsible for third-party content or services.',
       termination: 'Termination',
       terminationDesc: 'We reserve the right to terminate accounts that violate these terms.',
       disclaimer: 'Disclaimer',
@@ -1855,10 +1891,12 @@ export const en = {
       paymentTermsDesc: 'Payment for premium services is processed through secure payment processors.',
       limitation: 'Limitation of Liability',
       limitationDesc: 'PersonaLink shall not be liable for any indirect or consequential damages.',
+      governingLaw: 'Governing Law and Dispute Resolution',
+      governingLawDesc: 'These terms are governed by applicable law. If a dispute arises, the parties will first attempt to resolve it informally; if unresolved, it will be handled by a competent court or arbitration forum as permitted by applicable law.',
       termsChanges: 'Changes to Terms',
       termsChangesDesc: 'We reserve the right to modify these terms at any time.',
       contactInfo: 'Contact Information',
-      contactInfoDesc: 'For questions about these terms, please contact us at legal@personalink.ai',
+      contactInfoDesc: 'For questions about these terms, please contact us at mornscience@gmail.com',
     },
   },
 
@@ -2439,6 +2477,149 @@ export const en = {
     topInterestsDesc: 'Your most popular interest tags',
     recentActivity: 'Recent Activity',
     recentActivityDesc: 'Your recent operation records',
+  },
+
+  // MBTI Compatibility
+  mbtiCompatibility: {
+    title: 'MBTI Compatibility Analysis',
+    yourType: 'Your MBTI Type',
+    targetType: 'Their Type',
+    completeMbtiTest: 'Please complete the MBTI personality test first',
+    compatibilityIndex: 'Compatibility Index',
+    score: 'Score',
+    you: 'You',
+    them: 'Them',
+    relationshipStrengths: 'Relationship Strengths',
+    potentialChallenges: 'Potential Challenges',
+    relationshipAdvice: 'Relationship Advice',
+    bestMatchingTypes: 'Best Matching Types',
+    
+    // Compatibility levels
+    levels: {
+      ideal: 'Ideal Match',
+      excellent: 'Excellent Match',
+      good: 'Good Match',
+      moderate: 'Moderate Match',
+      challenging: 'Challenging Match',
+    },
+    
+    // Compatibility descriptions
+    descriptions: {
+      ideal: {
+        strengths: ['Natural understanding and connection', 'Complementary cognitive functions', 'Strong emotional resonance'],
+        challenges: ['May become too similar over time', 'Potential for taking each other for granted'],
+        advice: 'Maintain individual interests while nurturing your deep connection.',
+      },
+      excellent: {
+        strengths: ['Strong intellectual connection', 'Mutual growth potential', 'Good communication flow'],
+        challenges: ['May need to work on emotional expression', 'Different energy levels possible'],
+        advice: 'Focus on understanding each other\'s emotional needs alongside intellectual pursuits.',
+      },
+      good: {
+        strengths: ['Complementary skills', 'Opportunity for personal growth', 'Balanced perspectives'],
+        challenges: ['Communication styles may differ', 'Different approaches to decision-making'],
+        advice: 'Embrace your differences as opportunities to learn and grow together.',
+      },
+      moderate: {
+        strengths: ['Diverse perspectives', 'Potential for balance', 'Learning opportunities'],
+        challenges: ['May struggle to understand each other', 'Different values or priorities possible'],
+        advice: 'Patience and open communication are key. Focus on understanding before being understood.',
+      },
+      challenging: {
+        strengths: ['Significant growth potential', 'Complementary blind spots', 'Unique perspectives'],
+        challenges: ['Fundamental differences in approach', 'May require significant effort to connect'],
+        advice: 'Success requires commitment, patience, and willingness to adapt. Consider professional guidance.',
+      },
+    },
+  },
+
+  // Algorithms Page
+  algorithmsPage: {
+    backToHome: 'Back to Home',
+    badge: '🎯 Four Matching Algorithms',
+    title: 'Scientific Matching, Find the Right One',
+    subtitle: 'We offer four unique matching algorithms to meet different needs. Choose the one that suits you best and start finding your ideal partner.',
+
+    // Highlights
+    highlights: {
+      scoring: '10-Dimension Scoring',
+      scoringValue: '0.1 Precision',
+      quality: 'Quality Users',
+      qualityValue: 'Strict Review',
+      success: 'Match Success',
+      successValue: '75%+',
+      smart: 'Smart Matching',
+      smartValue: 'Daily Update',
+    },
+
+    // Selection area
+    selectMode: 'Choose Your Matching Mode',
+    clickToSee: 'Click a card to see details',
+    successRateLabel: 'Success Rate',
+
+    // Algorithm details
+    features: 'Algorithm Features',
+    bestFor: 'Best For',
+    matchingLogic: 'Matching Logic',
+    matchingExample: 'Matching Example',
+    yourScore: 'Your Score',
+    recommendedRange: 'Recommended Range',
+    estimatedSuccess: 'Success Rate',
+
+    // Algorithm data
+    compatible: {
+      name: 'Perfect Match',
+      shortDesc: 'Similar Conditions',
+      description: 'Similarity matching finds people with similar conditions, reducing conflicts from class differences. People with similar backgrounds understand each other better.',
+      persona: 'Conservative seeking stability',
+      features: ['Condition similarity priority', 'Reduces compatibility conflicts', 'Stable relationship foundation', 'Family approved'],
+      bestFor: ['Those seeking similar partners', 'Parent-assisted matching', 'Those seeking stable marriage'],
+      matchingLogic: 'The system calculates the score difference between you and candidates, recommending those with similar scores. The smaller the gap, the higher the compatibility.',
+      exampleExplanation: 'If your score is 78.5, the system recommends candidates scoring 73.5-83.5',
+      matchRange: '73.5 - 83.5 points',
+    },
+
+    romantic: {
+      name: 'Brave Love',
+      shortDesc: 'Aim Higher',
+      description: 'Upward matching prioritizes more excellent candidates. Suitable for ambitious people who want to improve through partnership. Bravely pursue your ideal match!',
+      persona: 'Ambitious go-getter',
+      features: ['Prioritize quality candidates', 'Upward social opportunity', 'Motivate self-improvement', 'Pursue better future'],
+      bestFor: ['Ambitious young people', 'Those seeking change', 'Confident individuals'],
+      matchingLogic: 'The system prioritizes candidates scoring 0.5-5 points higher, giving you access to more excellent matches.',
+      exampleExplanation: 'If your score is 78.5, the system prioritizes candidates scoring 79-83.5',
+      matchRange: '79.0 - 83.5 points',
+    },
+
+    pragmatic: {
+      name: 'Steady Happiness',
+      shortDesc: 'Practical Choice',
+      description: 'Downward matching has higher success rates. Suitable for practical people who prioritize compatibility over conditions. Focus on whether you can be together rather than conditions.',
+      persona: 'Practical realist',
+      features: ['Higher success rate', 'Practical choices', 'Value present', 'Steady happiness'],
+      bestFor: ['Those eager to find partner', 'Practical people', 'Those believing in growing love'],
+      matchingLogic: 'The system recommends candidates with slightly lower scores, who may value the relationship more, resulting in higher match success rates.',
+      exampleExplanation: 'If your score is 78.5, the system recommends candidates scoring 73.5-78 for higher success',
+      matchRange: '73.5 - 78.0 points',
+    },
+
+    serendipity: {
+      name: 'Mystery Box',
+      shortDesc: 'Believe in Fate',
+      description: 'Limited random matching simulates love at first sight. Random recommendations within set conditions - your soulmate might be next!',
+      persona: 'Adventurer seeking excitement',
+      features: ['Simulate love at first sight', 'Unexpected surprises', 'Break comfort zone', 'Fate decides'],
+      bestFor: ['Romantic believers in fate', 'Those wanting surprises', 'Those unconstrained by conditions'],
+      matchingLogic: 'The system randomly recommends candidates within your basic conditions. Every refresh may bring someone different.',
+      exampleExplanation: 'The system randomly recommends from candidates meeting your basic conditions (age, location, etc.)',
+      matchRange: 'Random (meeting basic conditions)',
+    },
+
+    // CTA area
+    ctaTitle: 'Ready to Start Matching?',
+    ctaSubtitle: 'Complete your profile, choose your matching algorithm, and start finding your ideal partner',
+    startMatching: 'Start Matching',
+    completeProfile: 'Complete Profile',
   },
 } as const;
 

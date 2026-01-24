@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   findOrCreateWeChatUser,
-  generateSessionToken,
+  createUserSession,
 } from '@/lib/services/auth/wechat-db';
 
 // 微信小程序登录凭证校验接口
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 4. 生成会话 token
-    const accessToken = generateSessionToken(user.id);
+    const accessToken = await createUserSession(user.id);
 
     console.log(`[WeChat MiniProgram] User logged in: ${openid.slice(0, 8)}...`);
 

@@ -51,13 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
               setUser(cnUser);
               userRef.current = cnUser;
-              setSession({
-                access_token: `cn_${cnUser.id}`,
-                refresh_token: '',
-                expires_in: 0,
-                token_type: 'bearer',
-                user: cnUser,
-              } as Session);
+              setSession(null);
             } catch (e) {
               localStorage.removeItem('cn_user');
               setUser(null);
@@ -89,13 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 setUser(cnUser);
                 userRef.current = cnUser;
-                setSession({
-                  access_token: `cn_${cnUser.id}`,
-                  refresh_token: '',
-                  expires_in: 0,
-                  token_type: 'bearer',
-                  user: cnUser,
-                } as Session);
+                setSession(null);
 
                 localStorage.setItem('cn_user', JSON.stringify(cnUser));
               } else {
@@ -233,14 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         setUser(cnUser);
         userRef.current = cnUser;
-        // CN 环境：创建模拟 session
-        setSession({
-          access_token: `cn_${result.user.id}`,
-          refresh_token: '',
-          expires_in: 0,
-          token_type: 'bearer',
-          user: cnUser,
-        } as Session);
+        setSession(null);
 
         // 保存用户数据到 localStorage（供页面刷新后恢复）
         localStorage.setItem('cn_user', JSON.stringify(cnUser));

@@ -71,7 +71,6 @@ const TRANSLATIONS = {
     stripe: '信用卡/借记卡',
     paypal: 'PayPal',
     alipay: '支付宝',
-    usdt: 'USDT',
   },
   en: {
     title: 'My Orders',
@@ -104,7 +103,6 @@ const TRANSLATIONS = {
     stripe: 'Credit/Debit Card',
     paypal: 'PayPal',
     alipay: 'Alipay',
-    usdt: 'USDT',
   },
 };
 
@@ -146,23 +144,15 @@ export default function OrdersPage() {
       const isCN = isChinaDeployment();
       
       if (isCN) {
-        // CN 环境：使用 cn_ 前缀的 token
-        token = `cn_${user.id}`;
+        token = null;
       } else {
         // INTL 环境：使用 Supabase session token
         const { data: { session } } = await supabase.auth.getSession();
         token = session?.access_token || null;
       }
 
-      if (!token) {
-        console.error('No session token');
-        return;
-      }
-
       const response = await fetch('/api/payments/history?limit=50', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
         cache: 'no-store',
         credentials: 'include', // 确保发送 cookie
       });
@@ -202,8 +192,7 @@ export default function OrdersPage() {
       const isCN = isChinaDeployment();
       
       if (isCN) {
-        // CN 环境：使用 cn_ 前缀的 token
-        token = `cn_${user.id}`;
+        token = null;
       } else {
         // INTL 环境：使用 Supabase session token
         const { data: { session } } = await supabase.auth.getSession();
@@ -213,8 +202,8 @@ export default function OrdersPage() {
       const response = await fetch('/api/payments/cancel', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ paymentId: selectedPaymentId }),
         cache: 'no-store',
@@ -283,8 +272,6 @@ export default function OrdersPage() {
         return t.paypal;
       case 'alipay':
         return t.alipay;
-      case 'usdt':
-        return t.usdt;
       default:
         return method;
     }

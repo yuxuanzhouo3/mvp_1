@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { createUserSession } from '@/lib/auth/session';
+import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
 
 export async function POST(request: NextRequest) {
   const isCN = isChinaDeployment();
@@ -22,6 +24,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const ip = getRequestIp(request) || 'unknown';
+    const rlIp = await rateLimit({ key: `rl:cn_register:ip:${ip}`, limit: 5, windowMs: 60_000 });
+    if (!rlIp.allowed) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((rlIp.resetAtMs - Date.now()) / 1000));
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } });
+    }
+
     const body = await request.json();
     const { email, password, displayName, phone } = body;
     
@@ -34,6 +43,12 @@ export async function POST(request: NextRequest) {
         { error: '邮箱和密码为必填项' },
         { status: 400 }
       );
+    }
+
+    const rlEmail = await rateLimit({ key: `rl:cn_register:email:${String(email).toLowerCase()}`, limit: 3, windowMs: 60_000 });
+    if (!rlEmail.allowed) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((rlEmail.resetAtMs - Date.now()) / 1000));
+      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } });
     }
 
     // 验证密码长度
@@ -119,6 +134,7 @@ export async function POST(request: NextRequest) {
     });
 
     console.log(`[CN Register] User created successfully: ${userId}, ${email}`);
+    const sessionToken = await createUserSession(userId, { email });
 
     // 创建响应并设置认证 cookie（注册即登录）
     const response = NextResponse.json({
@@ -139,7 +155,7 @@ export async function POST(request: NextRequest) {
     const host = request.headers.get('host') || '';
     const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
     const isSecureCookie = isSecureRequest || !isLocalhost;
-    response.cookies.set('cn_session', userId, {
+    response.cookies.set('cn_session', sessionToken, {
       httpOnly: true,
       secure: isSecureCookie,
       sameSite: 'lax',
@@ -148,7 +164,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!isLocalhost) {
-      response.cookies.set('cn_session_cross', userId, {
+      response.cookies.set('cn_session_cross', sessionToken, {
         httpOnly: true,
         secure: true,
         sameSite: 'none',

@@ -53,10 +53,6 @@ export default function DashboardLayout({
         try {
           const response = await fetch('/api/admin/check', {
             method: 'GET',
-            headers: {
-              'Authorization': `Bearer cn_${user.id}`,
-              'Content-Type': 'application/json',
-            },
             cache: 'no-store',
           });
 
@@ -225,7 +221,7 @@ export default function DashboardLayout({
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardSidebar user={user} isAdmin={isAdmin} />
       {/* 主内容区域：移动端顶部边距避开 mobile header，桌面端左边距和顶部边距避开固定侧边栏和 header */}
-      <main className={`pt-0 pb-14 md:pb-0 md:pt-[73px] md:pl-64 transition-all duration-200 ${isChatRoomPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+      <main className={`pt-16 pb-14 md:pb-0 md:pt-[73px] md:pl-64 transition-all duration-200 ${isChatRoomPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
         <div className={`${isSettingsPage || isChatRoomPage ? 'p-0 h-full' : 'p-4 sm:p-6'}`}>
           {children}
         </div>

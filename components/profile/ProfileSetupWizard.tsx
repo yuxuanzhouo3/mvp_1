@@ -61,10 +61,6 @@ export default function ProfileSetupWizard() {
     if (session?.access_token) {
       return session.access_token;
     }
-    // CN 环境：使用用户 ID 作为 token
-    if (user?.id) {
-      return `cn_${user.id}`;
-    }
     return null;
   };
 
@@ -147,6 +143,7 @@ export default function ProfileSetupWizard() {
               },
               body: photoFormData,
               cache: 'no-store',
+              credentials: 'include',
             });
 
             if (!photoResponse.ok) {
@@ -172,6 +169,7 @@ export default function ProfileSetupWizard() {
         },
         body: JSON.stringify(profileData),
         cache: 'no-store',
+        credentials: 'include',
       });
 
       if (!response.ok) {

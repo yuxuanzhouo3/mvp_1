@@ -17,7 +17,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useMarketValue } from '@/hooks/useMarketValue';
 import { CompactSuggestions } from '@/components/profile/ImprovementSuggestions';
 import { CompactScoreBadge } from '@/components/profile/ScoreBadge';
-import { getWeights } from '@/lib/scoring';
+import { MBTICompatibility } from '@/components/profile/MBTICompatibility';
+import { getWeights } from '@/lib/scoring-core';
 import {
   User,
   MapPin,
@@ -812,6 +813,15 @@ export default function ProfileEditPage() {
                   ))}
                 </div>
               </div>
+
+              {/* MBTI Compatibility Display */}
+              {form.watch('mbti') && (
+                <MBTICompatibility
+                  userMbti={form.watch('mbti') as MBTIType}
+                  showBestMatches={true}
+                  className="mt-4"
+                />
+              )}
 
               {/* Bio */}
               <div>

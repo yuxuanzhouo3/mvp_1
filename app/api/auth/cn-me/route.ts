@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { AuthError, jsonAuthError, requireUser } from '@/lib/auth/requireUser';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
-  const cnSession =
-    request.cookies.get("cn_session")?.value ||
-    request.cookies.get("cn_session_cross")?.value;
-  if (!cnSession) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!isChinaDeployment()) {
+    return NextResponse.json({ error: 'This endpoint is only available in CN environment' }, { status: 403 });
   }
 
   let cloudbase: any;
@@ -31,6 +33,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const authUser = await requireUser(request);
     const app = cloudbase.init({
       env: envId,
       secretId: process.env.CLOUDBASE_SECRET_ID,
@@ -42,14 +45,14 @@ export async function GET(request: NextRequest) {
 
     let user: any | null = null;
 
-    const byCustomId = await usersCollection.where({ id: cnSession }).limit(1).get();
+    const byCustomId = await usersCollection.where({ id: authUser.userId }).limit(1).get();
     if (byCustomId?.data?.length) {
       user = byCustomId.data[0];
     }
 
     if (!user) {
       try {
-        const byDocId = await usersCollection.doc(cnSession).get();
+        const byDocId = await usersCollection.doc(authUser.userId).get();
         if (byDocId?.data) {
           user = byDocId.data;
         }
@@ -83,6 +86,12 @@ export async function GET(request: NextRequest) {
     
     return response;
   } catch (error: any) {
+    if (error instanceof AuthError) {
+      return jsonAuthError(error);
+    }
+    if (error?.status === 401 || error?.code === 'missing_token' || error?.code === 'invalid_token') {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     console.error("[CN Me] Error:", error);
     return NextResponse.json(
       { error: error.message || "获取用户信息失败" },

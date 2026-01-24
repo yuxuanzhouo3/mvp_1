@@ -27,7 +27,13 @@ import { AIPersonalityAnalysis, AIChatSimulation, AIUsageLimitDisplay } from '@/
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations, interpolate } from '@/lib/i18n';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
-import type { AlgorithmType } from '@/lib/matching/types';
+import { MatchScoreDetails } from '@/components/matching/MatchScoreDetails';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { cn } from '@/lib/utils';
+import type { AlgorithmType, MatchResult } from '@/lib/matching/types';
+import { RegionSwitch } from '@/components/region/RegionGuard';
+import { CNProfileCard } from '@/components/cn/CNProfileCard';
+import { INTLProfileCard } from '@/components/intl/INTLProfileCard';
 
 interface Recommendation {
   id?: string;
@@ -120,7 +126,9 @@ function MatchingPageContent() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showAIAnalysis, setShowAIAnalysis] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
+  const [showScoreDetails, setShowScoreDetails] = useState(false);
   const autoLoadedRef = useRef(false);
+  const isCN = isChinaDeployment();
 
   useEffect(() => {
     setMounted(true);
@@ -386,7 +394,7 @@ function MatchingPageContent() {
     <div className="flex flex-col md:flex-row min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardSidebar user={user} isAdmin={isAdmin} />
 
-      <main className="flex-1 w-full pt-14 pb-16 md:pt-0 md:pb-0">
+      <main className="flex-1 w-full pt-0 pb-16 md:pt-0 md:pb-0 md:ml-0">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           {/* Page Header */}
           <div className="mb-6">
@@ -752,6 +760,38 @@ function MatchingPageContent() {
                 targetUserAvatar={currentRecommendation.targetUser.avatar_url}
                 language={language}
                 onClose={() => setShowAIChat(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Match Score Details Modal */}
+      {showScoreDetails && currentRecommendation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
+                {language === 'zh' ? '匹配详情' : 'Match Details'}
+              </h2>
+              <button
+                onClick={() => setShowScoreDetails(false)}
+                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <MatchScoreDetails
+                matchResult={{
+                  targetUserId: currentRecommendation.targetUser?.id || '',
+                  matchScore: currentRecommendation.matchScore,
+                  algorithmType: currentRecommendation.algorithmType,
+                  scoreDetails: currentRecommendation.scoreDetails
+                }}
+                showChart={true}
+                defaultExpanded={true}
               />
             </div>
           </div>

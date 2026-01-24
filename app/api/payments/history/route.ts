@@ -1,52 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
+import { requireUser } from '@/lib/auth/requireUser';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * 从请求中获取 CN 环境的用户 ID
- */
-function getCnUserId(request: NextRequest): string | null {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    const token = authHeader.substring('Bearer '.length);
-    if (token.startsWith('cn_')) {
-      const userId = token.substring(3);
-      return userId || null;
-    }
-  }
-
-  const cnSession =
-    request.cookies.get('cn_session')?.value || request.cookies.get('cn_session_cross')?.value;
-  return cnSession || null;
-}
-
 export async function GET(request: NextRequest) {
   try {
-    let userId: string | null = null;
-
-    // CN 环境认证
-    if (isChinaDeployment()) {
-      userId = getCnUserId(request);
-      if (!userId) {
-        return NextResponse.json(
-          { error: 'Unauthorized' },
-          { status: 401 }
-        );
-      }
-    } else {
-      // INTL 环境使用 Supabase 认证
-      const supabase = createClient();
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        return NextResponse.json(
-          { error: 'Unauthorized' },
-          { status: 401 }
-        );
-      }
-      userId = user.id;
-    }
+    const authUser = await requireUser(request);
+    const userId = authUser.userId;
 
     // Get URL parameters
     const { searchParams } = new URL(request.url);

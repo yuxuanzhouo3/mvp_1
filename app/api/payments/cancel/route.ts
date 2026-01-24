@@ -9,93 +9,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
-import { createClient } from '@supabase/supabase-js';
-
-// INTL 环境
-function createAnonClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !key) {
-    throw new Error('Supabase configuration missing');
-  }
-
-  return createClient(url, key, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
-}
-
-// 从 Cookie 获取 CN 用户 ID
-function getCnUserIdFromCookie(request: NextRequest): string | null {
-  const cnSession =
-    request.cookies.get('cn_session')?.value || request.cookies.get('cn_session_cross')?.value;
-  return cnSession || null;
-}
+import { requireUser } from '@/lib/auth/requireUser';
 
 // 验证用户身份
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
-  const authHeader = request.headers.get('authorization');
-
-  if (isChinaDeployment()) {
-    // CN 环境：支持多种认证方式
-    
-    // 1. 检查 cn_ 前缀的 token
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      if (token.startsWith('cn_')) {
-        const userId = token.substring(3);
-        if (userId) {
-          return { userId };
-        }
-      }
-      
-      // 2. 尝试解析 JWT token
-      try {
-        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
-        if (payload.sub || payload.uid) {
-          return {
-            userId: payload.sub || payload.uid,
-            email: payload.email
-          };
-        }
-      } catch {
-        // JWT 解析失败，继续尝试其他方式
-      }
-    }
-    
-    // 3. 从 Cookie 获取
-    const cookieUserId = getCnUserIdFromCookie(request);
-    if (cookieUserId) {
-      return { userId: cookieUserId };
-    }
-    
+  try {
+    const user = await requireUser(request);
+    return { userId: user.userId, email: user.email };
+  } catch {
     return null;
-  } else {
-    // INTL 环境
-    if (!authHeader) {
-      return null;
-    }
-    
-    const token = authHeader.replace('Bearer ', '');
-    
-    try {
-      const anonClient = createAnonClient();
-      const { data: { user }, error } = await anonClient.auth.getUser(token);
-      
-      if (error || !user) {
-        return null;
-      }
-      
-      return {
-        userId: user.id,
-        email: user.email
-      };
-    } catch {
-      return null;
-    }
   }
 }
 

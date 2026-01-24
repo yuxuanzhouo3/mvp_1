@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, Users, Award } from 'lucide-react';
-import { getScoreRanking } from '@/lib/percentile';
+import { getScoreRanking } from '@/lib/percentile-client';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 
@@ -65,7 +65,7 @@ function PercentileComparisonComponent({
   const { language } = useLanguage();
   const t = useTranslations(language);
 
-  const ranking = useMemo(() => getScoreRanking(totalScore, percentile), [totalScore, percentile]);
+  const ranking = useMemo(() => getScoreRanking(percentile), [percentile]);
   const percentileColor = useMemo(() => getPercentileColor(percentile), [percentile]);
   const progressGradient = useMemo(() => getProgressGradient(percentile), [percentile]);
 

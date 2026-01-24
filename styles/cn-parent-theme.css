@@ -1,0 +1,604 @@
+/**
+ * CN版专属主题样式 - 家长相亲模式
+ * PersonaLink China Edition - Parent Matchmaking Theme
+ * 
+ * 设计理念：
+ * - 传统稳重：红色/金色系，喜庆、吉祥
+ * - 字体清晰：大字号，适合中老年用户
+ * - 布局简洁：减少复杂交互，直观明了
+ */
+
+/* ========================================
+   CSS 变量定义 - CN主题色
+   ======================================== */
+
+:root {
+  /* 主色调 - 中国红/吉祥红 */
+  --cn-primary: 0 72% 50%;        /* 中国红 #C41E3A */
+  --cn-primary-light: 0 72% 60%;  /* 浅红 */
+  --cn-primary-dark: 0 72% 40%;   /* 深红 */
+  
+  /* 辅助色 - 金色系 */
+  --cn-gold: 43 89% 50%;          /* 金色 #DAA520 */
+  --cn-gold-light: 43 89% 65%;    /* 浅金 */
+  --cn-gold-dark: 43 89% 40%;     /* 深金 */
+  
+  /* 背景色 */
+  --cn-bg-warm: 35 30% 98%;       /* 暖白色背景 */
+  --cn-bg-cream: 35 40% 95%;      /* 米色背景 */
+  --cn-bg-card: 0 0% 100%;        /* 卡片白 */
+  
+  /* 文字色 */
+  --cn-text-primary: 0 0% 15%;    /* 主文字深灰 */
+  --cn-text-secondary: 0 0% 45%;  /* 次文字灰 */
+  --cn-text-muted: 0 0% 60%;      /* 弱文字 */
+  
+  /* 边框色 */
+  --cn-border: 0 0% 90%;          /* 浅灰边框 */
+  --cn-border-gold: 43 50% 70%;   /* 金色边框 */
+  
+  /* 状态色 */
+  --cn-success: 120 50% 45%;      /* 成功绿 */
+  --cn-warning: 43 89% 50%;       /* 警告金 */
+  --cn-error: 0 72% 50%;          /* 错误红 */
+  
+  /* 字体大小 - 适合中老年用户 */
+  --cn-font-base: 16px;
+  --cn-font-lg: 18px;
+  --cn-font-xl: 20px;
+  --cn-font-2xl: 24px;
+  --cn-font-3xl: 30px;
+  
+  /* 间距 */
+  --cn-spacing-sm: 8px;
+  --cn-spacing-md: 16px;
+  --cn-spacing-lg: 24px;
+  --cn-spacing-xl: 32px;
+  
+  /* 圆角 */
+  --cn-radius-sm: 4px;
+  --cn-radius-md: 8px;
+  --cn-radius-lg: 12px;
+  
+  /* 阴影 */
+  --cn-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --cn-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --cn-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* 深色模式 CN主题 */
+.dark .theme-cn {
+  --cn-primary: 0 72% 55%;
+  --cn-primary-light: 0 72% 65%;
+  --cn-primary-dark: 0 72% 45%;
+  
+  --cn-bg-warm: 0 0% 10%;
+  --cn-bg-cream: 0 0% 12%;
+  --cn-bg-card: 0 0% 15%;
+  
+  --cn-text-primary: 0 0% 95%;
+  --cn-text-secondary: 0 0% 70%;
+  --cn-text-muted: 0 0% 55%;
+  
+  --cn-border: 0 0% 25%;
+}
+
+/* ========================================
+   CN版主题类
+   ======================================== */
+
+.theme-cn {
+  /* 应用CN主题变量 */
+  --primary: var(--cn-primary);
+  --primary-foreground: 0 0% 100%;
+  --background: var(--cn-bg-warm);
+  --card: var(--cn-bg-card);
+  --border: var(--cn-border);
+  
+  /* 基础字体 */
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  font-size: var(--cn-font-base);
+  line-height: 1.6;
+}
+
+/* ========================================
+   基础组件样式覆盖
+   ======================================== */
+
+/* 按钮样式 - 更大的点击区域 */
+.theme-cn .cn-btn {
+  min-height: 48px;
+  min-width: 120px;
+  padding: 12px 24px;
+  font-size: var(--cn-font-lg);
+  font-weight: 500;
+  border-radius: var(--cn-radius-md);
+  transition: all 0.2s ease;
+}
+
+.theme-cn .cn-btn-primary {
+  background: linear-gradient(135deg, hsl(var(--cn-primary)) 0%, hsl(var(--cn-primary-dark)) 100%);
+  color: white;
+  border: none;
+  box-shadow: var(--cn-shadow-md);
+}
+
+.theme-cn .cn-btn-primary:hover {
+  background: linear-gradient(135deg, hsl(var(--cn-primary-light)) 0%, hsl(var(--cn-primary)) 100%);
+  transform: translateY(-1px);
+  box-shadow: var(--cn-shadow-lg);
+}
+
+.theme-cn .cn-btn-primary:active {
+  transform: translateY(0);
+}
+
+.theme-cn .cn-btn-secondary {
+  background: white;
+  color: hsl(var(--cn-primary));
+  border: 2px solid hsl(var(--cn-primary));
+}
+
+.theme-cn .cn-btn-secondary:hover {
+  background: hsl(var(--cn-primary) / 0.05);
+}
+
+.theme-cn .cn-btn-gold {
+  background: linear-gradient(135deg, hsl(var(--cn-gold)) 0%, hsl(var(--cn-gold-dark)) 100%);
+  color: white;
+  border: none;
+}
+
+/* ========================================
+   卡片样式
+   ======================================== */
+
+.theme-cn .cn-card {
+  background: hsl(var(--cn-bg-card));
+  border: 1px solid hsl(var(--cn-border));
+  border-radius: var(--cn-radius-lg);
+  padding: var(--cn-spacing-lg);
+  box-shadow: var(--cn-shadow-sm);
+}
+
+.theme-cn .cn-card-highlight {
+  border: 2px solid hsl(var(--cn-gold) / 0.5);
+  background: linear-gradient(to bottom, 
+    hsl(var(--cn-gold) / 0.05) 0%, 
+    hsl(var(--cn-bg-card)) 100%
+  );
+}
+
+.theme-cn .cn-card-title {
+  font-size: var(--cn-font-xl);
+  font-weight: 600;
+  color: hsl(var(--cn-text-primary));
+  margin-bottom: var(--cn-spacing-md);
+}
+
+.theme-cn .cn-card-subtitle {
+  font-size: var(--cn-font-base);
+  color: hsl(var(--cn-text-secondary));
+  margin-bottom: var(--cn-spacing-lg);
+}
+
+/* ========================================
+   表单样式 - 更清晰的输入框
+   ======================================== */
+
+.theme-cn .cn-input {
+  height: 48px;
+  padding: 12px 16px;
+  font-size: var(--cn-font-lg);
+  border: 2px solid hsl(var(--cn-border));
+  border-radius: var(--cn-radius-md);
+  background: white;
+  transition: border-color 0.2s ease;
+}
+
+.theme-cn .cn-input:focus {
+  border-color: hsl(var(--cn-primary));
+  outline: none;
+  box-shadow: 0 0 0 3px hsl(var(--cn-primary) / 0.1);
+}
+
+.theme-cn .cn-input::placeholder {
+  color: hsl(var(--cn-text-muted));
+  font-size: var(--cn-font-base);
+}
+
+.theme-cn .cn-label {
+  display: block;
+  font-size: var(--cn-font-base);
+  font-weight: 500;
+  color: hsl(var(--cn-text-primary));
+  margin-bottom: 8px;
+}
+
+.theme-cn .cn-select {
+  height: 48px;
+  padding: 12px 16px;
+  font-size: var(--cn-font-lg);
+  border: 2px solid hsl(var(--cn-border));
+  border-radius: var(--cn-radius-md);
+  background: white;
+  cursor: pointer;
+}
+
+/* ========================================
+   导航栏样式
+   ======================================== */
+
+.theme-cn .cn-nav {
+  background: linear-gradient(90deg, 
+    hsl(var(--cn-primary)) 0%, 
+    hsl(var(--cn-primary-dark)) 100%
+  );
+  padding: 0 var(--cn-spacing-lg);
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-cn .cn-nav-logo {
+  color: white;
+  font-size: var(--cn-font-xl);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-cn .cn-nav-link {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: var(--cn-font-base);
+  padding: 8px 16px;
+  border-radius: var(--cn-radius-sm);
+  transition: all 0.2s ease;
+}
+
+.theme-cn .cn-nav-link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.theme-cn .cn-nav-link.active {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* ========================================
+   资料卡片样式 - 突出重要信息
+   ======================================== */
+
+.theme-cn .cn-profile-card {
+  background: white;
+  border-radius: var(--cn-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--cn-shadow-md);
+}
+
+.theme-cn .cn-profile-header {
+  background: linear-gradient(135deg, 
+    hsl(var(--cn-primary)) 0%, 
+    hsl(var(--cn-primary-dark)) 100%
+  );
+  padding: var(--cn-spacing-lg);
+  color: white;
+  text-align: center;
+}
+
+.theme-cn .cn-profile-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 4px solid white;
+  margin: 0 auto var(--cn-spacing-md);
+  object-fit: cover;
+}
+
+.theme-cn .cn-profile-name {
+  font-size: var(--cn-font-2xl);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.theme-cn .cn-profile-age {
+  font-size: var(--cn-font-lg);
+  opacity: 0.9;
+}
+
+.theme-cn .cn-profile-body {
+  padding: var(--cn-spacing-lg);
+}
+
+/* 重要信息突出显示 */
+.theme-cn .cn-info-row {
+  display: flex;
+  align-items: center;
+  padding: var(--cn-spacing-md) 0;
+  border-bottom: 1px solid hsl(var(--cn-border));
+}
+
+.theme-cn .cn-info-row:last-child {
+  border-bottom: none;
+}
+
+.theme-cn .cn-info-label {
+  flex: 0 0 100px;
+  font-size: var(--cn-font-base);
+  color: hsl(var(--cn-text-secondary));
+  font-weight: 500;
+}
+
+.theme-cn .cn-info-value {
+  flex: 1;
+  font-size: var(--cn-font-lg);
+  color: hsl(var(--cn-text-primary));
+  font-weight: 500;
+}
+
+/* 重点信息高亮 */
+.theme-cn .cn-info-highlight {
+  background: hsl(var(--cn-gold) / 0.1);
+  border-radius: var(--cn-radius-sm);
+  padding: 4px 8px;
+  color: hsl(var(--cn-gold-dark));
+}
+
+/* ========================================
+   标签样式
+   ======================================== */
+
+.theme-cn .cn-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 100px;
+}
+
+.theme-cn .cn-badge-primary {
+  background: hsl(var(--cn-primary) / 0.1);
+  color: hsl(var(--cn-primary));
+}
+
+.theme-cn .cn-badge-gold {
+  background: hsl(var(--cn-gold) / 0.15);
+  color: hsl(var(--cn-gold-dark));
+}
+
+.theme-cn .cn-badge-success {
+  background: hsl(var(--cn-success) / 0.1);
+  color: hsl(var(--cn-success));
+}
+
+/* ========================================
+   匹配分数样式
+   ======================================== */
+
+.theme-cn .cn-match-score {
+  text-align: center;
+  padding: var(--cn-spacing-lg);
+}
+
+.theme-cn .cn-match-score-value {
+  font-size: 48px;
+  font-weight: 700;
+  color: hsl(var(--cn-primary));
+  line-height: 1;
+}
+
+.theme-cn .cn-match-score-label {
+  font-size: var(--cn-font-base);
+  color: hsl(var(--cn-text-secondary));
+  margin-top: 8px;
+}
+
+.theme-cn .cn-match-meter {
+  height: 8px;
+  background: hsl(var(--cn-border));
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: var(--cn-spacing-md);
+}
+
+.theme-cn .cn-match-meter-fill {
+  height: 100%;
+  background: linear-gradient(90deg, 
+    hsl(var(--cn-primary)) 0%, 
+    hsl(var(--cn-gold)) 100%
+  );
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+/* ========================================
+   筛选面板样式
+   ======================================== */
+
+.theme-cn .cn-filter-panel {
+  background: hsl(var(--cn-bg-cream));
+  border-radius: var(--cn-radius-lg);
+  padding: var(--cn-spacing-lg);
+}
+
+.theme-cn .cn-filter-title {
+  font-size: var(--cn-font-xl);
+  font-weight: 600;
+  color: hsl(var(--cn-text-primary));
+  margin-bottom: var(--cn-spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-cn .cn-filter-group {
+  margin-bottom: var(--cn-spacing-lg);
+}
+
+.theme-cn .cn-filter-group:last-child {
+  margin-bottom: 0;
+}
+
+.theme-cn .cn-filter-label {
+  font-size: var(--cn-font-base);
+  font-weight: 500;
+  color: hsl(var(--cn-text-primary));
+  margin-bottom: var(--cn-spacing-sm);
+}
+
+/* ========================================
+   家长模式标识
+   ======================================== */
+
+.theme-cn .cn-parent-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, 
+    hsl(var(--cn-gold) / 0.2) 0%, 
+    hsl(var(--cn-gold) / 0.1) 100%
+  );
+  border: 1px solid hsl(var(--cn-gold) / 0.3);
+  border-radius: 100px;
+  font-size: 14px;
+  color: hsl(var(--cn-gold-dark));
+  font-weight: 500;
+}
+
+.theme-cn .cn-parent-mode-badge::before {
+  content: "👨‍👩‍👧";
+}
+
+/* ========================================
+   触摸交互优化 - 适配中老年用户
+   ======================================== */
+
+/* 更大的点击区域 */
+.theme-cn .cn-touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 12px;
+}
+
+/* 列表项 */
+.theme-cn .cn-list-item {
+  min-height: 56px;
+  padding: var(--cn-spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--cn-spacing-md);
+  border-bottom: 1px solid hsl(var(--cn-border));
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.theme-cn .cn-list-item:hover {
+  background: hsl(var(--cn-primary) / 0.03);
+}
+
+.theme-cn .cn-list-item:active {
+  background: hsl(var(--cn-primary) / 0.06);
+}
+
+/* ========================================
+   响应式调整
+   ======================================== */
+
+@media (max-width: 768px) {
+  .theme-cn {
+    --cn-font-base: 15px;
+    --cn-font-lg: 17px;
+    --cn-font-xl: 19px;
+  }
+  
+  .theme-cn .cn-btn {
+    min-height: 52px;
+    font-size: var(--cn-font-base);
+  }
+  
+  .theme-cn .cn-input {
+    height: 52px;
+  }
+  
+  .theme-cn .cn-profile-avatar {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+/* ========================================
+   打印样式
+   ======================================== */
+
+@media print {
+  .theme-cn {
+    --cn-primary: 0 0% 20%;
+    --cn-gold: 0 0% 40%;
+  }
+  
+  .theme-cn .cn-btn,
+  .theme-cn .cn-nav {
+    display: none;
+  }
+}
+
+/* ========================================
+   动画效果 - 简单不花哨
+   ======================================== */
+
+@keyframes cn-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.theme-cn .cn-animate-in {
+  animation: cn-fade-in 0.3s ease-out;
+}
+
+/* ========================================
+   辅助类
+   ======================================== */
+
+.theme-cn .cn-text-primary {
+  color: hsl(var(--cn-text-primary));
+}
+
+.theme-cn .cn-text-secondary {
+  color: hsl(var(--cn-text-secondary));
+}
+
+.theme-cn .cn-text-muted {
+  color: hsl(var(--cn-text-muted));
+}
+
+.theme-cn .cn-text-red {
+  color: hsl(var(--cn-primary));
+}
+
+.theme-cn .cn-text-gold {
+  color: hsl(var(--cn-gold));
+}
+
+.theme-cn .cn-bg-warm {
+  background: hsl(var(--cn-bg-warm));
+}
+
+.theme-cn .cn-bg-cream {
+  background: hsl(var(--cn-bg-cream));
+}
+
+.theme-cn .cn-border-gold {
+  border-color: hsl(var(--cn-border-gold));
+}
+

@@ -8,7 +8,7 @@
 import { memo, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { getScoreGrade, getGradeColor, getGradeBgColor } from '@/lib/percentile';
+import { getScoreGrade, getGradeColor, getGradeBgColor } from '@/lib/percentile-client';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 

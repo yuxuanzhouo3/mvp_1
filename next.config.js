@@ -41,7 +41,6 @@ const nextConfig = {
         hostname: '**.tcb.qcloud.la',
       },
     ],
-    unoptimized: process.env.NODE_ENV === 'production',
     formats: ['image/webp', 'image/avif'],
   },
   

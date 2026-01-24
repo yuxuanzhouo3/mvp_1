@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { processStripeWebhook } from '@/lib/payment/payments';
+import { markWebhookEventOnce } from '@/lib/security/webhookIdempotency';
 
 // 延迟初始化 Stripe，避免在构建时因缺少环境变量而失败
 function getStripeClient(): Stripe | null {
@@ -87,6 +88,12 @@ export async function POST(request: NextRequest) {
       eventType,
       livemode: event.livemode,
     });
+
+    const dedupe = await markWebhookEventOnce({ provider: 'stripe', eventId, ttlSeconds: 14 * 24 * 60 * 60 });
+    if (!dedupe.isFirst) {
+      console.log('[Stripe Webhook] Duplicate event ignored:', { eventId, eventType });
+      return NextResponse.json({ received: true, deduped: true });
+    }
 
     // Handle the event using utility function
     await processStripeWebhook(event);

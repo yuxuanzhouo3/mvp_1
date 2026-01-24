@@ -14,6 +14,8 @@ import type {
   UserPhoto
 } from '@/types/database';
 
+import { calculatePersonalityScore } from './mbti-compatibility';
+
 // ========================================
 // 枚举类型定义
 // ========================================
@@ -400,12 +402,16 @@ export function scoreRelationshipHistory(history: RelationshipHistory | null): n
 }
 
 /**
- * 性格评分函数（占位）
- * TODO: 未来根据MBTI兼容性评分
+ * 性格评分函数
+ * 基于MBTI兼容性评分系统
  * @param personality - 性格信息
+ * @param targetMbti - 目标用户的MBTI类型（可选，用于匹配评分）
  * @returns 评分 (0-100)
  */
-export function scorePersonality(personality: Personality | null): number {
+export function scorePersonality(
+  personality: Personality | null,
+  targetMbti?: MBTIType | null
+): number {
   if (!personality) {
     return DEFAULT_SCORES.PERSONALITY;
   }
@@ -415,9 +421,8 @@ export function scorePersonality(personality: Personality | null): number {
     return DEFAULT_SCORES.PERSONALITY;
   }
   
-  // TODO: 预留性格匹配算法接口
-  // 当前返回固定分数
-  return 70;
+  // 使用MBTI兼容性评分系统计算性格分数
+  return calculatePersonalityScore(personality.mbti, targetMbti);
 }
 
 /**
@@ -642,17 +647,17 @@ export function getWeights(
  * @param evaluatorGender - 评估者性别
  * @param algorithm - 算法类型
  * @param evaluatorLocation - 评估者位置（可选，用于距离计算）
- * @returns 市场价值评分结果
+ * @returns 市场价值评分结果（包含百分位数）
  */
-export function calculateMarketValue(
+export async function calculateMarketValue(
   userData: UserScoringData,
   evaluatorGender: GenderEnum | string,
   algorithm: AlgorithmType = 'compatible_match',
   evaluatorLocation?: Location | null
-): Omit<MarketValueScore, 'percentile'> {
+): Promise<MarketValueScore> {
   // 获取权重配置
   const weights = getWeights(algorithm, evaluatorGender, userData.gender);
-  
+
   // 计算各因子分数
   const scoreBreakdown: ScoreBreakdown = {
     wealth: scoreWealth(userData.annualIncomeRange),
@@ -666,9 +671,9 @@ export function calculateMarketValue(
     location: scoreLocation(userData.location, evaluatorLocation || null),
     childrenPreference: scoreChildrenPreference(userData.childrenPreference)
   };
-  
+
   // 计算加权总分
-  const totalScore = 
+  const totalScore =
     scoreBreakdown.wealth * weights[ScoringFactor.WEALTH] +
     scoreBreakdown.education * weights[ScoringFactor.EDUCATION] +
     scoreBreakdown.age * weights[ScoringFactor.AGE] +
@@ -679,10 +684,15 @@ export function calculateMarketValue(
     scoreBreakdown.jobStability * weights[ScoringFactor.JOB_STABILITY] +
     scoreBreakdown.location * weights[ScoringFactor.LOCATION] +
     scoreBreakdown.childrenPreference * weights[ScoringFactor.CHILDREN_PREFERENCE];
-  
+
+  const roundedTotalScore = Math.round(totalScore * 10) / 10; // 保留一位小数
+
+  const percentile = 50;
+
   return {
-    totalScore: Math.round(totalScore * 10) / 10, // 保留一位小数
+    totalScore: roundedTotalScore,
     scoreBreakdown,
+    percentile,
     calculatedAt: new Date().toISOString(),
     version: SCORING_VERSION
   };

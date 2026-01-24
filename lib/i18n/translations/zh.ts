@@ -41,18 +41,26 @@ export const zh = {
     dashboard: '控制台',
     profile: '个人资料',
     backToHome: '返回首页',
+    nav: {
+      home: '首页',
+      algorithms: '匹配算法',
+      about: '关于我们',
+      contact: '联系我们',
+      terms: '服务条款',
+      privacy: '隐私政策',
+    },
     switchLanguage: '切换语言',
     notifications: '通知',
   },
 
-  // 首页
+  // 首页 - CN版家长相亲模式
   home: {
-    badge: '🚀 AI驱动的朋友匹配平台',
-    heroTitle: '找到你的理想',
-    heroSubtitle: 'AI朋友匹配',
-    heroDescription: '与匹配你个性、兴趣和沟通风格的AI伙伴建立联系。体验有意义的对话和真实的感觉连接。',
-    startMatching: '立即开始匹配',
-    learnMore: '了解更多',
+    badge: '🎯 科学匹配 · 门当户对',
+    heroTitle: '为子女找到',
+    heroSubtitle: '门当户对的另一半',
+    heroDescription: '科学匹配，省心省力。我们通过10维度精准评分系统，帮助家长为子女找到条件相当、志趣相投的理想对象。',
+    startMatching: '开始为子女匹配',
+    learnMore: '关于我们',
 
     // 统计数据
     stats: {
@@ -63,59 +71,148 @@ export const zh = {
 
     // 功能特点部分
     whyChoose: '为什么选择PersonaLink？',
-    featuresSubtitle: '先进的人工智能技术结合人际连接，带来终极友谊体验',
+    featuresSubtitle: '专为中国家长设计的相亲平台，让门当户对更科学',
 
     // 功能卡片
     features: {
       smartMatching: {
-        title: '智能匹配',
-        description: '我们的AI分析个性特征、兴趣和沟通模式，以95%的准确率找到你的完美匹配',
+        title: '门当户对匹配',
+        description: '我们的算法综合评估学历、收入、家庭背景等10个维度，为您的子女找到条件相当的对象',
       },
       realtimeChat: {
-        title: '实时聊天',
-        description: '享受无缝对话，包括打字指示器、文件共享、语音消息和持久聊天历史',
+        title: '安全联系',
+        description: '双方有意向后才能联系，保护隐私的同时提高效率，让每一次联系都有价值',
       },
       privacyFirst: {
-        title: '隐私优先',
-        description: '你的对话和个人数据受到企业级安全和端到端加密保护',
+        title: '隐私保护',
+        description: '子女的个人信息受到严格保护，只有匹配成功后对方才能查看详细资料',
       },
       growingCommunity: {
-        title: '成长社区',
-        description: '加入一个蓬勃发展的用户社区，发现有意义的AI友谊并分享经验',
+        title: '优质圈层',
+        description: '严格审核每位用户，确保平台用户质量，让您的子女接触到优秀的异性',
       },
       emotionalIntelligence: {
-        title: '情感智能',
-        description: '理解情感的AI伙伴，提供真正的支持，并适应你的情绪和需求',
+        title: '智能推荐',
+        description: '根据您设定的条件，每天为您推荐门当户对的优质候选人',
       },
       premiumExperience: {
-        title: '优质体验',
-        description: '访问高级功能、无限对话、优先支持和独家AI个性',
+        title: '专属服务',
+        description: '高级会员享受一对一红娘服务、优先推荐和专属活动等特权',
       },
     },
 
     // 使用步骤
-    howItWorks: '如何使用',
-    howItWorksSubtitle: '只需3个简单步骤即可开始',
+    howItWorks: '简单三步，为子女找到理想对象',
+    howItWorksSubtitle: '科学匹配，省心省力',
     steps: {
       createProfile: {
-        title: '创建档案',
-        description: '告诉我们你的兴趣、个性以及你希望在AI朋友中寻找什么',
+        title: '填写子女资料',
+        description: '详细填写子女的学历、职业、家庭背景等信息，设定理想对象的条件',
       },
       aiMatching: {
-        title: 'AI匹配',
-        description: '我们的先进AI分析你的档案并为你找到完美的AI伙伴',
+        title: '智能门当户对匹配',
+        description: '我们的算法会综合10个维度评分，为您推荐条件相当的优质候选人',
       },
       startChatting: {
-        title: '开始聊天',
-        description: '开始有意义的对话，与你的AI伙伴建立真正的友谊',
+        title: '双方有意向后联系',
+        description: '当双方都表示有意向后，即可开始联系，高效省时',
       },
     },
 
     // CTA部分
-    readyToFind: '准备好找到你的AI朋友了吗？',
-    ctaDescription: '加入数千名已经发现与AI伙伴有意义的连接的用户。今天开始你的旅程，体验友谊的未来。',
-    startJourney: '今天开始你的旅程',
-    tryDemo: '试用演示',
+    readyToFind: '准备好为子女找到门当户对的另一半了吗？',
+    ctaDescription: '已有数万家长通过我们的平台成功为子女找到理想对象。科学匹配，让相亲更高效。',
+    startJourney: '立即开始为子女相亲',
+    tryDemo: '了解匹配算法',
+  },
+
+  // CN版专属 - 家长相亲模式
+  cnParent: {
+    // 模式标识
+    modeLabel: '家长帮子女相亲',
+    modeBadge: '家长模式',
+    
+    // 首页
+    welcomeTitle: '欢迎使用PersonaLink家长相亲平台',
+    welcomeSubtitle: '为子女找到门当户对的另一半',
+    
+    // 核心概念
+    mendanghudui: '门当户对',
+    mendanghuduiDesc: '条件相当，减少阶级差异带来的矛盾',
+    
+    // 匹配相关
+    matching: {
+      forChild: '为子女推荐',
+      compatible: '门当户对',
+      interested: '有意向',
+      contact: '联系',
+      viewDetails: '查看详细资料',
+      conditions: '条件匹配',
+      score: '综合评分',
+    },
+    
+    // 资料相关
+    profile: {
+      childInfo: '子女资料',
+      targetConditions: '择偶条件',
+      familyBackground: '家庭背景',
+      education: '学历',
+      school: '毕业院校',
+      occupation: '职业',
+      companyType: '单位性质',
+      annualIncome: '年收入',
+      hometown: '籍贯',
+      hukou: '户籍',
+      hasHouse: '有房',
+      hasCar: '有车',
+      parentOccupation: '父母职业',
+      siblingStatus: '兄弟姐妹',
+      onlyChild: '独生子女',
+    },
+    
+    // 筛选条件
+    filters: {
+      title: '筛选条件',
+      ageRange: '年龄范围',
+      educationRequired: '学历要求',
+      incomeRequired: '收入要求',
+      companyTypeRequired: '单位性质要求',
+      hometownRequired: '籍贯要求',
+      mustHaveHouse: '必须有房',
+      mustHaveCar: '必须有车',
+      maritalStatus: '婚姻状况',
+      childrenPreference: '生育意愿',
+    },
+    
+    // 常见问题
+    faq: {
+      title: '家长常见问题',
+      q1: '如何为子女创建资料？',
+      a1: '注册后，在"子女资料"页面详细填写子女的学历、职业、家庭背景等信息。信息越完整，匹配越精准。',
+      q2: '门当户对匹配是什么意思？',
+      a2: '我们的算法会综合评估双方的学历、收入、家庭背景等条件，推荐条件相当的候选人，减少因条件差异带来的婚后矛盾。',
+      q3: '子女的隐私如何保护？',
+      a3: '详细资料只有在双方都表示有意向后才能查看。未匹配成功时，对方只能看到基本信息。',
+      q4: '如何提高匹配成功率？',
+      a4: '完善子女资料，上传真实照片，合理设置择偶条件（条件过高可能导致没有合适的候选人）。',
+    },
+    
+    // 提示文案
+    tips: {
+      completeProfile: '完善子女资料，让匹配更精准',
+      reasonableConditions: '合理设置条件，提高匹配成功率',
+      uploadPhotos: '上传清晰照片，展示最好的一面',
+      verifyInfo: '真实信息，诚信相亲',
+    },
+    
+    // 状态文案
+    status: {
+      interested: '有意向',
+      passed: '已跳过',
+      matched: '匹配成功',
+      contacted: '已联系',
+      dating: '相亲中',
+    },
   },
 
   // 页脚
@@ -147,6 +244,11 @@ export const zh = {
       welcomeBack: '欢迎回来！',
       redirecting: '欢迎！正在跳转到控制台...',
       rememberMe: '记住我',
+      agreeToTerms: '我同意',
+      termsOfService: '服务条款',
+      and: '和',
+      privacyPolicy: '隐私政策',
+      mustAgreeToTerms: '您必须同意服务条款和隐私政策',
     },
 
     // 注册
@@ -745,7 +847,7 @@ export const zh = {
     getInTouch: '联系方式',
     emailSupport: {
       title: '邮件支持',
-      details: 'support@personalink.ai',
+      details: 'mornscience@gmail.com',
       description: '我们通常在24小时内回复',
     },
     phoneSupport: {
@@ -855,7 +957,7 @@ export const zh = {
     policyChangesDesc: '我们可能会不时更新此隐私政策。如果有任何重大变更，我们将通过在此页面上发布新政策并更新"最后更新"日期来通知你。',
     contactUs: '联系我们',
     contactUsDesc: '如果你对此隐私政策或我们的数据做法有任何疑问，请联系我们：',
-    contactEmail: '邮箱：privacy@personalink.ai',
+    contactEmail: '邮箱：mornscience@gmail.com',
     contactAddress: '地址：PersonaLink，加利福尼亚州旧金山',
     contactPhone: '电话：+1 (555) 123-4567',
     locationApproximate: '大致位置',
@@ -890,7 +992,7 @@ export const zh = {
     termsChanges: '10. 条款变更',
     termsChangesDesc: '我们保留权利，在任何时候，根据我们的唯一决定，修改或替换这些条款。如果修订是重大的，我们将在任何新条款生效前至少提前30天通知。',
     contactInfo: '11. 联系信息',
-    contactInfoDesc: '如果你对这些服务条款有任何疑问，请联系legal@personalink.ai。',
+    contactInfoDesc: '如果你对这些服务条款有任何疑问，请联系mornscience@gmail.com。',
   },
 
   // 帮助页面
@@ -934,7 +1036,7 @@ export const zh = {
       },
       {
         question: '支持哪些支付方式？',
-        answer: '我们支持信用卡/借记卡（通过 Stripe）、PayPal、支付宝和 USDT 等多种支付方式。',
+        answer: '我们支持信用卡/借记卡（通过 Stripe）、PayPal、支付宝等多种支付方式。',
         category: 'payment',
       },
       {
@@ -1816,6 +1918,8 @@ export const zh = {
     allRightsReserved: '保留所有权利。',
     privacy: {
       title: '隐私政策',
+      dataController: '数据控制者',
+      dataControllerDesc: '本隐私政策所述个人信息处理由 PersonaLink（“我们”）作为数据控制者负责（如适用）。',
       dataCollection: '数据收集',
       dataCollectionDesc: '我们收集以下类型的信息以提供和改进我们的服务：',
       profileInfo: '个人资料信息',
@@ -1861,6 +1965,10 @@ export const zh = {
       security4: '访问控制和身份验证',
       dataRetention: '数据保留',
       dataRetentionDesc: '只要你的账户处于活动状态或为提供服务所需要，我们就会保留你的信息。你可以随时请求删除你的账户和相关数据。',
+      lawfulBasis: '处理依据（适用时）',
+      lawfulBasisDesc: '在适用法律要求的情况下，我们基于履行合同、合法利益、你的同意或法律义务处理个人信息。',
+      automatedDecisionMaking: '自动化决策与画像（适用时）',
+      automatedDecisionMakingDesc: '我们可能使用自动化处理（例如匹配算法）为你提供推荐，但不会基于其对你产生法律或类似重大影响的决定，除非法律允许并提供相应保障。',
       yourRights: '你的权利',
       yourRightsDesc: '你有权：',
       accessInfo: '访问和查看你的个人信息',
@@ -1911,7 +2019,7 @@ export const zh = {
       contactUsDesc: '如果你对此隐私政策或我们的数据做法有任何疑问，请联系我们：',
       contact: '联系我们',
       contactDesc: '如果你对此隐私政策或我们的数据做法有任何疑问，请联系我们：',
-      contactEmail: '邮箱：privacy@personalink.ai',
+      contactEmail: '邮箱：mornscience@gmail.com',
       contactAddress: '地址：PersonaLink，加利福尼亚州旧金山',
       contactPhone: '电话：+1 (555) 123-4567',
     },
@@ -1921,8 +2029,14 @@ export const zh = {
       acceptTermsDesc: '通过访问或使用PersonaLink，你同意受这些服务条款的约束。',
       serviceDesc: '服务描述',
       serviceDescText: 'PersonaLink是一个基于AI的社交匹配平台，根据个性兼容性和共同兴趣连接用户。',
+      eligibility: '资格与年龄要求',
+      eligibilityDesc: '你必须年满18周岁（或你所在司法辖区要求的法定年龄）才能使用本服务。',
       userAccounts: '用户账户',
       userAccountsDesc: '你有责任维护你账户和密码的机密性。',
+      subscriptions: '订阅与付款',
+      subscriptionsDesc: '部分功能可能需要付费订阅或一次性购买。若启用自动续费，你同意在每个计费周期开始时按所示价格扣款，直至你取消。',
+      cancellationRefunds: '取消与退款',
+      cancellationRefundsDesc: '除非适用法律另有规定，已支付的费用通常不予退还。你可以按照页面指引取消续费，取消将在当前计费周期结束后生效。',
       userConduct: '用户行为',
       userConductDesc: '用户同意负责任地使用平台并尊重其他用户。',
       conduct1: '尊重其他用户',
@@ -1932,10 +2046,21 @@ export const zh = {
       conduct5: '遵守所有适用法律',
       privacyData: '隐私和数据',
       privacyDataDesc: '你的隐私对我们很重要。请查看我们的隐私政策。',
+      userContent: '用户内容与授权',
+      userContentDesc: '你对你提交的内容（如头像、简介、消息等）保留权利。为提供服务，你授予我们在全球范围内展示、存储、处理该内容的非独占许可（仅限服务所需）。',
+      prohibitedUse: '禁止行为',
+      prohibitedUseDesc: '你不得从事包括但不限于以下行为：',
+      prohibited1: '骚扰、威胁、仇恨言论或任何形式的歧视性内容',
+      prohibited2: '发布违法、色情、欺诈或侵犯他人权利的内容',
+      prohibited3: '垃圾信息、批量骚扰、爬虫抓取、逆向或绕过安全措施',
+      prohibited4: '传播恶意软件、试图未授权访问系统或他人账户',
+      prohibited5: '将服务用于商业推销、广告或未经许可的数据收集',
       intellectualProperty: '知识产权',
       intellectualPropertyDesc: '本平台上的所有内容均受知识产权法保护。',
       intellectual: '知识产权',
       intellectualDesc: '本平台上的所有内容均受知识产权法保护。',
+      thirdParty: '第三方服务',
+      thirdPartyDesc: '本服务可能包含第三方链接或集成。第三方服务由其各自条款与政策约束，我们不对第三方内容或服务负责。',
       termination: '终止',
       terminationDesc: '我们保留终止违反这些条款的账户的权利。',
       disclaimer: '免责声明',
@@ -1944,10 +2069,12 @@ export const zh = {
       paymentTermsDesc: '高级服务的付款通过安全支付处理器处理。',
       limitation: '责任限制',
       limitationDesc: 'PersonaLink不对任何间接或后果性损害承担责任。',
+      governingLaw: '适用法律与争议解决',
+      governingLawDesc: '这些条款受适用法律管辖。若发生争议，双方应先友好协商解决；协商不成的，按适用法律选择有管辖权的法院或仲裁机构处理。',
       termsChanges: '条款变更',
       termsChangesDesc: '我们保留随时修改这些条款的权利。',
       contactInfo: '联系信息',
-      contactInfoDesc: '对这些条款有疑问，请联系legal@personalink.ai',
+      contactInfoDesc: '对这些条款有疑问，请联系mornscience@gmail.com',
     },
   },
 
@@ -2528,6 +2655,149 @@ export const zh = {
     topInterestsDesc: '您最受欢迎的兴趣标签',
     recentActivity: '最近活动',
     recentActivityDesc: '您的最近操作记录',
+  },
+
+  // MBTI兼容性评分
+  mbtiCompatibility: {
+    title: 'MBTI兼容性分析',
+    yourType: '你的MBTI类型',
+    targetType: '对方类型',
+    completeMbtiTest: '请先完成MBTI性格测试',
+    compatibilityIndex: '兼容指数',
+    score: '兼容分',
+    you: '你',
+    them: 'TA',
+    relationshipStrengths: '关系优势',
+    potentialChallenges: '潜在挑战',
+    relationshipAdvice: '关系建议',
+    bestMatchingTypes: '最佳匹配类型',
+    
+    // 兼容性级别
+    levels: {
+      ideal: '理想匹配',
+      excellent: '极佳匹配',
+      good: '良好匹配',
+      moderate: '一般匹配',
+      challenging: '挑战匹配',
+    },
+    
+    // 兼容性描述
+    descriptions: {
+      ideal: {
+        strengths: ['天然的理解和连接', '互补的认知功能', '强烈的情感共鸣'],
+        challenges: ['可能随时间变得过于相似', '可能会忽视对方的存在'],
+        advice: '在培养深厚感情的同时保持各自的兴趣爱好。',
+      },
+      excellent: {
+        strengths: ['强烈的智识连接', '共同成长的潜力', '良好的沟通流畅度'],
+        challenges: ['可能需要在情感表达上努力', '可能存在不同的能量水平'],
+        advice: '在追求智识交流的同时关注彼此的情感需求。',
+      },
+      good: {
+        strengths: ['互补的技能', '个人成长的机会', '平衡的视角'],
+        challenges: ['沟通方式可能不同', '决策方式可能不同'],
+        advice: '将差异视为共同学习和成长的机会。',
+      },
+      moderate: {
+        strengths: ['多元化的视角', '平衡的潜力', '学习的机会'],
+        challenges: ['可能难以相互理解', '可能存在不同的价值观或优先级'],
+        advice: '耐心和开放的沟通是关键。先理解对方，再让对方理解自己。',
+      },
+      challenging: {
+        strengths: ['显著的成长潜力', '互补的盲点', '独特的视角'],
+        challenges: ['处理方式存在根本差异', '可能需要付出很大努力才能建立连接'],
+        advice: '成功需要承诺、耐心和适应的意愿。考虑寻求专业指导。',
+      },
+    },
+  },
+
+  // 算法页面
+  algorithmsPage: {
+    backToHome: '返回首页',
+    badge: '🎯 四大匹配算法',
+    title: '科学匹配，找到对的人',
+    subtitle: '我们提供四种独特的匹配算法，满足不同人群的需求。选择最适合您的方式，开始寻找理想对象。',
+
+    // 核心卖点
+    highlights: {
+      scoring: '10维度评分',
+      scoringValue: '精确到0.1',
+      quality: '优质用户',
+      qualityValue: '严格审核',
+      success: '匹配成功率',
+      successValue: '75%+',
+      smart: '智能推荐',
+      smartValue: '每日更新',
+    },
+
+    // 选择区域
+    selectMode: '选择您的匹配模式',
+    clickToSee: '点击卡片查看详细说明',
+    successRateLabel: '成功率',
+
+    // 算法详情
+    features: '算法特点',
+    bestFor: '适合人群',
+    matchingLogic: '匹配逻辑',
+    matchingExample: '匹配示例',
+    yourScore: '您的评分',
+    recommendedRange: '推荐范围',
+    estimatedSuccess: '预计成功率',
+
+    // 算法数据
+    compatible: {
+      name: '金玉良缘',
+      shortDesc: '门当户对',
+      description: '相似度匹配，寻找条件相近的人，减少阶级差异带来的矛盾。就像古语说的"门当户对"，条件相当的两个人更容易理解彼此。',
+      persona: '追求稳定的保守派',
+      features: ['条件相似度优先', '减少门不当户不对的矛盾', '稳定长久的关系基础', '家长更放心'],
+      bestFor: ['希望找到条件相当对象的人', '家长帮子女相亲', '追求稳定婚姻的人'],
+      matchingLogic: '系统会计算您与候选人的综合评分差距，推荐分数相近的人。评分差距越小，匹配度越高。',
+      exampleExplanation: '如果您的评分是78.5分，系统会推荐评分在73.5-83.5分之间的候选人',
+      matchRange: '73.5 - 83.5分',
+    },
+
+    romantic: {
+      name: '勇敢追爱',
+      shortDesc: '慕强择优',
+      description: '向上择优匹配，优先推荐比自己更优秀的对象。适合有上进心、希望通过婚姻提升自己的人。勇敢追求心中的理想对象！',
+      persona: '有上进心的进取派',
+      features: ['优先推荐优质候选人', '向上社交机会', '激励自我提升', '追求更好的未来'],
+      bestFor: ['有上进心的年轻人', '希望改变命运的人', '对自己有信心的人'],
+      matchingLogic: '系统会优先推荐评分比您高0.5-5分的候选人，让您有机会接触到更优秀的对象。',
+      exampleExplanation: '如果您的评分是78.5分，系统会优先推荐79-83.5分的优质候选人',
+      matchRange: '79.0 - 83.5分',
+    },
+
+    pragmatic: {
+      name: '稳稳幸福',
+      shortDesc: '务实捡漏',
+      description: '向下择优匹配，成功率更高。适合急于脱单、务实的人。比起条件，更看重两个人能否在一起。',
+      persona: '急于脱单的务实派',
+      features: ['更高的成功率', '务实的选择', '珍惜眼前人', '稳稳的幸福'],
+      bestFor: ['急于脱单的人', '务实不挑剔的人', '相信感情可以培养的人'],
+      matchingLogic: '系统会推荐评分略低于您的候选人，这些人可能更珍惜这段关系，匹配成功率更高。',
+      exampleExplanation: '如果您的评分是78.5分，系统会推荐73.5-78分的候选人，成功率更高',
+      matchRange: '73.5 - 78.0分',
+    },
+
+    serendipity: {
+      name: '心动盲盒',
+      shortDesc: '相信缘分',
+      description: '有限随机匹配，模拟一见钟情的不确定性。在设定的条件范围内随机推荐，也许下一个就是命中注定的那个人！',
+      persona: '追求惊喜的冒险派',
+      features: ['模拟一见钟情', '意外惊喜', '打破舒适圈', '缘分天注定'],
+      bestFor: ['相信缘分的浪漫派', '想要惊喜的人', '不想被条件束缚的人'],
+      matchingLogic: '系统会在您设定的基本条件范围内随机推荐候选人，每次刷新都可能遇到不一样的人。',
+      exampleExplanation: '系统会在满足您基本条件（如年龄、地区）的候选人中随机推荐',
+      matchRange: '随机 (符合基本条件)',
+    },
+
+    // CTA区域
+    ctaTitle: '准备好开始匹配了吗？',
+    ctaSubtitle: '完善您的资料，选择适合的匹配算法，开始寻找理想对象',
+    startMatching: '开始匹配',
+    completeProfile: '完善资料',
   },
 } as const;
 

@@ -6,12 +6,7 @@
  */
 
 import { getServiceDbClient } from '@/lib/db-client';
-import { SignJWT, jwtVerify } from 'jose';
-
-// JWT 密钥
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || process.env.WECHAT_APP_SECRET || 'default-secret-key'
-);
+import { createUserSession as createSessionJwt, verifySessionToken as verifySessionJwt } from '@/lib/auth/session';
 
 // 用户表名
 const USERS_TABLE = 'users';
@@ -332,22 +327,8 @@ export async function getUserLoginMethods(userId: string): Promise<string[]> {
  */
 export async function createUserSession(
   userId: string
-): Promise<{ accessToken: string; expiresAt: number }> {
-  const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7天
-
-  const token = await new SignJWT({
-    sub: userId,
-    type: 'access',
-  })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime('7d')
-    .sign(JWT_SECRET);
-
-  return {
-    accessToken: token,
-    expiresAt,
-  };
+): Promise<string> {
+  return createSessionJwt(userId);
 }
 
 /**
@@ -356,24 +337,7 @@ export async function createUserSession(
 export async function verifySessionToken(
   token: string
 ): Promise<{ userId: string } | null> {
-  try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
-
-    if (payload.sub) {
-      return { userId: payload.sub };
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * 生成简单的会话 Token (兼容旧版)
- */
-export function generateSessionToken(userId: string): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).substring(2);
-  return Buffer.from(`cn_${userId}:${timestamp}:${random}`).toString('base64');
+  const verified = await verifySessionJwt(token);
+  if (!verified.ok) return null;
+  return { userId: verified.value.userId };
 }

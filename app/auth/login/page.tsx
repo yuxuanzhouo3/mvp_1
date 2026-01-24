@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
   const hasRedirectedRef = useRef(false);
 
   const router = useRouter();
@@ -84,6 +85,16 @@ export default function LoginPage() {
       toast({
         title: t.common.error,
         description: t.auth.validation.passwordTooShort,
+        variant: 'destructive',
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (!agreeToTerms) {
+      toast({
+        title: t.common.error,
+        description: t.auth.login.mustAgreeToTerms,
         variant: 'destructive',
       });
       setIsLoading(false);
@@ -173,8 +184,8 @@ export default function LoginPage() {
       {/* Main content */}
       <div className="relative z-10 w-full max-w-md mx-4">
         <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-xl">
-          <CardHeader className="text-center space-y-4 pb-6">
-            <div className="flex items-center justify-center space-x-3 mb-4">
+          <CardHeader className="text-center space-y-3 pb-8">
+            <div className="flex items-center justify-center mb-2">
               <Link href="/" className="flex items-center space-x-3 hover:scale-105 transition-transform duration-200">
                 <div className="p-3 bg-primary rounded-xl shadow-lg">
                   <Sparkles className="h-8 w-8 text-white" />
@@ -184,15 +195,15 @@ export default function LoginPage() {
                 </h1>
               </Link>
             </div>
-            <CardTitle className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
               {t.auth.login.title}
             </CardTitle>
-            <CardDescription className="text-gray-600 dark:text-gray-300 text-lg">
+            <CardDescription className="text-gray-600 dark:text-gray-300">
               {t.auth.login.subtitle}
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-5 px-6 pb-6">
             <form onSubmit={onEmailSubmit} className="space-y-4">
               <div className="space-y-2">
                 <div className="relative group">
@@ -264,6 +275,37 @@ export default function LoginPage() {
                 >
                   {t.auth.login.forgotPassword}
                 </Link>
+              </div>
+
+              {/* Terms and Privacy Agreement */}
+              <div className="flex items-start space-x-2">
+                <Checkbox
+                  id="agree-terms"
+                  checked={agreeToTerms}
+                  onCheckedChange={(checked) => setAgreeToTerms(checked as boolean)}
+                  className="data-[state=checked]:bg-primary data-[state=checked]:border-primary mt-0.5"
+                />
+                <label
+                  htmlFor="agree-terms"
+                  className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer leading-relaxed"
+                >
+                  {t.auth.login.agreeToTerms}{' '}
+                  <Link
+                    href="/terms"
+                    className="text-primary hover:text-primary/80 underline-offset-4 hover:underline"
+                    target="_blank"
+                  >
+                    {t.auth.login.termsOfService}
+                  </Link>
+                  {' '}{t.auth.login.and}{' '}
+                  <Link
+                    href="/privacy"
+                    className="text-primary hover:text-primary/80 underline-offset-4 hover:underline"
+                    target="_blank"
+                  >
+                    {t.auth.login.privacyPolicy}
+                  </Link>
+                </label>
               </div>
 
               <Button

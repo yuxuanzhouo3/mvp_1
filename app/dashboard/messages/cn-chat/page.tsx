@@ -125,7 +125,6 @@ export default function CnChatPage() {
 
       const response = await fetch(`/api/chat/cloudbase-file-url?${params.toString()}`, {
         cache: 'no-store',
-        headers: { Authorization: `Bearer cn_${user.id}` },
       });
       if (!response.ok) return false;
       const data = await response.json();
@@ -746,7 +745,6 @@ export default function CnChatPage() {
 
                     const response = await fetch('/api/chat/upload-image', {
                       method: 'POST',
-                      headers: { 'Authorization': `Bearer cn_${user.id}` },
                       body: formData,
                     });
 
@@ -797,7 +795,6 @@ export default function CnChatPage() {
 
                     const response = await fetch('/api/chat/upload-video', {
                       method: 'POST',
-                      headers: { 'Authorization': `Bearer cn_${user.id}` },
                       body: formData,
                     });
 
@@ -972,7 +969,6 @@ export default function CnChatPage() {
 
                                 const response = await fetch('/api/chat/upload-audio', {
                                   method: 'POST',
-                                  headers: { 'Authorization': `Bearer cn_${user.id}` },
                                   body: formData,
                                 });
 

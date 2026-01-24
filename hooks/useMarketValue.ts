@@ -93,12 +93,9 @@ async function fetchUserDataForScoring(userId: string, token?: string): Promise<
   // CN 环境使用 API 路由
   if (isChinaDeployment()) {
     try {
-      const authToken = token || `cn_${userId}`;
       const response = await fetch('/api/user/market-value', {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         cache: 'no-store'
       });
 
@@ -304,13 +301,12 @@ export function useMarketValue({
     mutationFn: async (): Promise<MarketValueScore | null> => {
       // CN 环境使用 API 路由
       if (isChinaDeployment()) {
-        const authToken = `cn_${userId}`;
         const response = await fetch('/api/user/market-value', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${authToken}`,
             'Content-Type': 'application/json'
           },
+          credentials: 'include',
           cache: 'no-store'
         });
 
@@ -339,7 +335,7 @@ export function useMarketValue({
       );
       
       // 计算市场价值
-      const result = calculateMarketValue(
+      const result = await calculateMarketValue(
         scoringData,
         evaluatorGender,
         algorithm,

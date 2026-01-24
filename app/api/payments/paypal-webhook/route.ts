@@ -3,6 +3,7 @@ import { verifyPayPalWebhook, type PayPalWebhookEvent } from '@/lib/payment/payp
 import { updatePaymentStatus } from '@/lib/payment/payments';
 import { notifyPaymentSuccess, notifyPaymentFailed } from '@/lib/services/notifications';
 import { createServiceClient } from '@/lib/supabase/server';
+import { markWebhookEventOnce } from '@/lib/security/webhookIdempotency';
 
 export async function POST(request: NextRequest) {
   console.log('[PayPal Webhook] ===== Received webhook request =====');
@@ -46,6 +47,12 @@ export async function POST(request: NextRequest) {
       type: event.event_type,
       resourceType: event.resource_type,
     });
+
+    const dedupe = await markWebhookEventOnce({ provider: 'paypal', eventId: event.id, ttlSeconds: 14 * 24 * 60 * 60 });
+    if (!dedupe.isFirst) {
+      console.log('[PayPal Webhook] Duplicate event ignored:', { id: event.id, type: event.event_type });
+      return NextResponse.json({ received: true, deduped: true });
+    }
 
     // 处理不同类型的事件
     switch (event.event_type) {
@@ -114,8 +121,46 @@ async function handleCaptureCompleted(event: PayPalWebhookEvent) {
   }
 
   // 检查是否已处理（幂等性）
-  if (payment.status === 'completed') {
+  if (payment.status === 'completed' || payment.metadata?.paypal_fulfilled_at) {
     console.log('[PayPal Webhook] Payment already completed:', paymentId);
+    return;
+  }
+
+  const paypalValue = resource.amount?.value;
+  const paypalCurrency = resource.amount?.currency_code;
+  const expectedCurrency = payment.currency === 'CNY' ? 'USD' : payment.currency;
+  const expectedMajor =
+    payment.currency === 'CNY'
+      ? (typeof payment.metadata?.usd_amount === 'number' ? payment.metadata.usd_amount : payment.amount)
+      : payment.amount;
+
+  const expectedMinor = Math.round(Number(expectedMajor) * 100);
+  const receivedMinor = paypalValue ? Math.round(Number(paypalValue) * 100) : null;
+  const receivedCurrency = paypalCurrency ? String(paypalCurrency).toUpperCase() : null;
+
+  if (receivedCurrency && expectedCurrency && receivedCurrency !== String(expectedCurrency).toUpperCase()) {
+    console.error('[PayPal Webhook] Currency mismatch:', { paymentId, expectedCurrency, receivedCurrency });
+    await updatePaymentStatus(paymentId, 'failed', {
+      ...(payment.metadata || {}),
+      paypal_event_id: event.id,
+      paypal_capture_id: resource.id,
+      currency_mismatch: true,
+      expected_currency: expectedCurrency,
+      received_currency: receivedCurrency,
+    });
+    return;
+  }
+
+  if (typeof receivedMinor === 'number' && receivedMinor !== expectedMinor) {
+    console.error('[PayPal Webhook] Amount mismatch:', { paymentId, expectedMinor, receivedMinor });
+    await updatePaymentStatus(paymentId, 'failed', {
+      ...(payment.metadata || {}),
+      paypal_event_id: event.id,
+      paypal_capture_id: resource.id,
+      amount_mismatch: true,
+      expected_amount_minor: expectedMinor,
+      received_amount_minor: receivedMinor,
+    });
     return;
   }
 
@@ -124,6 +169,8 @@ async function handleCaptureCompleted(event: PayPalWebhookEvent) {
   await updatePaymentStatus(paymentId, 'completed', {
     ...payment.metadata,
     paypal_capture_id: resource.id,
+    paypal_event_id: event.id,
+    paypal_fulfilled_at: new Date().toISOString(),
     webhook_processed: true,
   });
 
@@ -216,8 +263,46 @@ async function handleOrderCompleted(event: PayPalWebhookEvent) {
   }
 
   // 如果已完成，跳过
-  if (payment.status === 'completed') {
+  if (payment.status === 'completed' || payment.metadata?.paypal_fulfilled_at) {
     console.log('[PayPal Webhook] Payment already completed:', paymentId);
+    return;
+  }
+
+  const orderAmountValue = purchaseUnit?.amount?.value;
+  const orderCurrencyCode = purchaseUnit?.amount?.currency_code;
+  const expectedCurrency = payment.currency === 'CNY' ? 'USD' : payment.currency;
+  const expectedMajor =
+    payment.currency === 'CNY'
+      ? (typeof payment.metadata?.usd_amount === 'number' ? payment.metadata.usd_amount : payment.amount)
+      : payment.amount;
+
+  const expectedMinor = Math.round(Number(expectedMajor) * 100);
+  const receivedMinor = orderAmountValue ? Math.round(Number(orderAmountValue) * 100) : null;
+  const receivedCurrency = orderCurrencyCode ? String(orderCurrencyCode).toUpperCase() : null;
+
+  if (receivedCurrency && expectedCurrency && receivedCurrency !== String(expectedCurrency).toUpperCase()) {
+    console.error('[PayPal Webhook] Currency mismatch (order):', { paymentId, expectedCurrency, receivedCurrency });
+    await updatePaymentStatus(paymentId, 'failed', {
+      ...(payment.metadata || {}),
+      paypal_event_id: event.id,
+      paypal_order_id: resource.id,
+      currency_mismatch: true,
+      expected_currency: expectedCurrency,
+      received_currency: receivedCurrency,
+    });
+    return;
+  }
+
+  if (typeof receivedMinor === 'number' && receivedMinor !== expectedMinor) {
+    console.error('[PayPal Webhook] Amount mismatch (order):', { paymentId, expectedMinor, receivedMinor });
+    await updatePaymentStatus(paymentId, 'failed', {
+      ...(payment.metadata || {}),
+      paypal_event_id: event.id,
+      paypal_order_id: resource.id,
+      amount_mismatch: true,
+      expected_amount_minor: expectedMinor,
+      received_amount_minor: receivedMinor,
+    });
     return;
   }
 
@@ -226,6 +311,8 @@ async function handleOrderCompleted(event: PayPalWebhookEvent) {
   await updatePaymentStatus(paymentId, 'completed', {
     ...payment.metadata,
     paypal_order_id: resource.id,
+    paypal_event_id: event.id,
+    paypal_fulfilled_at: new Date().toISOString(),
     webhook_processed: true,
   });
 

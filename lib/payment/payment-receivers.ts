@@ -1,78 +1,23 @@
 import { createClient } from '@/lib/supabase/server';
 
-// USDT Wallet Configuration
-export interface USDTWallet {
-  id: string;
-  address: string;
-  network: 'TRC20' | 'ERC20' | 'BEP20';
-  label: string;
-  isActive: boolean;
-}
-
 // Payment Receiver Configuration
 export interface PaymentReceiver {
   id: string;
-  type: 'usdt' | 'alipay' | 'wechat';
+  type: 'alipay' | 'wechat';
   name: string;
   account: string;
   qrCode?: string;
   isActive: boolean;
 }
 
-import { PAYMENT_CONFIG, getActiveUSDTWallets, getActivePaymentReceivers } from '@/config/payment-config';
-
-// Real USDT wallet addresses from configuration
-export const USDT_WALLETS: USDTWallet[] = getActiveUSDTWallets();
+import { PAYMENT_CONFIG, getActivePaymentReceivers } from '@/config/payment-config';
 
 // Payment receivers configuration from configuration
 export const PAYMENT_RECEIVERS: PaymentReceiver[] = getActivePaymentReceivers();
 
-export async function getAvailableUSDTWallet(): Promise<USDTWallet | null> {
-  const activeWallets = USDT_WALLETS.filter(wallet => wallet.isActive);
-  // Return the first active wallet (you can implement load balancing here)
-  return activeWallets.length > 0 ? activeWallets[0] : null;
-}
-
 export async function getPaymentReceiver(type: 'alipay' | 'wechat'): Promise<PaymentReceiver | null> {
   const receiver = PAYMENT_RECEIVERS.find(r => r.type === type && r.isActive);
   return receiver || null;
-}
-
-export async function createUSDTPaymentRequest(
-  paymentId: string,
-  amount: number,
-  userId: string
-): Promise<{ address: string; amount: number; network: string; paymentId: string }> {
-  const wallet = await getAvailableUSDTWallet();
-  
-  if (!wallet) {
-    throw new Error('No available USDT wallet');
-  }
-
-  const supabase = createClient();
-  
-  // Update payment record with USDT details
-  await supabase
-    .from('payments')
-    .update({
-      status: 'pending',
-      metadata: {
-        usdt_address: wallet.address,
-        usdt_network: wallet.network,
-        usdt_amount: amount,
-        payment_id: paymentId,
-        user_id: userId,
-        created_at: new Date().toISOString(),
-      }
-    })
-    .eq('id', paymentId);
-
-  return {
-    address: wallet.address,
-    amount: amount,
-    network: wallet.network,
-    paymentId: paymentId,
-  };
 }
 
 export async function createAlipayPaymentRequest(
@@ -124,76 +69,6 @@ export async function createAlipayPaymentRequest(
   };
 }
 
-export async function verifyUSDTPayment(
-  paymentId: string,
-  transactionHash: string,
-  amount: number,
-  fromAddress: string
-): Promise<boolean> {
-  try {
-    const supabase = createClient();
-    
-    // Get payment record
-    const { data: payment, error } = await supabase
-      .from('payments')
-      .select('*')
-      .eq('id', paymentId)
-      .single();
-
-    if (error || !payment) {
-      console.error('Payment not found:', paymentId);
-      return false;
-    }
-
-    // Verify payment details
-    const expectedAmount = payment.metadata?.usdt_amount;
-    const expectedAddress = payment.metadata?.usdt_address;
-
-    if (amount !== expectedAmount) {
-      console.error('Amount mismatch:', { expected: expectedAmount, received: amount });
-      return false;
-    }
-
-    if (fromAddress.toLowerCase() !== expectedAddress.toLowerCase()) {
-      console.error('Address mismatch:', { expected: expectedAddress, received: fromAddress });
-      return false;
-    }
-
-    // Update payment status
-    await supabase
-      .from('payments')
-      .update({
-        status: 'completed',
-        metadata: {
-          ...payment.metadata,
-          transaction_hash: transactionHash,
-          verified_at: new Date().toISOString(),
-        }
-      })
-      .eq('id', paymentId);
-
-    // Add credits to user
-    const credits = payment.metadata?.credits || 0;
-    if (credits > 0) {
-      await addCreditsToUser(payment.user_id, credits);
-      
-      // Create transaction record
-      await createTransactionRecord(
-        payment.user_id,
-        'credit_purchase',
-        credits,
-        `Purchased ${credits} credits via USDT`,
-        paymentId
-      );
-    }
-
-    return true;
-  } catch (error) {
-    console.error('USDT payment verification error:', error);
-    return false;
-  }
-}
-
 export async function verifyAlipayPayment(
   paymentId: string,
   transactionId: string,
@@ -235,91 +110,9 @@ export async function verifyAlipayPayment(
       })
       .eq('id', paymentId);
 
-    // Add credits to user
-    const credits = payment.metadata?.credits || 0;
-    if (credits > 0) {
-      await addCreditsToUser(payment.user_id, credits);
-      
-      // Create transaction record
-      await createTransactionRecord(
-        payment.user_id,
-        'credit_purchase',
-        credits,
-        `Purchased ${credits} credits via Alipay`,
-        paymentId
-      );
-    }
-
     return true;
   } catch (error) {
     console.error('Alipay payment verification error:', error);
     return false;
   }
 }
-
-// Helper functions (imported from payments.ts)
-async function addCreditsToUser(userId: string, credits: number) {
-  const supabase = createClient();
-
-  // First get current credits
-  const { data: profile, error: fetchError } = await supabase
-    .from('user_profiles')
-    .select('credits')
-    .eq('user_id', userId)
-    .single();
-
-  if (fetchError) {
-    throw new Error(`Failed to fetch user profile: ${fetchError.message}`);
-  }
-
-  const currentCredits = profile?.credits || 0;
-  const newCredits = currentCredits + credits;
-
-  const { error } = await supabase
-    .from('user_profiles')
-    .update({
-      credits: newCredits,
-      credits_updated_at: new Date().toISOString(),
-    })
-    .eq('user_id', userId);
-
-  if (error) {
-    throw new Error(`Failed to add credits to user: ${error.message}`);
-  }
-}
-
-async function createTransactionRecord(
-  userId: string,
-  type: string,
-  amount: number,
-  description: string,
-  paymentId?: string
-) {
-  const supabase = createClient();
-
-  // Get current balance
-  const { data: profile } = await supabase
-    .from('user_profiles')
-    .select('credits')
-    .eq('user_id', userId)
-    .single();
-
-  const currentBalance = profile?.credits || 0;
-
-  const { error } = await supabase
-    .from('transactions')
-    .insert({
-      user_id: userId,
-      type,
-      amount,
-      balance_before: type === 'credit_purchase' ? currentBalance - amount : currentBalance + Math.abs(amount),
-      balance_after: currentBalance,
-      reference_type: paymentId ? 'payment' : undefined,
-      reference_id: paymentId,
-      description,
-    });
-
-  if (error) {
-    throw new Error(`Failed to create transaction record: ${error.message}`);
-  }
-} 

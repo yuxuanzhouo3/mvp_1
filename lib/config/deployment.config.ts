@@ -38,7 +38,7 @@ function generateConfig(region: DeploymentRegion): DeploymentConfig {
   return {
     region,
     defaultLanguage: isChinaRegion ? "zh" : "en",
-    appName: isChinaRegion ? "PersonaLink - AI社交匹配" : "PersonaLink - AI Friend Matcher",
+    appName: isChinaRegion ? "邻客 - AI社交匹配" : "PersonaLink - AI Friend Matcher",
     version: "1.0.0",
   };
 }
