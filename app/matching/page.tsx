@@ -39,7 +39,9 @@ interface Recommendation {
   id?: string;
   targetUser: {
     id: string;
-    full_name: string;
+    full_name?: string;
+    username?: string;
+    real_name?: string;
     avatar_url?: string;
     bio?: string;
     city_name?: string;
@@ -115,6 +117,19 @@ function MatchingPageContent() {
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslations(language);
+
+  const getTargetUserName = useCallback(
+    (targetUser: Recommendation['targetUser']) => {
+      if (!targetUser) return t.matching.unknownUser;
+      return (
+        (targetUser as any).real_name ||
+        (targetUser as any).username ||
+        (targetUser as any).full_name ||
+        t.matching.unknownUser
+      );
+    },
+    [t.matching.unknownUser]
+  );
 
   const [selectedAlgorithm, setSelectedAlgorithm] = useState<AlgorithmType>('compatible');
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
@@ -275,12 +290,12 @@ function MatchingPageContent() {
         if (data.data?.isMatched) {
           toast({
             title: '🎉 ' + t.matching.matchSuccess,
-            description: interpolate(t.matching.matchSuccessDesc, { name: rec.targetUser.full_name || t.matching.unknownUser }),
+            description: interpolate(t.matching.matchSuccessDesc, { name: getTargetUserName(rec.targetUser) }),
           });
         } else {
           toast({
             title: t.common.success,
-            description: interpolate(t.matching.likeSuccessDesc, { name: rec.targetUser.full_name || t.matching.unknownUser }),
+            description: interpolate(t.matching.likeSuccessDesc, { name: getTargetUserName(rec.targetUser) }),
           });
         }
       }
@@ -562,12 +577,12 @@ function MatchingPageContent() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={currentRecommendation.targetUser.avatar_url}
-                          alt={currentRecommendation.targetUser.full_name || 'User'}
+                          alt={getTargetUserName(currentRecommendation.targetUser) || 'User'}
                           className="w-full h-full object-cover"
                         />
                       ) : (
                         <div className="w-28 h-28 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-5xl font-bold text-white">
-                          {currentRecommendation.targetUser.full_name?.charAt(0).toUpperCase() || '?'}
+                          {getTargetUserName(currentRecommendation.targetUser)?.charAt(0).toUpperCase() || '?'}
                         </div>
                       )}
                     </div>
@@ -618,7 +633,7 @@ function MatchingPageContent() {
                     {/* Name and Age */}
                     <div className="flex items-center justify-between mb-4">
                       <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {currentRecommendation.targetUser.full_name}
+                        {getTargetUserName(currentRecommendation.targetUser)}
                       </h2>
                       {currentRecommendation.targetUser.age && (
                         <span className="text-lg text-gray-600 dark:text-gray-400">
@@ -728,7 +743,7 @@ function MatchingPageContent() {
             <div className="p-4">
               <AIPersonalityAnalysis
                 targetUserId={currentRecommendation.targetUser.id}
-                targetUserName={currentRecommendation.targetUser.full_name}
+                targetUserName={getTargetUserName(currentRecommendation.targetUser)}
                 language={language}
                 onClose={() => setShowAIAnalysis(false)}
               />
@@ -756,7 +771,7 @@ function MatchingPageContent() {
             <div className="flex-1 overflow-hidden">
               <AIChatSimulation
                 targetUserId={currentRecommendation.targetUser.id}
-                targetUserName={currentRecommendation.targetUser.full_name}
+                targetUserName={getTargetUserName(currentRecommendation.targetUser)}
                 targetUserAvatar={currentRecommendation.targetUser.avatar_url}
                 language={language}
                 onClose={() => setShowAIChat(false)}

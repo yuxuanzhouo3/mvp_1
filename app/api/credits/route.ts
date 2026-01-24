@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { getCreditsBalance, checkAndConsumeCredits, CREDIT_COSTS, CreditConsumeType } from '@/lib/credits/credits';
-import { requireUser } from '@/lib/auth/requireUser';
+import { AuthError, jsonAuthError, requireUser } from '@/lib/auth/requireUser';
 
 /**
  * GET /api/credits
@@ -34,6 +34,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return jsonAuthError(error);
+    }
     console.error('Credits API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -51,7 +54,8 @@ export async function POST(request: NextRequest) {
     const authUser = await requireUser(request);
     const userId = authUser.userId;
 
-    const { action } = await request.json();
+    const body = await request.json().catch(() => null);
+    const action = body?.action;
 
     if (!action) {
       return NextResponse.json(
@@ -78,6 +82,9 @@ export async function POST(request: NextRequest) {
       newBalance: result.newBalance,
     });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return jsonAuthError(error);
+    }
     console.error('Credits consume API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

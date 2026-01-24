@@ -178,6 +178,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Failed to save score' }, { status: 500 });
     }
 
+    try {
+      await db.from('user_market_value_score_history').insert({
+        user_id: authUser.userId,
+        total_score: fullScore.totalScore,
+        percentile: fullScore.percentile,
+        score_breakdown: fullScore.scoreBreakdown,
+        calculated_at: fullScore.calculatedAt || new Date().toISOString(),
+        version: fullScore.version,
+        algorithm: (fullScore as any).algorithmType || 'compatible_match',
+      });
+    } catch (historyError) {
+      console.warn('Failed to record market value score history:', historyError);
+    }
+
     return NextResponse.json({
       success: true,
       data: {

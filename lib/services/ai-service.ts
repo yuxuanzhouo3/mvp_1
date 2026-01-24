@@ -169,10 +169,27 @@ export async function getAIAssistant(
   chatHistory?: ChatHistoryItem[],
   language: 'zh' | 'en' = 'en'
 ): Promise<AIAssistantResponse> {
+  const historyMessages =
+    chatHistory
+      ?.map((item) => ({
+        role: item.isOwn ? 'user' : 'assistant',
+        content: item.content,
+      }))
+      .filter((m) => typeof m.content === 'string' && m.content.trim().length > 0) || [];
+
+  const instruction =
+    language === 'zh'
+      ? `请根据以上聊天上下文，分析对方最后这句消息，并给出 3 条自然、礼貌且不冒犯的中文回复建议：\n对方消息：“${message}”`
+      : `Based on the chat context above, analyze the other person's last message and give 3 natural, polite reply suggestions in English:\nTheir message: "${message}"`;
+
   const response = await fetch('/api/ai/assistant', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, targetUserName, chatHistory, language }),
+    body: JSON.stringify({
+      type: 'general_assistant',
+      messages: [...historyMessages, { role: 'user', content: instruction }],
+      context: targetUserName ? { name: targetUserName } : undefined,
+    }),
   });
 
   if (!response.ok) {
@@ -180,5 +197,8 @@ export async function getAIAssistant(
     throw new Error(error.error || 'AI Assistant failed');
   }
 
-  return response.json();
+  const data = await response.json();
+  const analysis = data?.analysis || data?.content || '';
+  const tokensUsed = data?.tokens_used ?? data?.tokensUsed ?? 0;
+  return { analysis, tokens_used: tokensUsed };
 }

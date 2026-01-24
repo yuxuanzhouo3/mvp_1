@@ -51,7 +51,7 @@ function generateConfig(region: DeploymentRegion): DeploymentConfig {
  * - 其他值或未设置：中国版 (CN，默认)
  */
 const DEPLOYMENT_REGION: DeploymentRegion =
-  process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === "INTL" ? "INTL" : "CN";
+  process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === "CN" ? "CN" : "INTL";
 
 /**
  * 导出当前配置

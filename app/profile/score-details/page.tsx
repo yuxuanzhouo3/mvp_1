@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useMarketValue } from '@/hooks/useMarketValue';
@@ -24,6 +24,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 
 // Score Components
 import { MarketValueRadar } from '@/components/profile/MarketValueRadar';
@@ -48,6 +57,15 @@ function ScoreDetailsSkeleton() {
       </div>
     </div>
   );
+}
+
+function formatDateYYYYMMDD(input: Date | string | number): string {
+  const d = input instanceof Date ? input : new Date(input);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}/${m}/${day}`;
 }
 
 // ========================================
@@ -79,6 +97,20 @@ export default function ScoreDetailsPage() {
     userId: user?.id || '',
     enabled: !!user?.id
   });
+
+  const [scoreHistory, setScoreHistory] = useState<
+    {
+      id: string;
+      total_score: number;
+      percentile: number | null;
+      score_breakdown: any;
+      calculated_at: string;
+      version: string | null;
+      algorithm: string | null;
+    }[]
+  >([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   // Get weights for current user's gender (default to compatible_match algorithm)
   const weights = score?.scoreBreakdown
@@ -124,6 +156,7 @@ export default function ScoreDetailsPage() {
   const handleRecalculate = async () => {
     try {
       await recalculateScore();
+      await fetchScoreHistory();
       toast({
         title: t.marketValue.scoreUpdated,
         description: t.marketValue.scoreUpdatedDesc,
@@ -151,6 +184,43 @@ export default function ScoreDetailsPage() {
       router.push('/auth/login');
     }
   }, [user, authLoading, router]);
+
+  const fetchScoreHistory = useCallback(async () => {
+    if (!user?.id) return;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const response = await fetch('/api/user/market-value/history?limit=60', { cache: 'no-store' });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || 'Failed to fetch score history');
+      }
+      const data = await response.json();
+      if (data?.success && Array.isArray(data.data)) {
+        setScoreHistory(data.data);
+        return;
+      }
+      throw new Error('Failed to fetch score history');
+    } catch (err: any) {
+      setHistoryError(err?.message || 'Failed to fetch score history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchScoreHistory();
+  }, [fetchScoreHistory]);
+
+  const historyChartData = useMemo(() => {
+    return [...scoreHistory]
+      .reverse()
+      .map((row) => ({
+        date: formatDateYYYYMMDD(row.calculated_at),
+        totalScore: row.total_score,
+        percentile: row.percentile ?? null,
+      }));
+  }, [scoreHistory]);
 
   // Loading state
   if (authLoading || isLoading || !mounted) {
@@ -354,25 +424,73 @@ export default function ScoreDetailsPage() {
             </div>
           </div>
 
-          {/* Score History (Placeholder) */}
+          {/* Score History */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {t.marketValue.scoreHistory}
               </h2>
             </div>
-            <div className="p-12 text-center">
-              <TrendingUp className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">
-                {t.marketValue.scoreHistoryComingSoon}
-              </p>
+            <div className="p-6">
+              {historyLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : historyError ? (
+                <div className="text-sm text-red-600 dark:text-red-400">
+                  {historyError}
+                </div>
+              ) : scoreHistory.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <TrendingUp className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                  <p>{language === 'zh' ? '暂无历史记录' : 'No history yet'}</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={historyChartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                        <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="totalScore" name={language === 'zh' ? '总分' : 'Total'} stroke="#2563eb" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="percentile" name={language === 'zh' ? '百分位' : 'Percentile'} stroke="#7c3aed" strokeWidth={2} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="grid grid-cols-3 gap-2 bg-gray-50 dark:bg-gray-900 px-4 py-2 text-xs font-medium text-gray-600 dark:text-gray-300">
+                      <div>{language === 'zh' ? '时间' : 'Date'}</div>
+                      <div className="text-right">{language === 'zh' ? '总分' : 'Score'}</div>
+                      <div className="text-right">{language === 'zh' ? '百分位' : 'Percentile'}</div>
+                    </div>
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {scoreHistory.slice(0, 20).map((row) => (
+                        <div key={row.id} className="grid grid-cols-3 gap-2 px-4 py-2 text-sm">
+                          <div className="text-gray-700 dark:text-gray-300">
+                            {formatDateYYYYMMDD(row.calculated_at)}
+                          </div>
+                          <div className="text-right text-gray-900 dark:text-white">
+                            {Math.round(row.total_score)}
+                          </div>
+                          <div className="text-right text-gray-900 dark:text-white">
+                            {row.percentile === null ? '-' : Math.round(row.percentile)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Last Updated */}
           <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-6">
             {t.marketValue.lastCalculated}
-            {new Date(score.calculatedAt).toLocaleString()}
+            {formatDateYYYYMMDD(score.calculatedAt)}
             <br />
             {t.marketValue.version}{score.version}
           </p>

@@ -14,7 +14,7 @@ import type { PaymentMethod, Currency, CreatePaymentRequest } from '@/lib/servic
 import { createClient as createSupabaseClient } from '@/lib/supabase/server';
 import { buildPaymentRequestContext, recordPaymentEvent } from '@/lib/observability/payment-events';
 import { getExternalRequestOrigin } from '@/lib/http/request-origin';
-import { requireUser } from '@/lib/auth/requireUser';
+import { AuthError, jsonAuthError, requireUser } from '@/lib/auth/requireUser';
 import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
 
 export async function POST(request: NextRequest) {
@@ -25,14 +25,17 @@ export async function POST(request: NextRequest) {
     try {
       const authUser = await requireUser(request);
       user = { id: authUser.userId, email: authUser.email };
-    } catch {
+    } catch (err) {
       await recordPaymentEvent(ctx, {
         event: 'PAYMENT_CREATE_REJECTED',
         level: 'warn',
         paymentId: 'unknown',
         provider: 'unknown',
-        errorCode: 'UNAUTHORIZED',
+        errorCode: err instanceof AuthError ? err.code : 'UNAUTHORIZED',
       });
+      if (err instanceof AuthError) {
+        return jsonAuthError(err);
+      }
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -111,6 +114,12 @@ export async function POST(request: NextRequest) {
 
     // 构建支付请求
     const baseOrigin = getExternalRequestOrigin(request);
+    if (isCN && process.env.NODE_ENV === 'production' && (!baseOrigin || !baseOrigin.startsWith('https://'))) {
+      return NextResponse.json(
+        { error: 'Invalid app origin', errorCode: 'INVALID_ORIGIN' },
+        { status: 500 }
+      );
+    }
     const paymentRequest: CreatePaymentRequest = {
       userId: user.id,
       amount: selectedPackage.price,

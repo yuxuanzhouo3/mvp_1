@@ -11,7 +11,7 @@ import { createAlipayPaymentRequest } from '@/lib/payment/payment-receivers';
 import { createPayPalOrder, convertCNYtoUSD } from '@/lib/payment/paypal';
 import { getDefaultCurrency } from '@/config/payment-config';
 import { getPaymentService } from '@/lib/services/payment';
-import { requireUser } from '@/lib/auth/requireUser';
+import { AuthError, jsonAuthError, requireUser } from '@/lib/auth/requireUser';
 import crypto from 'crypto';
 import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
 
@@ -53,6 +53,10 @@ export async function POST(request: NextRequest) {
         { error: 'Missing required fields' },
         { status: 400 }
       );
+    }
+
+    if (paymentMethod === 'wechat') {
+      return NextResponse.json({ error: 'Unsupported payment method' }, { status: 400 });
     }
 
     // Verify package exists
@@ -104,9 +108,6 @@ export async function POST(request: NextRequest) {
       case 'paypal':
         return await handlePayPalPayment(payment, amount, credits, user.id);
 
-      case 'wechat':
-        return await handleWeChatPayment(payment, amount, credits, user.id);
-
       default:
         return NextResponse.json(
           { error: 'Unsupported payment method' },
@@ -114,11 +115,11 @@ export async function POST(request: NextRequest) {
         );
     }
   } catch (error) {
+    if (error instanceof AuthError) {
+      return jsonAuthError(error);
+    }
     console.error('Payment intent creation error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 

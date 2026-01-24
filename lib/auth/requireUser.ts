@@ -4,6 +4,7 @@ import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 import { fingerprintToken, verifySessionToken } from '@/lib/auth/session';
 import { warn } from '@/lib/logger';
+import { getExternalRequestOrigin } from '@/lib/http/request-origin';
 
 export interface AuthenticatedUser {
   userId: string;
@@ -25,7 +26,7 @@ function assertSameOrigin(request: NextRequest) {
   const method = request.method.toUpperCase();
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return;
 
-  const requestOrigin = new URL(request.url).origin;
+  const requestOrigin = getExternalRequestOrigin(request) || new URL(request.url).origin;
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
 

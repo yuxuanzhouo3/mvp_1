@@ -263,6 +263,22 @@ async function saveMarketValueScore(
     console.error('Failed to save market value score:', error);
     throw new Error('Failed to save score');
   }
+
+  const { error: historyError } = await supabase
+    .from('user_market_value_score_history')
+    .insert({
+      user_id: userId,
+      total_score: score.totalScore,
+      percentile: score.percentile,
+      score_breakdown: score.scoreBreakdown,
+      calculated_at: score.calculatedAt || new Date().toISOString(),
+      version: score.version,
+      algorithm: (score as any).algorithmType || 'compatible_match',
+    });
+
+  if (historyError) {
+    console.warn('Failed to record market value score history:', historyError);
+  }
 }
 
 // ========================================

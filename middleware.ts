@@ -61,7 +61,17 @@ export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
   // 获取部署区域配置
-  const deploymentRegion = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION || "INTL";
+  const hostHeader =
+    request.headers.get("x-forwarded-host") ||
+    request.headers.get("x-original-host") ||
+    request.headers.get("host") ||
+    "";
+  const host = hostHeader.toLowerCase();
+  const inferredRegionFromHost =
+    host.includes("mornscience.top") ? "CN" : host.includes("mornhub.lat") ? "INTL" : null;
+  const envRegion = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
+  const deploymentRegion =
+    envRegion === "CN" || envRegion === "INTL" ? envRegion : inferredRegionFromHost || "INTL";
   const isInternationalDeployment = deploymentRegion === "INTL";
 
   // 跳过静态资源和Next.js内部路由
@@ -112,6 +122,7 @@ export async function middleware(request: NextRequest) {
   // Create response for potential modifications
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-lang", lang);
+  requestHeaders.set("x-deployment-region", deploymentRegion);
   let response = NextResponse.next({ request: { headers: requestHeaders } });
   if (!cookieLang) {
     response.cookies.set({

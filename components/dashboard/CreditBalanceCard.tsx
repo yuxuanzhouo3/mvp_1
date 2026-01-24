@@ -40,10 +40,19 @@ export default function CreditBalanceCard({ userId }: CreditBalanceCardProps) {
 
   const fetchCreditBalance = async () => {
     try {
-      const response = await fetch(`/api/user/credits`, { cache: 'no-store' })
+      const response = await fetch(`/api/credits`, { cache: 'no-store', credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
-        setBalance(data)
+        if (data?.success && data?.data && typeof data.data.balance === 'number') {
+          setBalance({
+            current: data.data.balance,
+            total_earned: data.data.balance,
+            total_spent: 0,
+            daily_bonus_available: false,
+            membership_level: 'free',
+            membership_benefits: [],
+          })
+        }
       }
     } catch (error) {
       console.error('Failed to fetch credit balance:', error)

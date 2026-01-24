@@ -7,41 +7,48 @@ import { ConditionalHeader } from '@/components/ui/conditional-header'
 import { cookies, headers } from 'next/headers'
 import type { Language } from '@/lib/i18n'
 
-// Get deployment region from environment
-const isIntlRegion = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'INTL';
-const isChinaRegion = !isIntlRegion;
-const locale = isChinaRegion ? 'zh-CN' : 'en-US';
-const themeClass = isChinaRegion ? 'theme-cn' : 'theme-intl-modern';
-
 // 使用系统字体栈，避免在中国区构建时无法访问 Google Fonts 的问题
 const systemFontClass = 'font-sans';
 
-export const metadata: Metadata = {
-  title: isChinaRegion ? '邻客 - AI社交匹配' : 'PersonaLink - AI Friend Matcher',
-  description: isChinaRegion
-    ? '基于个性兼容性找到你的完美AI朋友匹配'
-    : 'Find your perfect AI friend match based on personality compatibility',
-  keywords: ['AI', 'friendship', 'matching', 'personality', 'chat', '社交', '匹配', '个性', '聊天'],
-  authors: [{ name: 'PersonaLink Team' }],
-  icons: {
-    icon: '/logo.png',
-    apple: '/logo.png',
-  },
-  openGraph: {
+function resolveDeploymentRegion(headerStore: { get(name: string): string | null }): 'CN' | 'INTL' {
+  const headerRegion = headerStore.get('x-deployment-region');
+  if (headerRegion === 'CN' || headerRegion === 'INTL') return headerRegion;
+  return process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN' ? 'CN' : 'INTL';
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const headerStore = headers();
+  const region = resolveDeploymentRegion(headerStore);
+  const isChinaRegion = region === 'CN';
+  const locale = isChinaRegion ? 'zh-CN' : 'en-US';
+
+  return {
     title: isChinaRegion ? '邻客 - AI社交匹配' : 'PersonaLink - AI Friend Matcher',
     description: isChinaRegion
       ? '基于个性兼容性找到你的完美AI朋友匹配'
       : 'Find your perfect AI friend match based on personality compatibility',
-    type: 'website',
-    locale: locale,
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: isChinaRegion ? '邻客 - AI社交匹配' : 'PersonaLink - AI Friend Matcher',
-    description: isChinaRegion
-      ? '基于个性兼容性找到你的完美AI朋友匹配'
-      : 'Find your perfect AI friend match based on personality compatibility',
-  },
+    keywords: ['AI', 'friendship', 'matching', 'personality', 'chat', '社交', '匹配', '个性', '聊天'],
+    authors: [{ name: 'PersonaLink Team' }],
+    icons: {
+      icon: '/logo.png',
+      apple: '/logo.png',
+    },
+    openGraph: {
+      title: isChinaRegion ? '邻客 - AI社交匹配' : 'PersonaLink - AI Friend Matcher',
+      description: isChinaRegion
+        ? '基于个性兼容性找到你的完美AI朋友匹配'
+        : 'Find your perfect AI friend match based on personality compatibility',
+      type: 'website',
+      locale: locale,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: isChinaRegion ? '邻客 - AI社交匹配' : 'PersonaLink - AI Friend Matcher',
+      description: isChinaRegion
+        ? '基于个性兼容性找到你的完美AI朋友匹配'
+        : 'Find your perfect AI friend match based on personality compatibility',
+    },
+  };
 }
 
 export default function RootLayout({
@@ -54,6 +61,9 @@ export default function RootLayout({
   const headerStore = headers()
   const headerLang = headerStore.get('x-lang')
   const acceptLanguage = headerStore.get('accept-language') || ''
+  const region = resolveDeploymentRegion(headerStore);
+  const isChinaRegion = region === 'CN';
+  const themeClass = isChinaRegion ? 'theme-cn' : 'theme-intl-modern';
 
   const initialLanguage: Language =
     cookieLang === 'zh' || cookieLang === 'en'

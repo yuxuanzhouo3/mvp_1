@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { useCreditsBalance } from '@/hooks/useCreditsBalance';
 
 interface UserData {
   id: string;
@@ -58,6 +59,7 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
   const { toast } = useToast()
   const { language } = useLanguage()
   const t = useTranslations(language)
+  const { data: creditsBalance } = useCreditsBalance(!!user?.id);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -185,7 +187,7 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
                 {user?.user_metadata?.full_name || user?.email}
               </p>
               <p className="text-xs text-muted-foreground truncate">
-                {user?.user_metadata?.credits || 0} credits
+                {(typeof creditsBalance === 'number' ? creditsBalance : (user?.user_metadata?.credits || 0))} credits
               </p>
             </div>
               )}

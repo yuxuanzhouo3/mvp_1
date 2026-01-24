@@ -35,23 +35,45 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { 
-      messages, 
+    const {
+      messages,
       type = 'general_assistant',
       context,
       options,
-    } = body as {
-      messages: ChatMessage[];
-      type?: 'chat_simulation' | 'personality_analysis' | 'general_assistant';
-      context?: AIChatSessionConfig['targetUserProfile'];
-      options?: {
-        model?: string;
-        temperature?: number;
-        maxTokens?: number;
-      };
-    };
+      message,
+      chatHistory,
+      language,
+      targetUserName,
+    } = body as any;
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    const legacyHistoryMessages =
+      Array.isArray(chatHistory)
+        ? chatHistory
+            .map((item: any) => ({
+              role: item?.isOwn ? 'user' : 'assistant',
+              content: item?.content,
+            }))
+            .filter((m: any) => typeof m.content === 'string' && m.content.trim().length > 0)
+        : [];
+
+    const legacyInstruction =
+      typeof message === 'string' && message.trim().length > 0
+        ? (language === 'zh'
+            ? `请根据以上聊天上下文，分析对方最后这句消息，并给出 3 条自然、礼貌且不冒犯的中文回复建议：\n对方消息：“${message}”`
+            : `Based on the chat context above, analyze the other person's last message and give 3 natural, polite reply suggestions in English:\nTheir message: "${message}"`)
+        : null;
+
+    const normalizedMessages: ChatMessage[] =
+      Array.isArray(messages) && messages.length > 0
+        ? messages
+        : legacyInstruction
+          ? [...legacyHistoryMessages, { role: 'user', content: legacyInstruction }]
+          : [];
+
+    const normalizedContext: AIChatSessionConfig['targetUserProfile'] | undefined =
+      context || (targetUserName ? { name: targetUserName } : undefined);
+
+    if (!normalizedMessages || normalizedMessages.length === 0) {
       return NextResponse.json(
         { error: 'Messages are required' },
         { status: 400 }
@@ -65,19 +87,19 @@ export async function POST(request: NextRequest) {
     console.log(`[AI Assistant] Using ${isCN ? 'Qwen' : 'Mistral'} AI service`);
 
     // 获取系统提示词
-    const systemPrompt = getSystemPrompt(type, context ? {
-      targetName: context.name,
-      targetAge: context.age,
-      targetGender: context.gender,
-      targetInterests: context.interests,
-      targetPersonality: context.personality,
-      targetBio: context.bio,
+    const systemPrompt = getSystemPrompt(type, normalizedContext ? {
+      targetName: normalizedContext.name,
+      targetAge: normalizedContext.age,
+      targetGender: normalizedContext.gender,
+      targetInterests: normalizedContext.interests,
+      targetPersonality: normalizedContext.personality,
+      targetBio: normalizedContext.bio,
     } : undefined);
 
     // 构建完整的消息列表
     const fullMessages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
-      ...messages,
+      ...normalizedMessages,
     ];
 
     // 调用 AI 服务
@@ -95,7 +117,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       content: response.content,
+      analysis: response.content,
       tokensUsed: response.tokensUsed,
+      tokens_used: response.tokensUsed,
       model: response.model || aiService.getDefaultModel(),
       region: isCN ? 'CN' : 'INTL',
     });

@@ -121,6 +121,28 @@ export async function createPaymentRecord(
   const { data: payment, error } = await query;
 
   if (error) {
+    const message = error.message || '';
+    const shouldFallback =
+      !!idempotencyKey &&
+      (message.includes('idempotency_key') ||
+        message.includes('onConflict') ||
+        message.includes('unique') ||
+        message.includes('constraint') ||
+        message.includes('does not exist'));
+
+    if (shouldFallback) {
+      const fallbackData = { ...insertData };
+      delete fallbackData.idempotency_key;
+      const { data: fallbackPayment, error: fallbackError } = await supabase
+        .from('payments')
+        .insert(fallbackData)
+        .select()
+        .single();
+      if (!fallbackError && fallbackPayment) {
+        return fallbackPayment;
+      }
+    }
+
     throw new Error(`Failed to create payment record: ${error.message}`);
   }
 

@@ -12,7 +12,7 @@ import { getDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-cli
 import { getPaymentService } from '@/lib/services/payment';
 import { buildPaymentRequestContext, recordPaymentEvent } from '@/lib/observability/payment-events';
 import { getExternalRequestOrigin } from '@/lib/http/request-origin';
-import { requireUser } from '@/lib/auth/requireUser';
+import { AuthError, jsonAuthError, requireUser } from '@/lib/auth/requireUser';
 import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
 
 // Stripe Price IDs for membership tiers (to be configured in Stripe Dashboard)
@@ -70,6 +70,9 @@ export async function POST(request: NextRequest) {
     const serviceDb = await getServiceDbClient();
     const isCN = isChinaDeployment();
     const baseOrigin = getExternalRequestOrigin(request);
+    if (isCN && process.env.NODE_ENV === 'production' && (!baseOrigin || !baseOrigin.startsWith('https://'))) {
+      return NextResponse.json({ error: 'Invalid app origin', errorCode: 'INVALID_ORIGIN' }, { status: 500 });
+    }
 
     const body: SubscribeRequest = await request.json();
     const { tierId, paymentMethod, currency = isCN ? 'CNY' : 'USD' } = body;
@@ -146,11 +149,11 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   } catch (error) {
+    if (error instanceof AuthError) {
+      return jsonAuthError(error);
+    }
     console.error('Membership subscribe API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -199,7 +202,7 @@ async function handleCNSubscription(
         metadata: { tierId, amount: tier.monthly_price_cny, credits: tier.monthly_credits },
       });
       return NextResponse.json(
-        { error: result.error || '创建支付订单失败' },
+        { error: result.error || '创建支付订单失败', errorCode: result.errorCode },
         { status: 500 }
       );
     }
@@ -230,7 +233,7 @@ async function handleCNSubscription(
   } catch (error) {
     console.error('CN subscription error:', error);
     return NextResponse.json(
-      { error: '支付服务错误' },
+      { error: '支付服务错误', errorCode: 'PAYMENT_SERVICE_ERROR' },
       { status: 500 }
     );
   }

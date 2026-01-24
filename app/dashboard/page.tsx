@@ -703,14 +703,14 @@ export default function DashboardPage() {
 
                 {/* Credits Usage Info */}
                 <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className={`rounded-xl p-4 text-center ${isCN ? 'bg-[hsl(var(--cn-bg-cream))]' : 'bg-pink-50 dark:bg-pink-900/10'}`}>
+                  <div className={`rounded-xl p-4 text-center ${isCN ? 'bg-[hsl(var(--cn-bg-cream))]' : 'bg-white dark:bg-white/5 border border-gray-100 dark:border-gray-800'}`}>
                     <div className="flex items-center justify-center mb-2">
                       <Heart className="h-4 w-4 text-pink-500 mr-2" />
                       <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">{t.dashboard.credits.likeCost || 'Per Like'}</span>
                     </div>
                     <div className="text-2xl font-bold text-gray-900 dark:text-white">5</div>
                   </div>
-                  <div className={`rounded-xl p-4 text-center ${isCN ? 'bg-[hsl(var(--cn-bg-cream))]' : 'bg-blue-50 dark:bg-blue-900/10'}`}>
+                  <div className={`rounded-xl p-4 text-center ${isCN ? 'bg-[hsl(var(--cn-bg-cream))]' : 'bg-white dark:bg-white/5 border border-gray-100 dark:border-gray-800'}`}>
                     <div className="flex items-center justify-center mb-2">
                       <MessageSquare className="h-4 w-4 text-blue-500 mr-2" />
                       <span className="text-xs text-gray-500 font-medium uppercase tracking-wide">{t.dashboard.credits.messageCost || 'Per Message'}</span>

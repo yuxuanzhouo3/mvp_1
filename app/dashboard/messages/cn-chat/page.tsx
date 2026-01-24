@@ -30,6 +30,7 @@ import {
   User,
   Pin,
   SearchIcon,
+  Bot,
 } from 'lucide-react';
 import { EmojiPicker } from '@/components/ui/emoji-picker';
 import {
@@ -38,6 +39,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { AIAssistant } from '@/components/ai';
 
 function tryParseCloudbaseFilePathFromUrl(input?: string | null): string | null {
   if (!input) return null;
@@ -80,6 +82,8 @@ export default function CnChatPage() {
   const [showSearchMessages, setShowSearchMessages] = useState(false);
   const [searchMessageQuery, setSearchMessageQuery] = useState('');
   const [pinnedRoomIds, setPinnedRoomIds] = useState<Set<string>>(new Set());
+  const [showMenu, setShowMenu] = useState<string | null>(null);
+  const [aiAssistantMessage, setAiAssistantMessage] = useState<{ id: string; content: string } | null>(null);
 
   // Refs
   const chatServiceRef = useRef<IChatService | null>(null);
@@ -703,19 +707,42 @@ export default function CnChatPage() {
                           </AvatarFallback>
                         </Avatar>
 
-                        <div className={cn(
-                          "rounded-2xl px-4 py-2 shadow-sm",
-                          isOwn
-                            ? "bg-primary text-white rounded-br-md"
-                            : "bg-white dark:bg-gray-800 rounded-bl-md"
-                        )}>
-                          {renderMessageContent(message)}
-                          <p className={cn(
-                            "text-xs mt-1",
-                            isOwn ? "text-white/70" : "text-gray-400"
-                          )}>
-                            {formatTime(message.createdAt)}
-                          </p>
+                        <div className="relative">
+                          <div
+                            className={cn(
+                              "rounded-2xl px-4 py-2 shadow-sm",
+                              isOwn
+                                ? "bg-primary text-white rounded-br-md"
+                                : "bg-white dark:bg-gray-800 rounded-bl-md"
+                            )}
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              setShowMenu(showMenu === message.id ? null : message.id);
+                            }}
+                          >
+                            {renderMessageContent(message)}
+                            <p className={cn(
+                              "text-xs mt-1",
+                              isOwn ? "text-white/70" : "text-gray-400"
+                            )}>
+                              {formatTime(message.createdAt)}
+                            </p>
+                          </div>
+
+                          {showMenu === message.id && !isOwn && message.type === 'text' && message.content && (
+                            <div className="absolute left-0 top-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-20 overflow-hidden min-w-[120px]">
+                              <button
+                                onClick={() => {
+                                  setAiAssistantMessage({ id: message.id, content: message.content });
+                                  setShowMenu(null);
+                                }}
+                                className="flex items-center w-full px-4 py-2.5 text-sm text-left text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                              >
+                                <Bot className="h-4 w-4 mr-2" />
+                                {language === 'zh' ? 'AI小助手' : 'AI Assistant'}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -724,6 +751,21 @@ export default function CnChatPage() {
               )}
               <div ref={messagesEndRef} />
             </div>
+
+            {aiAssistantMessage && (
+              <div className="fixed bottom-24 right-4 z-50 animate-in slide-in-from-bottom-4 duration-300">
+                <AIAssistant
+                  message={aiAssistantMessage.content}
+                  targetUserName={selectedRoom.otherUser?.username}
+                  chatHistory={messages.slice(-10).map((m: any) => ({
+                    content: m.content,
+                    isOwn: m.senderId === user?.id,
+                  }))}
+                  language={language as 'zh' | 'en'}
+                  onClose={() => setAiAssistantMessage(null)}
+                />
+              </div>
+            )}
 
             {/* 输入区域 */}
             <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
