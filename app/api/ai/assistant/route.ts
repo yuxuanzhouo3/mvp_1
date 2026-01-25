@@ -8,9 +8,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { requireUser } from '@/lib/auth/requireUser';
-import { getAIService, getSystemPrompt } from '@/lib/ai';
+import { getAIServiceForRegion, getSystemPromptForRegion } from '@/lib/ai';
+import { getDeploymentRegionFromRequest } from '@/lib/config/request-region';
 import type { ChatMessage, AIChatSessionConfig } from '@/lib/ai/types';
 
 // 统一认证函数
@@ -80,14 +80,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 获取当前环境的 AI 服务
-    const aiService = getAIService();
-    const isCN = isChinaDeployment();
+    const region = getDeploymentRegionFromRequest(request);
+    const aiService = getAIServiceForRegion(region);
+    const isCN = region === 'CN';
 
     console.log(`[AI Assistant] Using ${isCN ? 'Qwen' : 'Mistral'} AI service`);
 
     // 获取系统提示词
-    const systemPrompt = getSystemPrompt(type, normalizedContext ? {
+    const systemPrompt = getSystemPromptForRegion(region, type, normalizedContext ? {
       targetName: normalizedContext.name,
       targetAge: normalizedContext.age,
       targetGender: normalizedContext.gender,
@@ -121,15 +121,20 @@ export async function POST(request: NextRequest) {
       tokensUsed: response.tokensUsed,
       tokens_used: response.tokensUsed,
       model: response.model || aiService.getDefaultModel(),
-      region: isCN ? 'CN' : 'INTL',
+      region,
     });
   } catch (error: any) {
     console.error('[AI Assistant] Error:', error);
-    
+    const message = error?.message ? String(error.message) : 'AI service error';
+    const upper = message.toUpperCase();
+    let errorCode = 'AI_SERVICE_ERROR';
+    if (upper.includes('MISTRAL_API_KEY')) errorCode = 'MISSING_MISTRAL_API_KEY';
+    if (upper.includes('DASHSCOPE_API_KEY')) errorCode = 'MISSING_DASHSCOPE_API_KEY';
+
     return NextResponse.json(
       { 
-        error: error.message || 'AI service error',
-        errorCode: 'AI_SERVICE_ERROR',
+        error: message,
+        errorCode,
       },
       { status: 500 }
     );
@@ -138,11 +143,12 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   // 返回当前 AI 服务信息
-  const aiService = getAIService();
-  const isCN = isChinaDeployment();
+  const region = getDeploymentRegionFromRequest(request);
+  const aiService = getAIServiceForRegion(region);
+  const isCN = region === 'CN';
 
   return NextResponse.json({
-    region: isCN ? 'CN' : 'INTL',
+    region,
     provider: isCN ? 'Qwen (通义千问)' : 'Mistral AI',
     defaultModel: aiService.getDefaultModel(),
     availableModels: aiService.getAvailableModels(),

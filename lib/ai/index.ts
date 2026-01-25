@@ -18,9 +18,11 @@ import type { IAIService } from './types';
  * 获取当前环境的 AI 服务
  */
 export function getAIService(): IAIService {
-  if (isChinaDeployment()) {
-    return new QwenAIService();
-  }
+  return getAIServiceForRegion(isChinaDeployment() ? 'CN' : 'INTL');
+}
+
+export function getAIServiceForRegion(region: 'CN' | 'INTL'): IAIService {
+  if (region === 'CN') return new QwenAIService();
   return new MistralAIService();
 }
 
@@ -36,7 +38,22 @@ export function getSystemPrompt(type: 'chat_simulation' | 'personality_analysis'
   targetPersonality?: string;
   targetBio?: string;
 }): string {
-  const isCN = isChinaDeployment();
+  return getSystemPromptForRegion(isChinaDeployment() ? 'CN' : 'INTL', type, context);
+}
+
+export function getSystemPromptForRegion(
+  region: 'CN' | 'INTL',
+  type: 'chat_simulation' | 'personality_analysis' | 'general_assistant',
+  context?: {
+    targetName?: string;
+    targetAge?: number;
+    targetGender?: string;
+    targetInterests?: string[];
+    targetPersonality?: string;
+    targetBio?: string;
+  }
+): string {
+  const isCN = region === 'CN';
 
   switch (type) {
     case 'chat_simulation':

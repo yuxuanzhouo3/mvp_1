@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
+import { getServiceDbClientFromRequest } from '@/lib/db-client';
 import { requireUser } from '@/lib/auth/requireUser';
 import {
   calculateMarketValue,
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const db = await getServiceDbClient();
+    const db = await getServiceDbClientFromRequest(request);
 
     // 获取用户资料中的市场价值评分
     const { data: profile, error } = await db
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const db = await getServiceDbClient();
+    const db = await getServiceDbClientFromRequest(request);
 
     // 获取用户基本信息
     const { data: userData, error: userError } = await db

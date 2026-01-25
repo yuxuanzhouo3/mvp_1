@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
+import { getServiceDbClientFromRequest } from '@/lib/db-client';
 import { requireUser } from '@/lib/auth/requireUser';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
 
     // 使用统一的数据库客户端
-    const db = await getServiceDbClient();
+    const db = await getServiceDbClientFromRequest(request);
 
     // Build query
     let query = db

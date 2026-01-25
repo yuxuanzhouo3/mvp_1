@@ -150,7 +150,7 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
 
         <div className={`flex flex-col ${open ? 'w-64' : 'w-20'} h-[calc(100vh-73px)] bg-background border-r transition-all duration-200 fixed top-[73px] left-0 z-50 overflow-y-auto`}>
       <div className="flex items-center justify-center h-16 border-b px-4">
-          <h1 className={`text-xl font-bold text-primary transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{isChinaDeployment() ? '邻客' : 'PersonaLink'}</h1>
+          <h1 className={`text-xl font-bold text-primary transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{isChinaDeployment() ? '晨佑个人链接' : 'PersonaLink'}</h1>
       </div>
       <div className="flex-1 flex flex-col">
           <nav className="flex-1 px-2 py-6 space-y-2">

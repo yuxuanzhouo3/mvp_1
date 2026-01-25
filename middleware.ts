@@ -104,9 +104,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const cookieLang = normalizeLang(request.cookies.get("lang")?.value || null);
-  const acceptLanguage = (request.headers.get("accept-language") || "").toLowerCase();
-  const inferredLang: "zh" | "en" =
-    acceptLanguage.includes("zh") ? "zh" : isInternationalDeployment ? "en" : "zh";
+  const inferredLang: "zh" | "en" = isInternationalDeployment ? "en" : "zh";
   const lang = cookieLang || inferredLang;
 
   // 跳过所有支付相关 API 路由，让它们直接通过

@@ -8,12 +8,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
+import { getDbClientFromRequest, getServiceDbClientFromRequest } from '@/lib/db-client';
 import { getPaymentService } from '@/lib/services/payment';
 import { buildPaymentRequestContext, recordPaymentEvent } from '@/lib/observability/payment-events';
 import { getExternalRequestOrigin } from '@/lib/http/request-origin';
 import { AuthError, jsonAuthError, requireUser } from '@/lib/auth/requireUser';
 import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
+import { getDeploymentRegionFromRequest } from '@/lib/config/request-region';
 
 // Stripe Price IDs for membership tiers (to be configured in Stripe Dashboard)
 const STRIPE_PRICE_IDS: Record<string, { usd: string; cny?: string }> = {
@@ -66,9 +67,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Too Many Requests' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } });
     }
 
-    const db = await getDbClient();
-    const serviceDb = await getServiceDbClient();
-    const isCN = isChinaDeployment();
+    const region = getDeploymentRegionFromRequest(request);
+    const db = await getDbClientFromRequest(request);
+    const serviceDb = await getServiceDbClientFromRequest(request);
+    const isCN = region === 'CN';
     const baseOrigin = getExternalRequestOrigin(request);
     if (isCN && process.env.NODE_ENV === 'production' && (!baseOrigin || !baseOrigin.startsWith('https://'))) {
       return NextResponse.json({ error: 'Invalid app origin', errorCode: 'INVALID_ORIGIN' }, { status: 500 });
@@ -226,6 +228,10 @@ async function handleCNSubscription(
         qrCodeBase64: result.qrCodeBase64,
         tier: tierId,
         method: method,
+        amount: tier.monthly_price_cny,
+        currency: 'CNY',
+        credits: tier.monthly_credits,
+        type: 'membership',
         isSubscription: false,
         region: 'CN',
       },

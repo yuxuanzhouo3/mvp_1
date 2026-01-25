@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDbClient, isChinaDeployment } from '@/lib/db-client';
+import { getDbClientFromRequest } from '@/lib/db-client';
 import { finalizeCnPayment } from '@/lib/payment/cn-payment-finalize';
 import { requireUser } from '@/lib/auth/requireUser';
+import { isChinaRequest } from '@/lib/config/request-region';
 
 export async function GET(
   request: NextRequest,
@@ -19,9 +20,9 @@ export async function GET(
 
     const authUser = await requireUser(request);
     const userId = authUser.userId;
-    const db = await getDbClient();
+    const db = await getDbClientFromRequest(request);
 
-    if (isChinaDeployment()) {
+    if (isChinaRequest(request)) {
       const { data: payment, error: paymentError } = await db
         .from('payments')
         .select('*')

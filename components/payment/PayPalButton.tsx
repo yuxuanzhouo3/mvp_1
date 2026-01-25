@@ -61,7 +61,7 @@ export default function PayPalButton({
           description: `已成功购买 ${credits} 积分`,
         });
         onSuccess?.();
-        router.push(`/payment/success?provider=paypal&paymentId=${paymentId}`);
+        router.push(`/payment/success?provider=paypal&paymentId=${paymentId}&token=${encodeURIComponent(data.orderID)}`);
       } else {
         throw new Error(result.error || 'Payment capture failed');
       }

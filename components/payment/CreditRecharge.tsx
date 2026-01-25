@@ -342,7 +342,7 @@ export default function CreditRecharge() {
               paymentId: data.paymentId,
               qrCodeUrl: data.qrCodeUrl,
               qrCodeBase64: data.qrCodeBase64,
-              amount: selectedPackage.price,
+              amount: typeof data.amount === 'number' ? data.amount : selectedPackage.price,
               paymentMethod: 'wechat',
             });
             setShowPaymentMonitor(true);
@@ -356,7 +356,7 @@ export default function CreditRecharge() {
               paymentId: data.paymentId,
               qrCodeUrl: data.qrCodeUrl,
               qrCodeBase64: data.qrCodeBase64,
-              amount: selectedPackage.price,
+              amount: typeof data.amount === 'number' ? data.amount : selectedPackage.price,
               paymentMethod: 'alipay',
             });
             setShowPaymentMonitor(true);
@@ -454,7 +454,7 @@ export default function CreditRecharge() {
                 amount: paymentData.amount,
                 credits: paymentData.credits || 0,
               }}
-              onSuccess={handlePaymentVerified}
+              onSuccess={() => {}}
               onError={(error) => {
                 toast({
                   title: t.payment.recharge.errors.paymentFailed,

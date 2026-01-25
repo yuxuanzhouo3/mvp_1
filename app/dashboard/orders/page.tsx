@@ -37,6 +37,9 @@ import {
   AlertCircle,
   RefreshCw,
   ArrowLeft,
+  Copy,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 const TRANSLATIONS = {
@@ -133,8 +136,14 @@ export default function OrdersPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<{ limit: number; offset: number; total: number; hasMore: boolean }>({
+    limit: 10,
+    offset: 0,
+    total: 0,
+    hasMore: false,
+  });
 
-  const fetchPayments = async () => {
+  const fetchPayments = async (next?: Partial<{ limit: number; offset: number }>) => {
     if (!user) return;
 
     try {
@@ -151,7 +160,10 @@ export default function OrdersPage() {
         token = session?.access_token || null;
       }
 
-      const response = await fetch('/api/payments/history?limit=50', {
+      const limit = next?.limit ?? pagination.limit;
+      const offset = next?.offset ?? pagination.offset;
+
+      const response = await fetch(`/api/payments/history?limit=${limit}&offset=${offset}`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
         cache: 'no-store',
         credentials: 'include', // 确保发送 cookie
@@ -160,6 +172,16 @@ export default function OrdersPage() {
       if (response.ok) {
         const data = await response.json();
         setPayments(data.payments || []);
+        if (data.pagination) {
+          setPagination({
+            limit: data.pagination.limit ?? limit,
+            offset: data.pagination.offset ?? offset,
+            total: data.pagination.total ?? 0,
+            hasMore: !!data.pagination.hasMore,
+          });
+        } else {
+          setPagination((prev) => ({ ...prev, limit, offset }));
+        }
       }
     } catch (error) {
       console.error('Failed to fetch payments:', error);
@@ -245,6 +267,20 @@ export default function OrdersPage() {
     }
   };
 
+  const handleCopy = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast({
+        title: language === 'zh' ? '已复制' : 'Copied',
+      });
+    } catch {
+      toast({
+        title: language === 'zh' ? '复制失败' : 'Copy failed',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
@@ -316,14 +352,33 @@ export default function OrdersPage() {
             <p className="text-gray-600">{t.subtitle}</p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={fetchPayments}
-        >
-          <RefreshCw className="w-4 h-4 mr-2" />
-          {t.refresh}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => fetchPayments()}>
+            <RefreshCw className="w-4 h-4 mr-2" />
+            {t.refresh}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchPayments({ offset: Math.max(0, pagination.offset - pagination.limit) })}
+            disabled={loading || pagination.offset === 0}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fetchPayments({ offset: pagination.offset + pagination.limit })}
+            disabled={loading || !pagination.hasMore}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+          <div className="text-xs text-muted-foreground min-w-[120px] text-right">
+            {pagination.total > 0
+              ? `${Math.floor(pagination.offset / pagination.limit) + 1}/${Math.max(1, Math.ceil(pagination.total / pagination.limit))}`
+              : '—'}
+          </div>
+        </div>
       </div>
 
       {/* Orders Table */}
@@ -354,8 +409,18 @@ export default function OrdersPage() {
               <TableBody>
                 {payments.map((payment) => (
                   <TableRow key={payment.id}>
-                    <TableCell className="font-mono text-sm">
-                      {payment.id.slice(0, 8)}...
+                    <TableCell className="font-mono text-xs max-w-[420px]">
+                      <div className="flex items-center gap-2">
+                        <span className="break-all">{payment.id}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => handleCopy(payment.id)}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                     <TableCell>
                       {formatAmount(payment.amount, payment.currency)}

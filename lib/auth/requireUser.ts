@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { getDbClient, isChinaDeployment } from '@/lib/db-client';
+import { getDbClient } from '@/lib/db-client';
+import { isChinaRequest } from '@/lib/config/request-region';
 import { createClient } from '@supabase/supabase-js';
 import { fingerprintToken, verifySessionToken } from '@/lib/auth/session';
 import { warn } from '@/lib/logger';
@@ -87,7 +88,7 @@ export function jsonAuthError(err: AuthError) {
 }
 
 export async function requireUser(request: NextRequest): Promise<AuthenticatedUser> {
-  if (isChinaDeployment()) {
+  if (isChinaRequest(request)) {
     const cookieToken =
       request.cookies.get('cn_session')?.value ||
       request.cookies.get('cn_session_cross')?.value ||

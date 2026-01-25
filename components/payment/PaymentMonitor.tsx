@@ -149,6 +149,15 @@ export default function PaymentMonitor({
   const qrImageSrc =
     qrCodeBase64 ||
     (qrCodeUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrCodeUrl)}` : undefined);
+  const paymentType = paymentData?.metadata?.type === 'membership' ? 'membership' : 'credits';
+  const verifiedDesc =
+    paymentType === 'membership'
+      ? (language === 'zh' ? '支付已验证，会员状态已更新' : 'Payment verified, membership updated')
+      : t.verifySuccessDesc;
+  const completedDesc =
+    paymentType === 'membership'
+      ? (language === 'zh' ? '会员已开通/续费成功' : 'Membership activated')
+      : t.creditsAdded;
 
   // 获取认证 token
   const getAuthToken = (): string | null => {
@@ -247,7 +256,7 @@ export default function PaymentMonitor({
       if (response.ok) {
         toast({
           title: t.verifySuccess,
-          description: t.verifySuccessDesc,
+          description: verifiedDesc,
         });
         checkPaymentStatus();
         if (onPaymentVerified) {
@@ -312,7 +321,7 @@ export default function PaymentMonitor({
                 {t.paymentSuccess}
               </h3>
               <p className="text-green-600 dark:text-green-300">
-                {t.creditsAdded}
+                {completedDesc}
               </p>
             </div>
           </div>
@@ -420,7 +429,7 @@ export default function PaymentMonitor({
                   <li>• {paymentMethod === 'wechat' ? (language === 'zh' ? '使用微信扫描上方二维码' : 'Scan the QR code above with WeChat') : t.scanQrCode}</li>
                   <li>• {t.payAmount(amount)}</li>
                   <li>• {t.addNotePaymentId(paymentId)}</li>
-                  <li>• {t.autoCredit}</li>
+                  <li>• {paymentType === 'membership' ? (language === 'zh' ? '支付成功后会员将自动生效' : 'Membership will be activated after successful payment') : t.autoCredit}</li>
                 </ul>
               </div>
             </div>
@@ -452,9 +461,13 @@ export default function PaymentMonitor({
 
           {paymentMethod === 'wechat' && (
             <div className="text-sm text-gray-600 dark:text-gray-400">
-              {language === 'zh' 
-                ? '点击下方按钮将自动查询微信支付订单状态，如果您已完成支付，积分将自动到账。' 
-                : 'Click the button below to automatically query WeChat Pay order status. If you have completed payment, credits will be added automatically.'}
+              {paymentType === 'membership'
+                ? (language === 'zh'
+                    ? '点击下方按钮将自动查询微信支付订单状态，如果您已完成支付，会员状态将自动更新。'
+                    : 'Click the button below to query WeChat Pay order status. If you have completed payment, membership will be updated automatically.')
+                : (language === 'zh'
+                    ? '点击下方按钮将自动查询微信支付订单状态，如果您已完成支付，积分将自动到账。'
+                    : 'Click the button below to automatically query WeChat Pay order status. If you have completed payment, credits will be added automatically.')}
             </div>
           )}
 

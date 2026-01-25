@@ -381,12 +381,6 @@ export default function ChatRoomPage() {
       setIsUploading(true);
       const duration = await getVideoDuration(file);
 
-      // 检查时长限制（15秒）
-      if (duration > 15) {
-        alert(language === 'zh' ? '视频时长不能超过15秒' : 'Video duration cannot exceed 15 seconds');
-        return;
-      }
-
       const result = await uploadChatVideo({
         roomId,
         videoBlob: file,
@@ -1196,7 +1190,7 @@ export default function ChatRoomPage() {
               size="sm"
               onClick={handleVideoSelect}
               disabled={isUploading}
-              title={language === 'zh' ? '发送视频（最长15秒）' : 'Send video (max 15s)'}
+              title={language === 'zh' ? '发送视频' : 'Send video'}
               className="text-gray-500 hover:text-primary hover:bg-primary/10 rounded-xl"
             >
               {isUploading ? (

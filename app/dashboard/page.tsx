@@ -375,7 +375,7 @@ export default function DashboardPage() {
     <>
       {/* Main Content */}
       <div className={`transition-all duration-300 pt-14 md:pt-0 ${containerClass}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 text-sm md:text-[13px]">
           {/* Welcome Section */}
           <div className="mb-8 cn-animate-in fade-in">
             <div className={`${cardClass} p-8 text-center relative overflow-hidden flex flex-col items-center justify-center`}>
@@ -385,7 +385,7 @@ export default function DashboardPage() {
                  {greeting.icon}
                </div>
                
-              <h2 className={`text-3xl font-bold mb-3 ${isCN ? 'text-[hsl(var(--cn-primary))]' : 'text-gradient-theme'}`}>
+              <h2 className={`text-2xl md:text-2xl font-bold mb-3 ${isCN ? 'text-[hsl(var(--cn-primary))]' : 'text-gradient-theme'}`}>
                 {greeting.text}, {profile.full_name}
               </h2>
               <p className={subtitleClass}>{t.dashboard.discoverFriends}</p>
@@ -408,7 +408,7 @@ export default function DashboardPage() {
                     className={`${btnPrimaryClass} flex flex-col items-center justify-center py-6 group`}
                   >
                     <Heart className="mb-2 h-8 w-8 group-hover:scale-110 transition-transform" />
-                    <span className="font-bold text-lg">{t.dashboard.startMatching}</span>
+                    <span className="font-bold text-base md:text-sm">{t.dashboard.startMatching}</span>
                     <span className="text-sm opacity-80 mt-1 font-normal">{isCN ? "寻找心仪对象" : "Find your soulmate"}</span>
                   </button>
                   <button
@@ -416,7 +416,7 @@ export default function DashboardPage() {
                     className={`${btnSecondaryClass} flex flex-col items-center justify-center py-6 group`}
                   >
                     <MessageSquare className="mb-2 h-8 w-8 group-hover:scale-110 transition-transform" />
-                    <span className="font-bold text-lg">{t.dashboard.viewChats}</span>
+                    <span className="font-bold text-base md:text-sm">{t.dashboard.viewChats}</span>
                     <span className="text-sm opacity-80 mt-1 font-normal">{isCN ? "查看未读消息" : "Check new messages"}</span>
                   </button>
                 </div>
@@ -440,32 +440,32 @@ export default function DashboardPage() {
                       <div className={`absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity ${isCN ? 'text-[hsl(var(--cn-primary))]' : 'text-blue-600'}`}>
                           <Users className="h-24 w-24" />
                       </div>
-                      <div className={`text-3xl font-bold mb-1 relative z-10 ${isCN ? 'text-[hsl(var(--cn-primary))]' : 'text-blue-600'}`}>{stats.totalMatches}</div>
-                      <div className="text-sm text-gray-500 relative z-10">{t.dashboard.stats.totalMatches}</div>
+                      <div className={`text-2xl md:text-2xl font-bold mb-1 relative z-10 ${isCN ? 'text-[hsl(var(--cn-primary))]' : 'text-blue-600'}`}>{stats.totalMatches}</div>
+                      <div className="text-xs text-gray-500 relative z-10">{t.dashboard.stats.totalMatches}</div>
                     </div>
                     
                     <div className="text-center p-4 rounded-xl bg-gray-50 dark:bg-white/5 relative overflow-hidden group hover:shadow-md transition-all">
                        <div className={`absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity ${isCN ? 'text-[hsl(var(--cn-gold))]' : 'text-green-600'}`}>
                           <MessageSquare className="h-24 w-24" />
                       </div>
-                      <div className={`text-3xl font-bold mb-1 relative z-10 ${isCN ? 'text-[hsl(var(--cn-gold))]' : 'text-green-600'}`}>{stats.totalMessages}</div>
-                      <div className="text-sm text-gray-500 relative z-10">{t.dashboard.stats.totalMessages}</div>
+                      <div className={`text-2xl md:text-2xl font-bold mb-1 relative z-10 ${isCN ? 'text-[hsl(var(--cn-gold))]' : 'text-green-600'}`}>{stats.totalMessages}</div>
+                      <div className="text-xs text-gray-500 relative z-10">{t.dashboard.stats.totalMessages}</div>
                     </div>
                     
                     <div className="text-center p-4 rounded-xl bg-gray-50 dark:bg-white/5 relative overflow-hidden group hover:shadow-md transition-all">
                        <div className={`absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity ${isCN ? 'text-[hsl(var(--cn-primary-dark))]' : 'text-indigo-600'}`}>
                           <Zap className="h-24 w-24" />
                       </div>
-                      <div className={`text-3xl font-bold mb-1 relative z-10 ${isCN ? 'text-[hsl(var(--cn-primary-dark))]' : 'text-indigo-600'}`}>{stats.activeChats}</div>
-                      <div className="text-sm text-gray-500 relative z-10">{t.dashboard.stats.activeChats}</div>
+                      <div className={`text-2xl md:text-2xl font-bold mb-1 relative z-10 ${isCN ? 'text-[hsl(var(--cn-primary-dark))]' : 'text-indigo-600'}`}>{stats.activeChats}</div>
+                      <div className="text-xs text-gray-500 relative z-10">{t.dashboard.stats.activeChats}</div>
                     </div>
                     
                     <div className="text-center p-4 rounded-xl bg-gray-50 dark:bg-white/5 relative overflow-hidden group hover:shadow-md transition-all">
                        <div className={`absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity ${isCN ? 'text-[hsl(var(--cn-warning))]' : 'text-yellow-600'}`}>
                           <FileText className="h-24 w-24" />
                       </div>
-                      <div className={`text-3xl font-bold mb-1 relative z-10 ${isCN ? 'text-[hsl(var(--cn-warning))]' : 'text-yellow-600'}`}>{stats.profileCompletion}%</div>
-                      <div className="text-sm text-gray-500 relative z-10">{t.dashboard.stats.profileCompletion}</div>
+                      <div className={`text-2xl md:text-2xl font-bold mb-1 relative z-10 ${isCN ? 'text-[hsl(var(--cn-warning))]' : 'text-yellow-600'}`}>{stats.profileCompletion}%</div>
+                      <div className="text-xs text-gray-500 relative z-10">{t.dashboard.stats.profileCompletion}</div>
                     </div>
                   </div>
                   <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3 overflow-hidden">

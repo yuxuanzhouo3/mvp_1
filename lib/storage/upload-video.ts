@@ -4,6 +4,7 @@
  */
 
 import { getSupabaseClient } from '@/lib/supabase/client';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 
 // 视频上传配置
 const CONFIG = {
@@ -11,8 +12,7 @@ const CONFIG = {
   MAX_FILE_SIZE: 50 * 1024 * 1024,
   // 允许的视频类型
   ALLOWED_TYPES: ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'],
-  // 最大录制时长（秒）
-  MAX_DURATION: 15,
+  MAX_DURATION: isChinaDeployment() ? 15 : Number.POSITIVE_INFINITY,
   // 最大分辨率
   MAX_WIDTH: 720,
   MAX_HEIGHT: 1280,
@@ -159,7 +159,7 @@ export async function uploadChatVideo(options: VideoUploadOptions): Promise<Vide
     }
 
     // 验证时长
-    if (duration > CONFIG.MAX_DURATION) {
+    if (Number.isFinite(CONFIG.MAX_DURATION) && duration > CONFIG.MAX_DURATION) {
       return {
         success: false,
         error: `视频时长超过限制 (最大 ${CONFIG.MAX_DURATION} 秒)`,

@@ -38,7 +38,7 @@ function generateConfig(region: DeploymentRegion): DeploymentConfig {
   return {
     region,
     defaultLanguage: isChinaRegion ? "zh" : "en",
-    appName: isChinaRegion ? "邻客 - AI社交匹配" : "PersonaLink - AI Friend Matcher",
+    appName: isChinaRegion ? "晨佑个人链接" : "PersonaLink - AI Friend Matcher",
     version: "1.0.0",
   };
 }
@@ -51,7 +51,9 @@ function generateConfig(region: DeploymentRegion): DeploymentConfig {
  * - 其他值或未设置：中国版 (CN，默认)
  */
 const DEPLOYMENT_REGION: DeploymentRegion =
-  process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === "CN" ? "CN" : "INTL";
+  process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === "CN" || process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === "INTL"
+    ? (process.env.NEXT_PUBLIC_DEPLOYMENT_REGION as DeploymentRegion)
+    : "INTL";
 
 /**
  * 导出当前配置
@@ -73,9 +75,14 @@ export const currentRegion: DeploymentRegion = DEPLOYMENT_REGION;
  * 这样即使构建时环境变量配置错误，也能在运行时正确识别 CN 环境
  */
 export function isChinaDeployment(): boolean {
-  // 优先使用构建时配置
-  if (deploymentConfig.region === "CN") {
-    return true;
+  const envRegion = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
+  if (envRegion === "CN") return true;
+  if (envRegion === "INTL") return false;
+
+  if (typeof window !== 'undefined') {
+    const host = window.location?.host?.toLowerCase?.() || '';
+    if (host.includes('mornscience.top')) return true;
+    if (host.includes('mornhub.lat')) return false;
   }
 
   // 运行时检测：如果有 CN 认证数据，说明是 CN 环境

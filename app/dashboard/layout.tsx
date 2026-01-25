@@ -218,7 +218,13 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className={`min-h-screen ${isChinaDeployment() ? 'bg-gray-50 dark:bg-gray-900' : 'bg-background'}`}>
+      {!isChinaDeployment() && (
+        <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+          <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-gradient-to-br from-indigo-200/60 via-purple-200/40 to-transparent blur-3xl animate-[pulse_9s_ease-in-out_infinite]" />
+          <div className="absolute -bottom-24 -left-24 h-96 w-96 rounded-full bg-gradient-to-tr from-sky-200/60 via-emerald-200/30 to-transparent blur-3xl animate-[pulse_11s_ease-in-out_infinite]" />
+        </div>
+      )}
       <DashboardSidebar user={user} isAdmin={isAdmin} />
       {/* 主内容区域：移动端顶部边距避开 mobile header，桌面端左边距和顶部边距避开固定侧边栏和 header */}
       <main className={`pt-16 pb-14 md:pb-0 md:pt-[73px] md:pl-64 transition-all duration-200 ${isChatRoomPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>

@@ -215,6 +215,10 @@ export async function POST(request: NextRequest) {
       qrCodeUrl: result.qrCodeUrl,
       qrCodeBase64: result.qrCodeBase64,
       method: actualMethod,
+      amount: selectedPackage.price,
+      currency: selectedPackage.currency,
+      credits: selectedPackage.credits,
+      packageId: selectedPackage.id,
       region: isCN ? 'CN' : 'INTL',
     });
   } catch (error: any) {

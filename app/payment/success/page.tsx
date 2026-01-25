@@ -12,6 +12,7 @@ import { useTranslations } from '@/lib/i18n';
 interface PaymentSuccessData {
   credits: number;
   amount: number;
+  currency?: string;
   paymentMethod: string;
   transactionId: string;
 }
@@ -62,7 +63,8 @@ function PaymentSuccessContent() {
       if (response.ok && result.success) {
         setPaymentData({
           credits: result.credits || 0,
-          amount: 0,
+          amount: typeof result.amount === 'number' ? result.amount : Number(result.amount || 0),
+          currency: result.currency || 'USD',
           paymentMethod: 'PayPal',
           transactionId: paymentId,
         });
@@ -168,7 +170,10 @@ function PaymentSuccessContent() {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">{t.payment.success.paymentAmount}</span>
-                    <span className="font-medium">¥{paymentData.amount}</span>
+                    <span className="font-medium">
+                      {paymentData.currency === 'USD' ? '$' : paymentData.currency === 'CNY' ? '¥' : ''}{paymentData.amount}
+                      {paymentData.currency && paymentData.currency !== 'USD' && paymentData.currency !== 'CNY' ? ` ${paymentData.currency}` : ''}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">{t.payment.success.paymentMethod}</span>

@@ -240,7 +240,7 @@ export default function MembershipSubscription() {
           setPaymentData({
             paymentId: data.data.paymentId,
             paymentMethod: (selectedPaymentMethod.id === 'wechat' ? 'wechat' : 'alipay') as any,
-            amount: selectedTier.monthlyPriceCny,
+            amount: typeof data.data.amount === 'number' ? data.data.amount : selectedTier.monthlyPriceCny,
             qrCodeUrl: data.data.qrCodeUrl,
             qrCodeBase64: data.data.qrCodeBase64,
           });

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
+import { getServiceDbClientFromRequest } from '@/lib/db-client';
 import Stripe from 'stripe';
 import { getPayPalOrder } from '@/lib/payment/paypal';
 import { finalizeCnPayment } from '@/lib/payment/cn-payment-finalize';
 import { requireUser } from '@/lib/auth/requireUser';
+import { getDeploymentRegionFromRequest } from '@/lib/config/request-region';
 
 // 延迟初始化 Stripe，避免在构建时因缺少环境变量而失败
 function getStripeClient(): Stripe | null {
@@ -31,10 +32,11 @@ export async function POST(request: NextRequest) {
     const { sessionId, paymentId, provider } = body;
 
     // 使用统一数据库客户端
-    const db = await getServiceDbClient();
+    const db = await getServiceDbClientFromRequest(request);
+    const region = getDeploymentRegionFromRequest(request);
 
     // Handle CN payment verification (WeChat/Alipay)
-    if (isChinaDeployment() && paymentId && (provider === 'wechat' || provider === 'alipay')) {
+    if (region === 'CN' && paymentId && (provider === 'wechat' || provider === 'alipay')) {
       return await verifyCnPayment(db, userId!, paymentId, provider);
     }
 
@@ -91,6 +93,7 @@ export async function POST(request: NextRequest) {
         tierName: membership?.membership_tiers?.name_en || session.metadata?.tier_id,
         credits: membership?.membership_tiers?.monthly_credits || 0,
         amount: (session.amount_total || 0) / 100,
+        currency: (session.currency || '').toUpperCase() || 'USD',
         paymentMethod: 'stripe',
         transactionId: sessionId,
         currentCredits: profile?.credits || 0,
@@ -114,6 +117,66 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (payment.status !== 'completed') {
+      const sessionCurrency = (session.currency || '').toLowerCase();
+      const paymentCurrency = (payment.currency || '').toLowerCase();
+      const expectedMinor = Math.round(Number(payment.amount) * 100);
+      const receivedMinor = session.amount_total ?? null;
+      const nowIso = new Date().toISOString();
+
+      if (sessionCurrency && paymentCurrency && sessionCurrency !== paymentCurrency) {
+        await db
+          .from('payments')
+          .update({
+            status: 'failed',
+            updated_at: nowIso,
+            metadata: {
+              ...(payment.metadata || {}),
+              stripe_currency_mismatch: true,
+              stripe_session_id: sessionId,
+              stripe_session_currency: sessionCurrency,
+              expected_currency: paymentCurrency,
+            },
+          })
+          .eq('id', payment.id);
+        return NextResponse.json({ error: 'Stripe currency mismatch' }, { status: 400 });
+      }
+
+      if (typeof receivedMinor === 'number' && receivedMinor !== expectedMinor) {
+        await db
+          .from('payments')
+          .update({
+            status: 'failed',
+            updated_at: nowIso,
+            metadata: {
+              ...(payment.metadata || {}),
+              stripe_amount_mismatch: true,
+              stripe_session_id: sessionId,
+              stripe_amount_total: receivedMinor,
+              expected_amount_minor: expectedMinor,
+            },
+          })
+          .eq('id', payment.id);
+        return NextResponse.json({ error: 'Stripe amount mismatch' }, { status: 400 });
+      }
+
+      const updateData: any = {
+        status: 'completed',
+        updated_at: nowIso,
+        metadata: {
+          ...(payment.metadata || {}),
+          stripe_session_id: sessionId,
+          stripe_charge_id: session.payment_intent,
+          verification_source: 'success_page_verify',
+        },
+      };
+      if (session.payment_intent) {
+        updateData.stripe_payment_intent_id =
+          typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent.id;
+      }
+      await db.from('payments').update(updateData).eq('id', payment.id);
+    }
+
     // Get user's current credits
     const { data: profile, error: profileError } = await db
       .from('user_profiles')
@@ -129,6 +192,7 @@ export async function POST(request: NextRequest) {
       type: 'credits',
       credits: payment.credits || 0,
       amount: payment.amount,
+      currency: payment.currency,
       paymentMethod: payment.payment_method,
       transactionId: payment.id,
       currentCredits: profile?.credits || 0,
@@ -203,6 +267,7 @@ async function verifyPayPalPayment(db: any, userId: string, paymentId: string) {
       tierName: membership?.membership_tiers?.name_en || metadata.tier_id,
       credits: membership?.membership_tiers?.monthly_credits || 0,
       amount: payment.amount,
+      currency: payment.currency,
       paymentMethod: 'paypal',
       transactionId: paymentId,
       currentCredits: profile?.credits || 0,
@@ -216,6 +281,7 @@ async function verifyPayPalPayment(db: any, userId: string, paymentId: string) {
     type: 'credits',
     credits: payment.credits || 0,
     amount: payment.amount,
+    currency: payment.currency,
     paymentMethod: 'paypal',
     transactionId: paymentId,
     currentCredits: profile?.credits || 0,

@@ -6,6 +6,7 @@
  */
 
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { isChinaRequest } from '@/lib/config/request-region';
 import { createRouteHandlerClient as createSupabaseClient, createServiceClient as createSupabaseServiceClient } from '@/lib/supabase/server';
 
 // CN 环境 Cloudbase 适配器类型
@@ -644,12 +645,26 @@ export async function getDbClient(): Promise<any> {
   return createSupabaseClient();
 }
 
+export async function getDbClientFromRequest(request: Request): Promise<any> {
+  if (isChinaRequest(request)) {
+    return getCloudbaseAdapter();
+  }
+  return createSupabaseClient();
+}
+
 /**
  * 获取服务端数据库客户端（绕过 RLS）
  * 用于 Webhook、后台任务等场景
  */
 export async function getServiceDbClient(): Promise<any> {
   if (isChinaDeployment()) {
+    return getCloudbaseAdapter();
+  }
+  return createSupabaseServiceClient();
+}
+
+export async function getServiceDbClientFromRequest(request: Request): Promise<any> {
+  if (isChinaRequest(request)) {
     return getCloudbaseAdapter();
   }
   return createSupabaseServiceClient();
