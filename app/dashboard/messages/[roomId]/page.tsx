@@ -49,6 +49,7 @@ import { uploadChatImage } from '@/lib/storage/upload-image';
 import { uploadChatAudio, formatAudioDuration } from '@/lib/storage/upload-audio';
 import { uploadChatVideo, formatVideoDuration } from '@/lib/storage/upload-video';
 import { AIAssistant } from '@/components/ai';
+import { VideoPlayer } from '@/components/chat/VideoPlayer';
 
 interface ChatUser {
   id: string;
@@ -707,26 +708,19 @@ export default function ChatRoomPage() {
         const videoUrl = (message.metadata as Record<string, string>)?.video_url;
         const videoThumb = (message.metadata as Record<string, string>)?.thumbnail_url;
         const videoDuration = (message.metadata as Record<string, number>)?.duration || 0;
-        return (
-          <div className="relative max-w-xs cursor-pointer group/video overflow-hidden rounded-xl" onClick={() => videoUrl && window.open(videoUrl, '_blank')}>
-            {videoThumb ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={videoThumb} alt="Video" className="max-h-48 object-cover transition-transform duration-300 group-hover/video:scale-105" />
-            ) : (
-              <div className="w-48 h-32 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700" />
-            )}
-            <div className="absolute inset-0 bg-black/20 flex items-center justify-center transition-all duration-200 group-hover/video:bg-black/30">
-              <div className="w-14 h-14 bg-primary/90 rounded-full flex items-center justify-center shadow-lg transition-transform duration-200 group-hover/video:scale-110">
-                <Play className="h-7 w-7 text-white ml-1" />
-              </div>
-            </div>
-            {videoDuration > 0 && (
-              <div className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white text-xs px-2 py-1 rounded-md font-medium">
-                {formatVideoDuration(videoDuration)}
-              </div>
-            )}
-          </div>
-        );
+        const videoWidth = (message.metadata as Record<string, number>)?.width;
+        const videoHeight = (message.metadata as Record<string, number>)?.height;
+
+        return videoUrl ? (
+          <VideoPlayer
+            src={videoUrl}
+            thumbnailUrl={videoThumb}
+            duration={videoDuration}
+            width={videoWidth}
+            height={videoHeight}
+            isOwn={message.sender_id === user?.id}
+          />
+        ) : null;
 
       case 'location':
         return (

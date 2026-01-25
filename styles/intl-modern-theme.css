@@ -100,15 +100,7 @@
 
 /* 背景动态效果 */
 .theme-intl-modern .bg-animated {
-  background: linear-gradient(
-    -45deg,
-    hsl(var(--theme-primary) / 0.1),
-    hsl(var(--theme-secondary) / 0.1),
-    hsl(var(--theme-accent) / 0.1),
-    hsl(262 60% 97%)
-  );
-  background-size: 400% 400%;
-  animation: gradientShift 15s ease infinite;
+  background: hsl(0 0% 98%);
 }
 
 @keyframes gradientShift {

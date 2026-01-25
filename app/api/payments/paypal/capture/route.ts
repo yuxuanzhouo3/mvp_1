@@ -74,6 +74,55 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Failed to update payment status' }, { status: 500 });
     }
 
+    // If this is a membership payment, activate membership immediately
+    const metadata = payment.metadata || {};
+    if (metadata.type === 'membership' && metadata.tier_id) {
+      try {
+        const tierId = metadata.tier_id;
+        const { data: tier } = await db
+          .from('membership_tiers')
+          .select('*')
+          .eq('id', tierId)
+          .single();
+
+        if (tier) {
+          const startedAt = new Date();
+          const expiresAt = new Date();
+          expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+          const { data: existingMembership } = await db
+            .from('user_memberships')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+
+          if (existingMembership) {
+            await db
+              .from('user_memberships')
+              .update({
+                tier: tierId,
+                started_at: startedAt.toISOString(),
+                expires_at: expiresAt.toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('user_id', userId);
+          } else {
+            await db
+              .from('user_memberships')
+              .insert({
+                user_id: userId,
+                tier: tierId,
+                started_at: startedAt.toISOString(),
+                expires_at: expiresAt.toISOString(),
+                auto_renew: false,
+              });
+          }
+        }
+      } catch (membershipError) {
+        console.error('Failed to activate membership:', membershipError);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       paymentId,
