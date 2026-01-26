@@ -57,22 +57,27 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   const cookieStore = cookies()
-  const cookieLang = cookieStore.get('lang')?.value
   const headerStore = headers()
+  const pathname = headerStore.get('x-pathname') || ''
+  const isAdminRoute = pathname.startsWith('/admin')
+  const cookieLang = isAdminRoute
+    ? cookieStore.get('admin_lang')?.value
+    : cookieStore.get('lang')?.value
   const headerLang = headerStore.get('x-lang')
   const acceptLanguage = headerStore.get('accept-language') || ''
   const region = resolveDeploymentRegion(headerStore);
   const isChinaRegion = region === 'CN';
   const themeClass = isChinaRegion ? 'theme-cn' : 'theme-intl-modern';
 
-  const initialLanguage: Language =
-    cookieLang === 'zh' || cookieLang === 'en'
+  const initialLanguage: Language = isAdminRoute
+    ? ((cookieLang === 'zh' || cookieLang === 'en') ? (cookieLang as Language) : 'zh')
+    : (cookieLang === 'zh' || cookieLang === 'en'
       ? (cookieLang as Language)
       : headerLang === 'zh' || headerLang === 'en'
         ? (headerLang as Language)
         : acceptLanguage.toLowerCase().includes('zh')
           ? 'zh'
-          : (isChinaRegion ? 'zh' : 'en')
+          : (isChinaRegion ? 'zh' : 'en'))
 
   const htmlLang = initialLanguage === 'zh' ? 'zh-CN' : 'en'
 
@@ -80,7 +85,7 @@ export default function RootLayout({
     <html lang={htmlLang} suppressHydrationWarning>
       <body className={`${systemFontClass} ${themeClass}`}>
         <ErrorBoundary>
-          <Providers initialLanguage={initialLanguage}>
+          <Providers initialLanguage={initialLanguage} languageScope={isAdminRoute ? 'admin' : 'app'}>
             <div className="bg-background">
               <ConditionalHeader />
               {children}

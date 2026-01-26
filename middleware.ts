@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { geoRouter } from "@/lib/architecture-modules/core/geo-router";
 import { RegionType } from "@/lib/architecture-modules/core/types";
 import { fingerprintToken, verifySessionToken } from "@/lib/auth/session-edge";
+import { verifyAdminSessionTokenEdge } from "@/utils/session-edge";
 
 // Routes that require authentication
 const protectedRoutes = [
@@ -18,6 +19,9 @@ const authRoutes = [
   '/auth/login',
   '/auth/register',
 ];
+
+// Admin session cookie name
+const ADMIN_SESSION_COOKIE_NAME = "admin_session";
 
 /**
  * Create Supabase client for middleware
@@ -81,6 +85,35 @@ export async function middleware(request: NextRequest) {
     (pathname.includes(".") && !pathname.startsWith("/api/"))
   ) {
     return NextResponse.next();
+  }
+
+  // ============================================================================
+  // Admin 路由保护
+  // ============================================================================
+  if (pathname.startsWith("/admin")) {
+    // 非登录页需要验证 session
+    if (!pathname.startsWith("/admin/login")) {
+      const sessionToken = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)?.value;
+      let isAdminSessionValid = false;
+      if (sessionToken) {
+        try {
+          isAdminSessionValid = verifyAdminSessionTokenEdge(sessionToken);
+        } catch {
+          isAdminSessionValid = false;
+        }
+      }
+
+      if (!isAdminSessionValid) {
+        const loginUrl = new URL("/admin/login", request.url);
+        return NextResponse.redirect(loginUrl);
+      }
+    }
+
+    // Admin 路由直接返回,不经过地理位置检测,设置请求头供根布局使用
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set("x-pathname", pathname);
+    requestHeaders.set("x-lang", "zh");
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
   const normalizeLang = (value: string | null): "zh" | "en" | null => {

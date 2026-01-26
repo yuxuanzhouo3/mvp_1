@@ -162,8 +162,8 @@ export async function POST(request: NextRequest) {
         .from('ai_usage_logs')
         .insert({
           user_id: authUser.userId,
-          action_type: 'personality_analysis',
-          target_user_id: target_user_id,
+          feature: 'analysis',
+          tokens_used: 0,
         });
     } catch {}
 

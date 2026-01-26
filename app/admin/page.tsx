@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/providers/AuthProvider';
-import { getSupabaseClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
@@ -32,7 +31,6 @@ interface Stats {
 export default function AdminPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const supabase = getSupabaseClient();
   const { language } = useLanguage();
   const t = useTranslations(language);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -41,23 +39,29 @@ export default function AdminPage() {
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
+        const params = new URLSearchParams();
+        params.set('source', 'ALL');
 
-        if (!token) {
-          return;
-        }
-
-        const response = await fetch('/api/admin/photos/stats', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+        const response = await fetch(`/api/admin/photos/stats?${params.toString()}`, {
+          credentials: 'include',
           cache: 'no-store',
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          setStats(data.stats);
+        if (!response.ok) {
+          if (response.status === 401) {
+            router.push('/admin/login');
+          }
+          return;
+        }
+
+        const data = await response.json();
+        if (data?.success === true) {
+          setStats({
+            totalPending: data.totalPending || 0,
+            totalApproved: data.totalApproved || 0,
+            totalRejected: data.totalRejected || 0,
+            avgReviewTime: typeof data.avgReviewTimeHours === 'number' ? data.avgReviewTimeHours : 0,
+          });
         }
       } catch (error) {
         console.error('Failed to load stats:', error);
@@ -67,7 +71,7 @@ export default function AdminPage() {
     };
 
     loadStats();
-  }, [supabase.auth]);
+  }, [router]);
 
   const quickActions = [
     {

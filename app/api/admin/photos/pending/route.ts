@@ -8,8 +8,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
+import {
+  getCnServiceDbClient,
+  getIntlServiceDbClient,
+  getServiceDbClient,
+  isChinaDeployment,
+} from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
+import { parseAdminSessionToken, verifyAdminSessionToken } from '@/utils/session';
 
 // Force dynamic rendering to avoid caching issues
 export const dynamic = 'force-dynamic';
@@ -68,23 +74,32 @@ async function verifyAdmin(token: string): Promise<{ isAdmin: boolean; userId?: 
 // GET - List pending photos for review
 export async function GET(request: NextRequest) {
   try {
-    // Verify authorization
+    const adminSessionToken = request.cookies.get('admin_session')?.value;
+    const isSessionAuthed =
+      !!adminSessionToken && verifyAdminSessionToken(adminSessionToken);
+
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const hasBearer = !!authHeader && authHeader.startsWith('Bearer ');
+
+    if (!isSessionAuthed && !hasBearer) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const token = authHeader.split(' ')[1];
-    const { isAdmin } = await verifyAdmin(token);
+    if (!isSessionAuthed && hasBearer) {
+      const token = authHeader!.split(' ')[1];
+      const { isAdmin } = await verifyAdmin(token);
 
-    if (!isAdmin) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden - Admin access required' },
-        { status: 403 }
-      );
+      if (!isAdmin) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden - Admin access required' },
+          { status: 403 }
+        );
+      }
+    } else if (isSessionAuthed) {
+      const session = parseAdminSessionToken(adminSessionToken!);
+      if (!session) {
+        return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     // Parse query parameters
@@ -95,67 +110,105 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || 'pending';
     const userId = searchParams.get('userId');
     const unrated = searchParams.get('unrated') === 'true';
+    const sourceParam = (searchParams.get('source') || 'ALL').toUpperCase();
+    const source = sourceParam === 'CN' || sourceParam === 'INTL' ? sourceParam : 'ALL';
 
     // Validate pagination
     const validPage = Math.max(1, page);
     const validPageSize = Math.min(50, Math.max(1, pageSize));
     const offset = (validPage - 1) * validPageSize;
+    const end = offset + validPageSize - 1;
+    const prefetchEnd = end;
 
-    const db = await getServiceDbClient();
+    const buildPhotosQuery = (db: any) => {
+      let query = db
+        .from('user_photos')
+        .select('*')
+        .eq('audit_status', status)
+        .order('created_at', { ascending: sortOrder === 'asc' });
 
-    // Build query
-    let query = db
-      .from('user_photos')
-      .select('*')
-      .eq('audit_status', status)
-      .order('created_at', { ascending: sortOrder === 'asc' });
+      if (unrated) {
+        query = query.is('admin_rating', null).eq('is_primary', true);
+      }
 
-    // Filter for unrated photos
-    if (unrated) {
-      query = query.is('admin_rating', null).eq('is_primary', true);
-    }
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
 
-    // Filter by user ID if provided
-    if (userId) {
-      query = query.eq('user_id', userId);
-    }
+      return query;
+    };
 
-    // Apply pagination
-    query = query.range(offset, offset + validPageSize - 1);
+    const buildCountQuery = (db: any) => {
+      let query = db
+        .from('user_photos')
+        .select('id')
+        .eq('audit_status', status);
 
-    const { data: photos, error } = await query;
+      if (unrated) {
+        query = query.is('admin_rating', null).eq('is_primary', true);
+      }
 
-    if (error) {
-      console.error('Failed to fetch photos:', error);
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch photos' },
-        { status: 500 }
-      );
-    }
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
 
-    // Get user info for each photo
-    const userIds = Array.from(new Set((photos || []).map((p: any) => p.user_id)));
-    let users: any[] = [];
-    if (userIds.length > 0) {
+      return query;
+    };
+
+    const attachUsers = async (db: any, photos: any[]) => {
+      const userIds = Array.from(new Set((photos || []).map((p: any) => p.user_id)));
+      if (userIds.length === 0) return photos || [];
       const { data: usersData } = await db
         .from('users')
         .select('id, username, email')
         .in('id', userIds);
-      users = usersData || [];
-    }
+      const users = usersData || [];
+      return (photos || []).map((p: any) => ({
+        ...p,
+        user: users.find((u: any) => u.id === p.user_id) || null,
+      }));
+    };
 
-    // Attach user info to photos
-    const photosWithUsers = (photos || []).map((p: any) => ({
-      ...p,
-      user: users.find(u => u.id === p.user_id) || null
-    }));
+    const fetchFromSource = async (target: 'CN' | 'INTL') => {
+      let db: any;
+      try {
+        db = target === 'CN' ? await getCnServiceDbClient() : await getIntlServiceDbClient();
+      } catch (error) {
+        console.error(`[Pending] Service client not configured (${target})`, error);
+        return { photos: [], total: 0, error: 'not_configured' as const };
+      }
 
-    // Get total count for pagination
-    const { data: allPhotos } = await db
-      .from('user_photos')
-      .select('id')
-      .eq('audit_status', status);
-    const count = allPhotos?.length || 0;
+      const { data: prefetched, error } = await buildPhotosQuery(db).range(0, prefetchEnd);
+      if (error) {
+        console.error(`[Pending] Failed to fetch photos (${target}):`, error);
+        return { photos: [], total: 0, error: 'query_failed' as const };
+      }
+
+      const photosWithUsers = await attachUsers(db, prefetched || []);
+      const { data: allPhotos } = await buildCountQuery(db);
+      const total = allPhotos?.length || 0;
+
+      return {
+        photos: (photosWithUsers || []).map((p: any) => ({ ...p, source: target })),
+        total,
+        error: null,
+      };
+    };
+
+    const sourcesToQuery: Array<'CN' | 'INTL'> = source === 'ALL' ? ['CN', 'INTL'] : [source];
+    const [cnResult, intlResult] = await Promise.all([
+      sourcesToQuery.includes('CN') ? fetchFromSource('CN') : Promise.resolve({ photos: [], total: 0 }),
+      sourcesToQuery.includes('INTL') ? fetchFromSource('INTL') : Promise.resolve({ photos: [], total: 0 }),
+    ]);
+
+    const combined = [...cnResult.photos, ...intlResult.photos].sort((a: any, b: any) => {
+      const at = new Date(a.created_at || 0).getTime();
+      const bt = new Date(b.created_at || 0).getTime();
+      return sortOrder === 'asc' ? at - bt : bt - at;
+    });
+
+    const photosWithUsers = combined.slice(offset, offset + validPageSize);
+    const count = cnResult.total + intlResult.total;
 
     return NextResponse.json({
       success: true,
@@ -164,6 +217,11 @@ export async function GET(request: NextRequest) {
       page: validPage,
       pageSize: validPageSize,
       totalPages: Math.ceil(count / validPageSize),
+      source,
+      sources: {
+        CN: { total: cnResult.total, error: (cnResult as any).error || null },
+        INTL: { total: intlResult.total, error: (intlResult as any).error || null },
+      },
     });
 
   } catch (error) {

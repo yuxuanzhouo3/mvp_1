@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 // 使用原生 img 标签，避免在云托管环境下 /_next/image 路由 404 问题
-import { getSupabaseClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +10,6 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
-import { isInternationalDeployment } from '@/lib/config/deployment.config';
 import {
   Dialog,
   DialogContent,
@@ -52,6 +50,7 @@ interface Photo {
   audit_status: 'pending' | 'approved' | 'rejected';
   admin_rating?: number;
   created_at: string;
+  source?: 'CN' | 'INTL';
   user?: {
     id: string;
     username?: string;
@@ -96,11 +95,17 @@ export default function PhotoReviewPage() {
     total: 0,
     totalPages: 0,
   });
+  const [sourceMeta, setSourceMeta] = useState<{
+    CN?: { total?: number; error?: string | null };
+    INTL?: { total?: number; error?: string | null };
+  }>({});
 
   // Filter state
   const [searchUserId, setSearchUserId] = useState('');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [viewMode, setViewMode] = useState<'pending' | 'unrated'>('pending');
+  const [viewMode, setViewMode] = useState<'pending' | 'approved'>('pending');
+  const [onlyUnrated, setOnlyUnrated] = useState(false);
+  const [source, setSource] = useState<'ALL' | 'CN' | 'INTL'>('ALL');
 
   // Modal state
   const [viewPhotoUrl, setViewPhotoUrl] = useState<string | null>(null);
@@ -117,36 +122,24 @@ export default function PhotoReviewPage() {
   // Current focused photo index (for keyboard navigation)
   const [focusedIndex, setFocusedIndex] = useState(0);
 
-  // Rating state (INTL only)
+  // Rating state
   const [photoRatings, setPhotoRatings] = useState<Record<string, number>>({});
   const [isRating, setIsRating] = useState(false);
-  const isINTL = isInternationalDeployment();
 
   // Load photos
   const loadPhotos = useCallback(async () => {
     try {
       setIsLoading(true);
 
-      // Get current session token
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) {
-        console.error('No session token available');
-        setIsLoading(false);
-        return;
-      }
-
       const params = new URLSearchParams({
         page: pagination.page.toString(),
         pageSize: pagination.pageSize.toString(),
         sortOrder,
-        status: viewMode === 'pending' ? 'pending' : 'approved',
+        status: viewMode,
       });
+      params.set('source', source);
 
-      // For unrated mode, add unrated filter
-      if (viewMode === 'unrated') {
+      if (viewMode === 'approved' && onlyUnrated) {
         params.set('unrated', 'true');
       }
 
@@ -157,14 +150,14 @@ export default function PhotoReviewPage() {
       const response = await fetch(`/api/admin/photos/pending?${params}`, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include',
         cache: 'no-store',
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          router.push('/auth/login');
+          router.push('/admin/login');
           return;
         }
         if (response.status === 403) {
@@ -186,6 +179,7 @@ export default function PhotoReviewPage() {
         total: data.total || 0,
         totalPages: data.totalPages || 0,
       }));
+      setSourceMeta(data.sources || {});
     } catch (error) {
       console.error('Load photos error:', error);
       toast({
@@ -197,7 +191,7 @@ export default function PhotoReviewPage() {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pagination.page, pagination.pageSize, sortOrder, searchUserId, viewMode, router, toast]);
+  }, [pagination.page, pagination.pageSize, sortOrder, searchUserId, viewMode, onlyUnrated, source, router, toast]);
 
   useEffect(() => {
     loadPhotos();
@@ -218,7 +212,7 @@ export default function PhotoReviewPage() {
           // Only handle approve in pending mode
           if (viewMode === 'pending') {
             e.preventDefault();
-            handleApprove(focusedPhoto.id);
+            handleApprove(focusedPhoto.id, (focusedPhoto.source || 'INTL') as 'CN' | 'INTL');
           }
           break;
         case 'r':
@@ -258,31 +252,17 @@ export default function PhotoReviewPage() {
   }, [photos, focusedIndex, rejectDialogOpen, batchRejectDialogOpen, viewPhotoUrl, pagination, viewMode]);
 
   // Handle approve
-  const handleApprove = async (photoId: string) => {
+  const handleApprove = async (photoId: string, photoSource: 'CN' | 'INTL') => {
     try {
       setIsProcessing(true);
 
-      // Get current session token
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) {
-        toast({
-          title: t.admin.photoReview.error,
-          description: 'No authentication token',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const response = await fetch('/api/admin/photos/review/approve', {
+      const response = await fetch('/api/admin/photos/review', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ photoId }),
+        credentials: 'include',
+        body: JSON.stringify({ action: 'approve', photoId, source: photoSource }),
       });
 
       if (!response.ok) {
@@ -336,29 +316,17 @@ export default function PhotoReviewPage() {
     try {
       setIsProcessing(true);
 
-      // Get current session token
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) {
-        toast({
-          title: t.admin.photoReview.error,
-          description: 'No authentication token',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const response = await fetch('/api/admin/photos/review/reject', {
+      const response = await fetch('/api/admin/photos/review', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({
+          action: 'reject',
           photoId: photoToReject.id,
           reason,
+          source: photoToReject.source,
         }),
       });
 
@@ -402,27 +370,31 @@ export default function PhotoReviewPage() {
     try {
       setIsProcessing(true);
 
-      // Get current session token
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) {
+      const selected = Array.from(selectedPhotos).map((k) => {
+        const [src, id] = k.split(':');
+        return { source: (src as 'CN' | 'INTL') || 'INTL', id };
+      });
+      const targetSource = selected[0]?.source;
+      if (!targetSource || selected.some((s) => s.source !== targetSource)) {
         toast({
           title: t.admin.photoReview.error,
-          description: 'No authentication token',
+          description: t.admin.photoReview.batchSameSourceOnly || 'Batch operations must be within the same source',
           variant: 'destructive',
         });
         return;
       }
 
-      const response = await fetch('/api/admin/photos/review/batch-approve', {
+      const response = await fetch('/api/admin/photos/review', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ photoIds: Array.from(selectedPhotos) }),
+        credentials: 'include',
+        body: JSON.stringify({
+          action: 'batch-approve',
+          photoIds: selected.map((s) => s.id),
+          source: targetSource,
+        }),
       });
 
       if (!response.ok) {
@@ -435,7 +407,8 @@ export default function PhotoReviewPage() {
       });
 
       // Remove from list
-      setPhotos((prev) => prev.filter((p) => !selectedPhotos.has(p.id)));
+      const selectedIds = new Set(selected.map((s) => `${s.source}:${s.id}`));
+      setPhotos((prev) => prev.filter((p) => !selectedIds.has(`${p.source}:${p.id}`)));
       setPagination((prev) => ({ ...prev, total: prev.total - selectedPhotos.size }));
       setSelectedPhotos(new Set());
     } catch (error) {
@@ -467,29 +440,31 @@ export default function PhotoReviewPage() {
     try {
       setIsProcessing(true);
 
-      // Get current session token
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) {
+      const selected = Array.from(selectedPhotos).map((k) => {
+        const [src, id] = k.split(':');
+        return { source: (src as 'CN' | 'INTL') || 'INTL', id };
+      });
+      const targetSource = selected[0]?.source;
+      if (!targetSource || selected.some((s) => s.source !== targetSource)) {
         toast({
           title: t.admin.photoReview.error,
-          description: 'No authentication token',
+          description: t.admin.photoReview.batchSameSourceOnly || 'Batch operations must be within the same source',
           variant: 'destructive',
         });
         return;
       }
 
-      const response = await fetch('/api/admin/photos/review/batch-reject', {
+      const response = await fetch('/api/admin/photos/review', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({
-          photoIds: Array.from(selectedPhotos),
+          action: 'batch-reject',
+          photoIds: selected.map((s) => s.id),
           reason,
+          source: targetSource,
         }),
       });
 
@@ -503,7 +478,8 @@ export default function PhotoReviewPage() {
       });
 
       // Remove from list
-      setPhotos((prev) => prev.filter((p) => !selectedPhotos.has(p.id)));
+      const selectedIds = new Set(selected.map((s) => `${s.source}:${s.id}`));
+      setPhotos((prev) => prev.filter((p) => !selectedIds.has(`${p.source}:${p.id}`)));
       setPagination((prev) => ({ ...prev, total: prev.total - selectedPhotos.size }));
       setSelectedPhotos(new Set());
       setBatchRejectDialogOpen(false);
@@ -519,8 +495,8 @@ export default function PhotoReviewPage() {
     }
   };
 
-  // Handle photo rating (INTL only)
-  const handleRate = async (photoId: string) => {
+  // Handle photo rating
+  const handleRate = async (photoId: string, photoSource: 'CN' | 'INTL') => {
     const rating = photoRatings[photoId];
     if (!rating || rating < 1 || rating > 100) {
       toast({
@@ -534,29 +510,17 @@ export default function PhotoReviewPage() {
     try {
       setIsRating(true);
 
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) {
-        toast({
-          title: t.admin.photoReview.error,
-          description: 'No authentication token',
-          variant: 'destructive',
-        });
-        return;
-      }
-
       const response = await fetch('/api/admin/photos/review', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({
           action: 'rate',
           photoId,
           rating,
+          source: photoSource,
         }),
       });
 
@@ -571,7 +535,7 @@ export default function PhotoReviewPage() {
       });
 
       // In unrated mode, remove the photo from the list after rating
-      if (viewMode === 'unrated') {
+      if (viewMode === 'approved' && onlyUnrated) {
         setPhotos((prev) => prev.filter((p) => p.id !== photoId));
         setPagination((prev) => ({ ...prev, total: prev.total - 1 }));
       } else {
@@ -600,14 +564,54 @@ export default function PhotoReviewPage() {
     }
   };
 
+  const handleSetPrimary = async (photoId: string) => {
+    const target = photos.find((p) => p.id === photoId);
+    if (!target) return;
+
+    try {
+      setIsProcessing(true);
+
+      const response = await fetch('/api/admin/photos/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action: 'set-primary', photoId, source: target.source }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to set primary photo');
+      }
+
+      toast({
+        title: t.admin.photoReview.primarySet || 'Primary Photo Updated',
+        description: t.admin.photoReview.primarySetDesc || 'Primary photo has been updated',
+      });
+
+      setPhotos((prev) =>
+        prev.map((p) =>
+          p.user_id === target.user_id ? { ...p, is_primary: p.id === photoId } : p
+        )
+      );
+    } catch (error) {
+      toast({
+        title: t.admin.photoReview.error,
+        description: error instanceof Error ? error.message : 'Failed to set primary photo',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // Toggle photo selection
-  const togglePhotoSelection = (photoId: string) => {
+  const togglePhotoSelection = (photoKey: string) => {
     setSelectedPhotos((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(photoId)) {
-        newSet.delete(photoId);
+      if (newSet.has(photoKey)) {
+        newSet.delete(photoKey);
       } else {
-        newSet.add(photoId);
+        newSet.add(photoKey);
       }
       return newSet;
     });
@@ -618,7 +622,7 @@ export default function PhotoReviewPage() {
     if (selectedPhotos.size === photos.length) {
       setSelectedPhotos(new Set());
     } else {
-      setSelectedPhotos(new Set(photos.map((p) => p.id)));
+      setSelectedPhotos(new Set(photos.map((p) => `${p.source || 'INTL'}:${p.id}`)));
     }
   };
 
@@ -659,7 +663,10 @@ export default function PhotoReviewPage() {
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
               <Clock className="h-3 w-3 mr-1" />
-              {pagination.total} {t.admin.photoReview.pendingCount}
+              {pagination.total}{' '}
+              {viewMode === 'pending'
+                ? t.admin.photoReview.pendingCount
+                : t.admin.photoReview.approvedCount || 'Approved'}
             </Badge>
             <span>|</span>
             <span>{t.admin.photoReview.keyboardShortcuts}</span>
@@ -669,6 +676,19 @@ export default function PhotoReviewPage() {
         {/* Filters and Actions */}
         <Card className="mb-6">
           <CardContent className="pt-6">
+            {(source === 'ALL' && ((sourceMeta.CN?.error && sourceMeta.CN.error !== null) || (sourceMeta.INTL?.error && sourceMeta.INTL.error !== null))) && (
+              <div className="flex items-start gap-2 mb-4 p-3 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                <AlertCircle className="h-4 w-4 mt-0.5" />
+                <div className="text-sm">
+                  <div className="font-medium">{t.admin.photoReview.sourcePartialWarning || 'Some sources are not available'}</div>
+                  <div className="mt-0.5">
+                    {sourceMeta.CN?.error ? (t.admin.photoReview.sourceCNNotConfigured || 'CN source not configured') : null}
+                    {sourceMeta.CN?.error && sourceMeta.INTL?.error ? '；' : null}
+                    {sourceMeta.INTL?.error ? (t.admin.photoReview.sourceINTLNotConfigured || 'INTL source not configured') : null}
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col md:flex-row gap-4">
               {/* Search by user ID */}
               <div className="flex-1 relative">
@@ -681,10 +701,28 @@ export default function PhotoReviewPage() {
                 />
               </div>
 
+              <Select
+                value={source}
+                onValueChange={(value: 'ALL' | 'CN' | 'INTL') => {
+                  setSource(value);
+                  setPagination((prev) => ({ ...prev, page: 1 }));
+                  setSelectedPhotos(new Set());
+                }}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder={t.admin.photoReview.source || 'Source'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">{t.admin.photoReview.sourceAll || 'All'}</SelectItem>
+                  <SelectItem value="CN">{t.admin.photoReview.sourceCN || 'CN'}</SelectItem>
+                  <SelectItem value="INTL">{t.admin.photoReview.sourceINTL || 'INTL'}</SelectItem>
+                </SelectContent>
+              </Select>
+
               {/* View mode selector */}
               <Select
                 value={viewMode}
-                onValueChange={(value: 'pending' | 'unrated') => {
+                onValueChange={(value: 'pending' | 'approved') => {
                   setViewMode(value);
                   setPagination((prev) => ({ ...prev, page: 1 }));
                   setSelectedPhotos(new Set());
@@ -695,9 +733,27 @@ export default function PhotoReviewPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pending">{t.admin.photoReview.pendingReview || 'Pending Review'}</SelectItem>
-                  <SelectItem value="unrated">{t.admin.photoReview.pendingRating || 'Pending Rating'}</SelectItem>
+                  <SelectItem value="approved">{t.admin.photoReview.approvedMode || 'Approved'}</SelectItem>
                 </SelectContent>
               </Select>
+
+              {viewMode === 'approved' && (
+                <div className="flex items-center gap-2">
+                  <input
+                    id="only-unrated"
+                    type="checkbox"
+                    checked={onlyUnrated}
+                    onChange={(e) => {
+                      setOnlyUnrated(e.target.checked);
+                      setPagination((prev) => ({ ...prev, page: 1 }));
+                    }}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  <label htmlFor="only-unrated" className="text-sm text-gray-600">
+                    {t.admin.photoReview.onlyUnrated || 'Only Unrated'}
+                  </label>
+                </div>
+              )}
 
               {/* Sort order */}
               <Select
@@ -758,14 +814,10 @@ export default function PhotoReviewPage() {
             <CardContent className="text-center py-12">
               <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {viewMode === 'pending'
-                  ? t.admin.photoReview.noPendingPhotos
-                  : t.admin.photoReview.noUnratedPhotos}
+                {viewMode === 'pending' ? t.admin.photoReview.noPendingPhotos : t.admin.photoReview.noApprovedPhotos}
               </h3>
               <p className="text-gray-600">
-                {viewMode === 'pending'
-                  ? t.admin.photoReview.allReviewed
-                  : t.admin.photoReview.allRated}
+                {viewMode === 'pending' ? t.admin.photoReview.allReviewed : t.admin.photoReview.allApprovedReviewed}
               </p>
             </CardContent>
           </Card>
@@ -787,14 +839,16 @@ export default function PhotoReviewPage() {
 
             {/* Photo grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
-              {photos.map((photo, index) => (
+              {photos.map((photo, index) => {
+                const photoKey = `${photo.source || 'INTL'}:${photo.id}`;
+                return (
                 <Card
-                  key={photo.id}
+                  key={photoKey}
                   className={`overflow-hidden transition-all ${
                     focusedIndex === index
                       ? 'ring-2 ring-blue-500'
                       : ''
-                  } ${selectedPhotos.has(photo.id) ? 'ring-2 ring-green-500' : ''}`}
+                  } ${selectedPhotos.has(photoKey) ? 'ring-2 ring-green-500' : ''}`}
                   onClick={() => setFocusedIndex(index)}
                 >
                   <div className="relative aspect-square">
@@ -802,8 +856,8 @@ export default function PhotoReviewPage() {
                     <div className="absolute top-2 left-2 z-10">
                       <input
                         type="checkbox"
-                        checked={selectedPhotos.has(photo.id)}
-                        onChange={() => togglePhotoSelection(photo.id)}
+                        checked={selectedPhotos.has(photoKey)}
+                        onChange={() => togglePhotoSelection(photoKey)}
                         onClick={(e) => e.stopPropagation()}
                         className="h-5 w-5 rounded border-gray-300 bg-white"
                       />
@@ -848,15 +902,35 @@ export default function PhotoReviewPage() {
                     <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
                       <Clock className="h-3 w-3" />
                       <span>{getTimeSince(photo.created_at)}</span>
+                      <Badge variant="outline" className="ml-auto text-[10px]">
+                        {photo.source || 'INTL'}
+                      </Badge>
                       {photo.is_primary && (
-                        <Badge variant="secondary" className="ml-auto text-xs">
+                        <Badge variant="secondary" className="text-xs">
                           Primary
                         </Badge>
                       )}
                     </div>
 
-                    {/* Appearance Rating - INTL only for pending mode (primary photos only), or always show in unrated mode */}
-                    {((isINTL && photo.is_primary && viewMode === 'pending') || viewMode === 'unrated') && (
+                    {viewMode === 'approved' && !photo.is_primary && (
+                      <div className="mb-3">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-7 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSetPrimary(photo.id);
+                          }}
+                          disabled={isProcessing}
+                        >
+                          {t.admin.photoReview.setAsPrimary || 'Set as Primary'}
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Appearance Rating - only for primary photo */}
+                    {viewMode === 'approved' && photo.is_primary && (
                       <div className="mb-3 p-2 bg-gray-50 rounded-md">
                         <label className="text-xs text-gray-500 block mb-1">
                           {t.admin.photoReview.appearanceRating || 'Appearance Rating'}
@@ -884,7 +958,7 @@ export default function PhotoReviewPage() {
                             className="h-7 text-xs"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleRate(photo.id);
+                              handleRate(photo.id, (photo.source || 'INTL') as 'CN' | 'INTL');
                             }}
                             disabled={isRating || !photoRatings[photo.id]}
                           >
@@ -906,7 +980,7 @@ export default function PhotoReviewPage() {
                           variant="outline"
                           size="sm"
                           className="flex-1 text-green-600 border-green-600 hover:bg-green-50"
-                          onClick={() => handleApprove(photo.id)}
+                          onClick={() => handleApprove(photo.id, (photo.source || 'INTL') as 'CN' | 'INTL')}
                           disabled={isProcessing}
                         >
                           <Check className="h-4 w-4 mr-1" />
@@ -938,7 +1012,8 @@ export default function PhotoReviewPage() {
                     )}
                   </CardContent>
                 </Card>
-              ))}
+              );
+              })}
             </div>
 
             {/* Pagination */}

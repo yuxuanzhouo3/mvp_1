@@ -8,7 +8,15 @@ import { useEffect, useState } from 'react'
 import type { Language } from '@/lib/i18n'
 import { enablePassiveEventListeners } from '@/lib/utils/passive-events'
 
-export function Providers({ children, initialLanguage }: { children: React.ReactNode; initialLanguage: Language }) {
+export function Providers({
+  children,
+  initialLanguage,
+  languageScope,
+}: {
+  children: React.ReactNode;
+  initialLanguage: Language;
+  languageScope?: 'app' | 'admin';
+}) {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
@@ -24,7 +32,7 @@ export function Providers({ children, initialLanguage }: { children: React.React
 
   return (
     <QueryClientProvider client={queryClient}>
-      <LanguageProvider initialLanguage={initialLanguage}>
+      <LanguageProvider initialLanguage={initialLanguage} scope={languageScope}>
         <ThemeProvider>
           <AuthProvider>
             {children}

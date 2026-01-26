@@ -2,13 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabaseClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Clock,
   CheckCircle,
@@ -48,6 +54,13 @@ interface ReviewStats {
   }>;
 }
 
+type SourceMeta = {
+  CN?: { total?: number; error?: string | null };
+  INTL?: { total?: number; error?: string | null };
+};
+
+type StatsApiResponse = ({ success: true } & ReviewStats & { sources?: SourceMeta }) | { success: false; error?: string };
+
 export default function PhotoAnalyticsPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -56,41 +69,48 @@ export default function PhotoAnalyticsPage() {
 
   const [stats, setStats] = useState<ReviewStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [source, setSource] = useState<'ALL' | 'CN' | 'INTL'>('ALL');
+  const [sourceMeta, setSourceMeta] = useState<SourceMeta>({});
 
   const loadStats = async () => {
     try {
       setIsLoading(true);
 
-      // Get current session token
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const params = new URLSearchParams();
+      params.set('source', source);
 
-      if (!token) {
-        console.error('No session token available');
-        router.push('/auth/login');
-        setIsLoading(false);
-        return;
-      }
-
-      const response = await fetch('/api/admin/photos/stats', {
+      const response = await fetch(`/api/admin/photos/stats?${params.toString()}`, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
+        credentials: 'include',
         cache: 'no-store',
       });
 
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          router.push('/auth/login');
+        if (response.status === 401) {
+          router.push('/admin/login');
+          return;
+        }
+        if (response.status === 403) {
+          toast({
+            title: t.admin.layout.accessDenied,
+            description: t.admin.layout.noPermission,
+            variant: 'destructive',
+          });
+          router.push('/dashboard');
           return;
         }
         throw new Error('Failed to load stats');
       }
 
-      const data = await response.json();
+      const data = (await response.json()) as StatsApiResponse;
+      if (!data || !('success' in data) || data.success !== true) {
+        throw new Error('Failed to load stats');
+      }
+
       setStats(data);
+      setSourceMeta(data.sources || {});
     } catch (error) {
       console.error('Load stats error:', error);
       toast({
@@ -106,7 +126,7 @@ export default function PhotoAnalyticsPage() {
   useEffect(() => {
     loadStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [source]);
 
   if (isLoading) {
     return (
@@ -130,6 +150,16 @@ export default function PhotoAnalyticsPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Select value={source} onValueChange={(v) => setSource(v as 'ALL' | 'CN' | 'INTL')}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder={language === 'zh' ? '数据源' : 'Source'} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">{language === 'zh' ? '全部' : 'All'}</SelectItem>
+              <SelectItem value="CN">{language === 'zh' ? 'CN' : 'CN'}</SelectItem>
+              <SelectItem value="INTL">{language === 'zh' ? 'INTL' : 'INTL'}</SelectItem>
+            </SelectContent>
+          </Select>
           <Button variant="outline" onClick={loadStats}>
             <RefreshCw className="h-4 w-4 mr-2" />
             {language === 'zh' ? '刷新' : 'Refresh'}
@@ -142,6 +172,21 @@ export default function PhotoAnalyticsPage() {
           </Link>
         </div>
       </div>
+
+      {(sourceMeta.CN?.error || sourceMeta.INTL?.error) && (
+        <div className="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-yellow-900">
+          {sourceMeta.CN?.error && (
+            <div>
+              CN: {sourceMeta.CN.error}
+            </div>
+          )}
+          {sourceMeta.INTL?.error && (
+            <div>
+              INTL: {sourceMeta.INTL.error}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

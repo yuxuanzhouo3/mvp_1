@@ -1,14 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabaseClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 import {
   Brain,
   TrendingUp,
@@ -22,6 +23,19 @@ import {
   BarChart3,
   Bot,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  PieChart,
+  Pie,
+  Cell,
+} from 'recharts';
 import Link from 'next/link';
 
 interface AIStats {
@@ -57,79 +71,36 @@ interface AIStats {
     username: string;
     total_tokens: number;
   }>;
+  personality?: {
+    total_count: number;
+    monthly_count: number;
+    today_count?: number;
+    daily_trend: Array<{
+      date: string;
+      count: number;
+    }>;
+    top_users: Array<{
+      user_id: string;
+      username: string;
+      analysis_count: number;
+    }>;
+  };
+  errors?: string[];
 }
 
-export default function AIBudgetPage() {
-  const router = useRouter();
-  const { toast } = useToast();
+type AiRegion = 'CN' | 'INTL';
+
+function formatTokens(tokens: number) {
+  if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(2)}M`;
+  if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
+  return tokens.toString();
+}
+
+function AIBudgetStatsView({ stats }: { stats: AIStats | null }) {
   const { language } = useLanguage();
   const t = useTranslations(language);
 
-  const [stats, setStats] = useState<AIStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-
-  const loadStats = async (showLoading = true) => {
-    try {
-      if (showLoading) setIsLoading(true);
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session?.access_token) {
-        router.push('/auth/login');
-        return;
-      }
-
-      const response = await fetch('/api/admin/ai/stats', {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        cache: 'no-store',
-      });
-
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          router.push('/auth/login');
-          return;
-        }
-        throw new Error('Failed to load stats');
-      }
-
-      const data = await response.json();
-      if (data.success) {
-        setStats(data);
-        setLastUpdated(new Date());
-      }
-    } catch (error) {
-      console.error('Load stats error:', error);
-      toast({
-        title: t.admin.aiBudget.error,
-        description: t.admin.aiBudget.loadFailed,
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadStats();
-
-    // Auto refresh every 30 seconds
-    let interval: NodeJS.Timeout | null = null;
-    if (autoRefresh) {
-      interval = setInterval(() => loadStats(false), 30000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh]);
-
-  if (isLoading) {
+  if (!stats) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
@@ -137,60 +108,27 @@ export default function AIBudgetPage() {
     );
   }
 
-  const formatTokens = (tokens: number) => {
-    if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(2)}M`;
-    if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}K`;
-    return tokens.toString();
-  };
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            {t.admin.aiBudget.title}
-          </h1>
-          <p className="text-gray-600 mt-1">
-            {t.admin.aiBudget.subtitle}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => loadStats()}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            {t.admin.aiBudget.refresh}
-          </Button>
-          <Button
-            variant={autoRefresh ? 'default' : 'outline'}
-            onClick={() => setAutoRefresh(!autoRefresh)}
-            className={autoRefresh ? 'bg-green-600 hover:bg-green-700' : ''}
-          >
-            {autoRefresh ? t.admin.aiBudget.autoOn : t.admin.aiBudget.autoOff}
-          </Button>
-          <Link href="/admin">
-            <Button>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              {t.admin.aiBudget.back}
-            </Button>
-          </Link>
-        </div>
-      </div>
+    <>
+      {stats.errors && stats.errors.length > 0 ? (
+        <Card className="mb-6 bg-yellow-50 border-yellow-200">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-yellow-700 mt-0.5" />
+              <div className="space-y-1">
+                <div className="text-sm font-semibold text-yellow-800">
+                  {language === 'zh' ? '部分数据不可用' : 'Some data unavailable'}
+                </div>
+                <div className="text-sm text-yellow-800">
+                  {stats.errors.join('、')}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
-      {/* Last Updated */}
-      {lastUpdated && (
-        <div className="text-sm text-gray-500 mb-4">
-          {t.admin.aiBudget.lastUpdated}
-          {lastUpdated.toLocaleTimeString()}
-          {autoRefresh && (
-            <span className="ml-2 text-green-600">
-              ({t.admin.aiBudget.autoRefreshNote})
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Budget Alert */}
-      {stats?.budget && (stats.budget.is_warning || stats.budget.is_over_budget) && (
+      {stats.budget && (stats.budget.is_warning || stats.budget.is_over_budget) && (
         <Card className={`mb-6 ${stats.budget.is_over_budget ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}`}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -210,7 +148,6 @@ export default function AIBudgetPage() {
         </Card>
       )}
 
-      {/* Budget Progress Card */}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -221,36 +158,35 @@ export default function AIBudgetPage() {
         <CardContent>
           <div className="space-y-4">
             <div className="flex justify-between text-sm">
-              <span>{t.admin.aiBudget.used}: {formatTokens(stats?.budget.monthly_usage || 0)}</span>
-              <span>{t.admin.aiBudget.budget}: {formatTokens(stats?.budget.monthly_limit || 0)}</span>
+              <span>{t.admin.aiBudget.used}: {formatTokens(stats.budget?.monthly_usage || 0)}</span>
+              <span>{t.admin.aiBudget.budget}: {formatTokens(stats.budget?.monthly_limit || 0)}</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-4">
               <div
                 className={`h-4 rounded-full transition-all ${
-                  stats?.budget.is_over_budget ? 'bg-red-500' :
-                  stats?.budget.is_warning ? 'bg-yellow-500' : 'bg-green-500'
+                  stats.budget?.is_over_budget ? 'bg-red-500' :
+                  stats.budget?.is_warning ? 'bg-yellow-500' : 'bg-green-500'
                 }`}
-                style={{ width: `${Math.min(stats?.budget.usage_percent || 0, 100)}%` }}
+                style={{ width: `${Math.min(stats.budget?.usage_percent || 0, 100)}%` }}
               />
             </div>
             <div className="flex items-center justify-between">
               <Badge className={
-                stats?.budget.is_over_budget ? 'bg-red-100 text-red-800' :
-                stats?.budget.is_warning ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                stats.budget?.is_over_budget ? 'bg-red-100 text-red-800' :
+                stats.budget?.is_warning ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
               }>
-                {stats?.budget.is_over_budget
+                {stats.budget?.is_over_budget
                   ? t.admin.aiBudget.overBudget
-                  : stats?.budget.is_warning
+                  : stats.budget?.is_warning
                     ? t.admin.aiBudget.warning
                     : t.admin.aiBudget.normal}
               </Badge>
-              <span className="text-2xl font-bold">{stats?.budget.usage_percent.toFixed(1)}%</span>
+              <span className="text-2xl font-bold">{stats.budget?.usage_percent.toFixed(1)}%</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -261,7 +197,7 @@ export default function AIBudgetPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-purple-600">
-              {formatTokens(stats?.overview.total_tokens || 0)}
+              {formatTokens(stats.overview.total_tokens || 0)}
             </div>
             <p className="text-xs text-gray-500 mt-1">
               {t.admin.aiBudget.totalConsumed}
@@ -278,7 +214,7 @@ export default function AIBudgetPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-blue-600">
-              {stats?.overview.total_sessions || 0}
+              {stats.overview.total_sessions || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
               {t.admin.aiBudget.totalSessions}
@@ -295,7 +231,7 @@ export default function AIBudgetPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-indigo-600">
-              {stats?.overview.total_chat_count || 0}
+              {stats.overview.total_chat_count || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
               {t.admin.aiBudget.totalMessages}
@@ -312,7 +248,7 @@ export default function AIBudgetPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">
-              {stats?.overview.unique_users || 0}
+              {stats.overview.unique_users || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
               {t.admin.aiBudget.usersUsingAI}
@@ -329,7 +265,7 @@ export default function AIBudgetPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-orange-600">
-              {stats?.overview.total_analysis_count || 0}
+              {stats.overview.total_analysis_count || 0}
             </div>
             <p className="text-xs text-gray-500 mt-1">
               {t.admin.aiBudget.totalAnalyses}
@@ -346,7 +282,7 @@ export default function AIBudgetPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-cyan-600">
-              {formatTokens(stats?.overview.assistant_tokens || 0)}
+              {formatTokens(stats.overview.assistant_tokens || 0)}
             </div>
             <p className="text-xs text-gray-500 mt-1">
               {t.admin.aiBudget.assistantThisMonth}
@@ -355,9 +291,7 @@ export default function AIBudgetPage() {
         </Card>
       </div>
 
-      {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Sessions by Type */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -369,29 +303,80 @@ export default function AIBudgetPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {stats?.sessions_by_type ? (
-              <div className="space-y-4">
-                {[
-                  { key: 'assistant', label: t.admin.aiBudget.aiAssistant, color: 'bg-cyan-500' },
-                  { key: 'free_trial', label: t.admin.aiBudget.freeTrial, color: 'bg-blue-500' },
-                  { key: 'vip_unlimited', label: t.admin.aiBudget.vipUnlimited, color: 'bg-purple-500' },
-                ].map(item => {
-                  const count = stats.sessions_by_type[item.key as keyof typeof stats.sessions_by_type] || 0;
-                  const total = (stats.sessions_by_type.free_trial || 0) + (stats.sessions_by_type.vip_unlimited || 0) + (stats.sessions_by_type.assistant || 0);
-                  const percent = total > 0 ? (count / total) * 100 : 0;
+            {stats.sessions_by_type ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {(() => {
+                  const items = [
+                    { key: 'assistant', label: t.admin.aiBudget.aiAssistant, color: '#22d3ee', bar: 'bg-cyan-500' },
+                    { key: 'free_trial', label: t.admin.aiBudget.freeTrial, color: '#3b82f6', bar: 'bg-blue-500' },
+                    { key: 'vip_unlimited', label: t.admin.aiBudget.vipUnlimited, color: '#a855f7', bar: 'bg-purple-500' },
+                  ] as const;
+                  const total =
+                    (stats.sessions_by_type.free_trial || 0) +
+                    (stats.sessions_by_type.vip_unlimited || 0) +
+                    (stats.sessions_by_type.assistant || 0);
+                  const pieData = items.map(item => ({
+                    name: item.label,
+                    key: item.key,
+                    value: stats.sessions_by_type[item.key] || 0,
+                    color: item.color,
+                  }));
 
                   return (
-                    <div key={item.key} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">{item.label}</span>
-                        <span className="text-sm">{count} ({percent.toFixed(1)}%)</span>
+                    <>
+                      <div className="space-y-4">
+                        {items.map(item => {
+                          const count = stats.sessions_by_type[item.key] || 0;
+                          const percent = total > 0 ? (count / total) * 100 : 0;
+
+                          return (
+                            <div key={item.key} className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium">{item.label}</span>
+                                <span className="text-sm">
+                                  {count} ({percent.toFixed(1)}%)
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className={`${item.bar} h-2 rounded-full`}
+                                  style={{ width: `${percent}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div className={`${item.color} h-2 rounded-full`} style={{ width: `${percent}%` }} />
+
+                      <div className="h-56">
+                        {total > 0 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={pieData}
+                                dataKey="value"
+                                nameKey="name"
+                                innerRadius={50}
+                                outerRadius={80}
+                                paddingAngle={2}
+                              >
+                                {pieData.map(entry => (
+                                  <Cell key={entry.key} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <Tooltip />
+                              <Legend />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="h-full flex items-center justify-center text-sm text-gray-500">
+                            {t.admin.aiBudget.noData}
+                          </div>
+                        )}
                       </div>
-                    </div>
+                    </>
                   );
-                })}
+                })()}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
@@ -401,7 +386,6 @@ export default function AIBudgetPage() {
           </CardContent>
         </Card>
 
-        {/* Top Users */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -413,17 +397,22 @@ export default function AIBudgetPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {stats?.top_users && stats.top_users.length > 0 ? (
+            {stats.top_users && stats.top_users.length > 0 ? (
               <div className="space-y-3">
                 {stats.top_users.map((user, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div
+                    key={user.user_id || index}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-sm font-bold text-rose-600">
                         {index + 1}
                       </div>
                       <div>
                         <p className="font-medium">{user.username}</p>
-                        <p className="text-xs text-gray-500 font-mono">{user.user_id.slice(0, 8)}...</p>
+                        <p className="text-xs text-gray-500 font-mono">
+                          {user.user_id.slice(0, 8)}...
+                        </p>
                       </div>
                     </div>
                     <Badge className="bg-rose-100 text-rose-800">
@@ -441,11 +430,10 @@ export default function AIBudgetPage() {
         </Card>
       </div>
 
-      {/* Daily Trend Chart */}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-emerald-500" />
+            <BarChart3 className="h-5 w-5 text-indigo-500" />
             {t.admin.aiBudget.dailyTrend}
           </CardTitle>
           <CardDescription>
@@ -453,87 +441,57 @@ export default function AIBudgetPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {stats?.daily_stats && stats.daily_stats.length > 0 ? (() => {
-            const hasData = stats.daily_stats.some(d => d.tokens > 0 || d.sessions > 0);
-            if (!hasData) {
-              return (
-                <div className="text-center py-8 text-gray-500">
-                  {t.admin.aiBudget.noTrendData}
-                </div>
-              );
-            }
-            const dataWithValues = stats.daily_stats.filter(d => d.tokens > 0 || d.sessions > 0);
-            const maxTokens = Math.max(...dataWithValues.map(d => d.tokens), 1);
-            const maxSessions = Math.max(...dataWithValues.map(d => d.sessions), 1);
-            return (
-              <div className="space-y-6">
-                {/* Token Trend */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-emerald-500 rounded" />
-                      <span className="text-sm font-medium">{t.admin.aiBudget.tokenUsage}</span>
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {t.admin.paymentsAnalytics.total}: {formatTokens(stats.daily_stats.reduce((sum, d) => sum + d.tokens, 0))}
-                    </span>
-                  </div>
-                  <div className="flex items-end gap-2 h-32 overflow-x-auto pb-6">
-                    {dataWithValues.map((day, index) => {
-                      const height = (day.tokens / maxTokens) * 100;
-                      return (
-                        <div key={index} className="flex flex-col items-center min-w-[40px] h-full group relative">
-                          <div className="flex-1 flex items-end w-full">
-                            <div
-                              className="w-6 bg-emerald-500 rounded-t hover:bg-emerald-600 transition-colors cursor-pointer mx-auto"
-                              style={{ height: `${Math.max(height, 8)}%` }}
-                              title={`${day.date}: ${formatTokens(day.tokens)} tokens`}
-                            />
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1 whitespace-nowrap">{day.date.slice(5)}</div>
-                          <div className="absolute bottom-full mb-1 hidden group-hover:block bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-                            {day.date}: {formatTokens(day.tokens)}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-                {/* Session Trend */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-blue-500 rounded" />
-                      <span className="text-sm font-medium">{t.admin.aiBudget.sessions}</span>
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {t.admin.paymentsAnalytics.total}: {stats.daily_stats.reduce((sum, d) => sum + d.sessions, 0)}
-                    </span>
-                  </div>
-                  <div className="flex items-end gap-2 h-32 overflow-x-auto pb-6">
-                    {dataWithValues.map((day, index) => {
-                      const height = (day.sessions / maxSessions) * 100;
-                      return (
-                        <div key={index} className="flex flex-col items-center min-w-[40px] h-full group relative">
-                          <div className="flex-1 flex items-end w-full">
-                            <div
-                              className="w-6 bg-blue-500 rounded-t hover:bg-blue-600 transition-colors cursor-pointer mx-auto"
-                              style={{ height: `${Math.max(height, 8)}%` }}
-                              title={`${day.date}: ${day.sessions} sessions`}
-                            />
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1 whitespace-nowrap">{day.date.slice(5)}</div>
-                          <div className="absolute bottom-full mb-1 hidden group-hover:block bg-gray-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-                            {day.date}: {day.sessions} {t.admin.aiBudget.sessions}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            );
-          })() : (
+          {stats.daily_stats && stats.daily_stats.length > 0 ? (
+            <div className="w-full h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={stats.daily_stats}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={(value) => {
+                      const date = new Date(value);
+                      return `${date.getMonth() + 1}/${date.getDate()}`;
+                    }}
+                  />
+                  <YAxis yAxisId="left" />
+                  <YAxis
+                    yAxisId="right"
+                    orientation="right"
+                    tickFormatter={(value) => formatTokens(Number(value) || 0)}
+                  />
+                  <Tooltip
+                    labelFormatter={(value) => {
+                      const date = new Date(value as string);
+                      return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+                    }}
+                    formatter={(value: any, name: any) => {
+                      if (name === t.admin.aiBudget.tokenUsage) return [formatTokens(Number(value) || 0), name];
+                      return [value, name];
+                    }}
+                  />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    yAxisId="left"
+                    dataKey="sessions"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    name={t.admin.aiBudget.sessions}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    yAxisId="right"
+                    dataKey="tokens"
+                    stroke="#a855f7"
+                    strokeWidth={2}
+                    name={t.admin.aiBudget.tokenUsage}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
             <div className="text-center py-8 text-gray-500">
               {t.admin.aiBudget.noTrendData}
             </div>
@@ -541,46 +499,329 @@ export default function AIBudgetPage() {
         </CardContent>
       </Card>
 
-      {/* Daily Stats Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-amber-500" />
-            {t.admin.aiBudget.dailyUsage}
-          </CardTitle>
-          <CardDescription>
-            {t.admin.aiBudget.dailyUsageDesc}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {stats?.daily_stats && stats.daily_stats.length > 0 ? (
-            <div className="overflow-x-auto max-h-96">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-white">
-                  <tr className="border-b">
-                    <th className="text-left py-2 px-4">{t.admin.creditsAnalytics.date}</th>
-                    <th className="text-right py-2 px-4">{t.admin.aiBudget.sessions}</th>
-                    <th className="text-right py-2 px-4">{t.admin.aiBudget.tokens}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.daily_stats.slice().reverse().map((day, index) => (
-                    <tr key={index} className="border-b last:border-0">
-                      <td className="py-2 px-4 font-medium">{day.date}</td>
-                      <td className="text-right py-2 px-4">{day.sessions}</td>
-                      <td className="text-right py-2 px-4 text-purple-600">{formatTokens(day.tokens)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {(() => {
+        const personality = stats.personality ?? {
+          total_count: 0,
+          monthly_count: 0,
+          today_count: 0,
+          daily_trend: [],
+          top_users: [],
+        };
+
+        return (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    {t.admin.aiBudget.personalityTitle}
+                  </CardTitle>
+                  <TrendingUp className="h-5 w-5 text-orange-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div>
+                      <div className="text-3xl font-bold text-orange-600">
+                        {personality.total_count || 0}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {t.admin.aiBudget.personalityTotal}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      <span>{t.admin.aiBudget.personalityMonthly}</span>
+                      <span className="font-semibold text-gray-900">
+                        {personality.monthly_count || 0}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      <span>{t.admin.aiBudget.personalityToday}</span>
+                      <span className="font-semibold text-gray-900">
+                        {personality.today_count || 0}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-rose-500" />
+                    {t.admin.aiBudget.personalityTopUsers}
+                  </CardTitle>
+                  <CardDescription>
+                    {t.admin.aiBudget.personalityTopUsersDesc}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {personality.top_users && personality.top_users.length > 0 ? (
+                    <div className="space-y-3">
+                      {personality.top_users.map((user, index) => (
+                        <div
+                          key={user.user_id}
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center text-sm font-bold text-rose-600">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <p className="font-medium">{user.username}</p>
+                              <p className="text-xs text-gray-500 font-mono">
+                                {user.user_id.slice(0, 8)}...
+                              </p>
+                            </div>
+                          </div>
+                          <Badge className="bg-rose-100 text-rose-800">
+                            {user.analysis_count}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      {t.admin.aiBudget.noData}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              {t.admin.aiBudget.noDailyData}
-            </div>
+
+            <Card className="mb-8">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-indigo-500" />
+                  {t.admin.aiBudget.personalityDailyTrend}
+                </CardTitle>
+                <CardDescription>
+                  {t.admin.aiBudget.dailyTrendDesc}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {personality.daily_trend && personality.daily_trend.length > 0 ? (
+                  <div className="w-full h-72">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={personality.daily_trend}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={(value) => {
+                            const date = new Date(value);
+                            return `${date.getMonth() + 1}/${date.getDate()}`;
+                          }}
+                        />
+                        <YAxis allowDecimals={false} />
+                        <Tooltip
+                          labelFormatter={(value) => {
+                            const date = new Date(value as string);
+                            return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+                          }}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="count"
+                          stroke="#4f46e5"
+                          strokeWidth={2}
+                          name={t.admin.aiBudget.analysisCount}
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    {t.admin.aiBudget.personalityNoDailyData}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        );
+      })()}
+    </>
+  );
+}
+
+export default function AIBudgetPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = useTranslations(language);
+
+  const [selectedRegion, setSelectedRegion] = useState<AiRegion>(() =>
+    isChinaDeployment() ? 'CN' : 'INTL'
+  );
+  const [cnStats, setCnStats] = useState<AIStats | null>(null);
+  const [intlStats, setIntlStats] = useState<AIStats | null>(null);
+  const [cnError, setCnError] = useState<string | null>(null);
+  const [intlError, setIntlError] = useState<string | null>(null);
+  const [cnLoading, setCnLoading] = useState(false);
+  const [intlLoading, setIntlLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const loadStatsForRegion = useCallback(
+    async (region: AiRegion) => {
+      try {
+        if (region === 'CN') {
+          setCnLoading(true);
+          setCnError(null);
+        } else {
+          setIntlLoading(true);
+          setIntlError(null);
+        }
+
+        const response = await fetch(`/api/admin/ai/stats?region=${region}`, {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            router.push('/admin/login');
+            return;
+          }
+          const message = await response.text();
+          throw new Error(message || 'Failed to load stats');
+        }
+
+        const data = await response.json();
+        if (data?.success) {
+          if (region === 'CN') {
+            setCnStats(data);
+          } else {
+            setIntlStats(data);
+          }
+          setLastUpdated(new Date());
+        } else {
+          throw new Error(data?.error || 'Failed to load stats');
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        if (region === 'CN') {
+          setCnError(message);
+        } else {
+          setIntlError(message);
+        }
+        toast({
+          title: t.admin.aiBudget.error,
+          description: t.admin.aiBudget.loadFailed,
+          variant: 'destructive',
+        });
+      } finally {
+        if (region === 'CN') {
+          setCnLoading(false);
+        } else {
+          setIntlLoading(false);
+        }
+      }
+    },
+    [router, toast, t.admin.aiBudget.error, t.admin.aiBudget.loadFailed]
+  );
+
+  const loadAll = useCallback(async () => {
+    await Promise.all([loadStatsForRegion('CN'), loadStatsForRegion('INTL')]);
+  }, [loadStatsForRegion]);
+
+  useEffect(() => {
+    loadAll();
+
+    let interval: NodeJS.Timeout | null = null;
+    if (autoRefresh) {
+      interval = setInterval(() => {
+        loadStatsForRegion(selectedRegion);
+      }, 30000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [autoRefresh, selectedRegion, loadAll, loadStatsForRegion]);
+
+  const currentStats = selectedRegion === 'CN' ? cnStats : intlStats;
+  const currentError = selectedRegion === 'CN' ? cnError : intlError;
+  const currentLoading = selectedRegion === 'CN' ? cnLoading : intlLoading;
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {t.admin.aiBudget.title}
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {t.admin.aiBudget.subtitle}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Tabs value={selectedRegion} onValueChange={(v) => setSelectedRegion(v as AiRegion)}>
+            <TabsList>
+              <TabsTrigger value="CN">CN</TabsTrigger>
+              <TabsTrigger value="INTL">INTL</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button variant="outline" onClick={() => loadStatsForRegion(selectedRegion)}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            {t.admin.aiBudget.refresh}
+          </Button>
+          <Button
+            variant={autoRefresh ? 'default' : 'outline'}
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            className={autoRefresh ? 'bg-green-600 hover:bg-green-700' : ''}
+          >
+            {autoRefresh ? t.admin.aiBudget.autoOn : t.admin.aiBudget.autoOff}
+          </Button>
+          <Link href="/admin">
+            <Button>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              {t.admin.aiBudget.back}
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {lastUpdated && (
+        <div className="text-sm text-gray-500 mb-4">
+          {t.admin.aiBudget.lastUpdated}
+          {lastUpdated.toLocaleTimeString()}
+          {autoRefresh && (
+            <span className="ml-2 text-green-600">
+              ({t.admin.aiBudget.autoRefreshNote})
+            </span>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      )}
+
+      {currentError ? (
+        <Card className="border-red-200 bg-red-50 mb-6">
+          <CardHeader className="py-4">
+            <CardTitle className="text-sm text-red-700">
+              {language === 'zh' ? '加载失败' : 'Load failed'}
+            </CardTitle>
+            <CardDescription className="text-red-600 break-all">
+              {currentError}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
+
+      {currentLoading && !currentStats ? (
+        <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {language === 'zh' ? '加载中' : 'Loading'}
+        </div>
+      ) : null}
+
+      <Tabs value={selectedRegion} onValueChange={(v) => setSelectedRegion(v as AiRegion)}>
+        <TabsContent value="CN">
+          <AIBudgetStatsView stats={cnStats} />
+        </TabsContent>
+        <TabsContent value="INTL">
+          <AIBudgetStatsView stats={intlStats} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

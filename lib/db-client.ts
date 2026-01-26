@@ -663,6 +663,14 @@ export async function getServiceDbClient(): Promise<any> {
   return createSupabaseServiceClient();
 }
 
+export async function getCnServiceDbClient(): Promise<any> {
+  return getCloudbaseAdapter();
+}
+
+export async function getIntlServiceDbClient(): Promise<any> {
+  return createSupabaseServiceClient();
+}
+
 export async function getServiceDbClientFromRequest(request: Request): Promise<any> {
   if (isChinaRequest(request)) {
     return getCloudbaseAdapter();

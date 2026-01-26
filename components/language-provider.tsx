@@ -21,6 +21,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(
 );
 
 const STORAGE_KEY = "preferred-language";
+const ADMIN_STORAGE_KEY = "preferred-language-admin";
 
 /**
  * 语言提供者组件
@@ -41,43 +42,59 @@ const STORAGE_KEY = "preferred-language";
  *    - 中国区域 (CN)：默认中文
  *    - 国际区域 (INTL)：默认英文
  */
-export function LanguageProvider({ children, initialLanguage }: { children: ReactNode; initialLanguage: Language }) {
+export function LanguageProvider({
+  children,
+  initialLanguage,
+  scope = "app",
+}: {
+  children: ReactNode;
+  initialLanguage: Language;
+  scope?: "app" | "admin";
+}) {
   const [language, setLanguageState] = useState<Language>(initialLanguage);
 
   useEffect(() => {
+    const cookieName = scope === "admin" ? "admin_lang" : "lang";
+    const storageKey = scope === "admin" ? ADMIN_STORAGE_KEY : STORAGE_KEY;
+    const cookiePath = scope === "admin" ? "/admin" : "/";
     const readCookie = (): Language | null => {
       if (typeof document === "undefined") return null;
       const parts = document.cookie.split(";").map((p) => p.trim());
-      const match = parts.find((p) => p.startsWith("lang="));
+      const match = parts.find((p) => p.startsWith(`${cookieName}=`));
       if (!match) return null;
-      const value = match.slice("lang=".length);
+      const value = match.slice(`${cookieName}=`.length);
       return value === "zh" || value === "en" ? value : null;
     };
 
     const cookieLang = readCookie();
     if (cookieLang) {
       setLanguageState(cookieLang);
-      localStorage.setItem(STORAGE_KEY, cookieLang);
+      localStorage.setItem(storageKey, cookieLang);
       return;
     }
 
-    const saved = localStorage.getItem(STORAGE_KEY) as Language | null;
+    const saved = localStorage.getItem(storageKey) as Language | null;
     const resolved: Language =
       saved && (saved === "zh" || saved === "en")
         ? saved
-        : initialLanguage || (isChinaDeployment() ? "zh" : "en");
+        : scope === "admin"
+          ? "zh"
+          : initialLanguage || (isChinaDeployment() ? "zh" : "en");
 
     setLanguageState(resolved);
-    localStorage.setItem(STORAGE_KEY, resolved);
-    document.cookie = `lang=${resolved}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
-  }, [initialLanguage]);
+    localStorage.setItem(storageKey, resolved);
+    document.cookie = `${cookieName}=${resolved}; Path=${cookiePath}; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+  }, [initialLanguage, scope]);
 
   // 设置语言（带持久化）
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem(STORAGE_KEY, lang);
+    const cookieName = scope === "admin" ? "admin_lang" : "lang";
+    const storageKey = scope === "admin" ? ADMIN_STORAGE_KEY : STORAGE_KEY;
+    const cookiePath = scope === "admin" ? "/admin" : "/";
+    localStorage.setItem(storageKey, lang);
     if (typeof document !== "undefined") {
-      document.cookie = `lang=${lang}; Path=/; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+      document.cookie = `${cookieName}=${lang}; Path=${cookiePath}; Max-Age=${60 * 60 * 24 * 365}; SameSite=Lax`;
     }
   };
 
