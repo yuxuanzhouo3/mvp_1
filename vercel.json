@@ -1,5 +1,7 @@
 {
   "github": {
     "silent": true
-  }
+  },
+  "installCommand": "pnpm install",
+  "buildCommand": "pnpm run build"
 } 
