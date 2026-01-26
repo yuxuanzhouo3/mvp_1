@@ -16,16 +16,22 @@ RUN npm install -g pnpm
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 恢复构建时环境变量（保持你原有的逻辑）
+# 恢复构建时环境变量
 ARG NEXT_PUBLIC_DEPLOYMENT_REGION=CN
 ARG NEXT_PUBLIC_SUPABASE_URL=https://build-placeholder.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=build-placeholder-key
 ARG NEXT_PUBLIC_EASEMOB_APP_KEY="your_org#your_app_name"
 
+# 👇 新增：为导致构建失败的 ADMIN_SESSION_SECRET 设置占位符
+ARG ADMIN_SESSION_SECRET=build-placeholder-secret
+
 ENV NEXT_PUBLIC_DEPLOYMENT_REGION=$NEXT_PUBLIC_DEPLOYMENT_REGION
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_EASEMOB_APP_KEY=$NEXT_PUBLIC_EASEMOB_APP_KEY
+
+# 👇 新增：将占位符注入到 Next.js 构建环境
+ENV ADMIN_SESSION_SECRET=$ADMIN_SESSION_SECRET
 
 # 运行构建（会自动生成 .next/standalone）
 RUN pnpm build
