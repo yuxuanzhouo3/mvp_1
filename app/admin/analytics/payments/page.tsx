@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSupabaseClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +61,16 @@ interface PaymentStats {
   }>;
 }
 
+type PaymentsRegion = 'ALL' | 'CN' | 'INTL';
+
+type PaymentStatsResponse = PaymentStats & {
+  success: boolean;
+  regions?: {
+    cn: PaymentStats;
+    intl: PaymentStats;
+  };
+};
+
 const paymentMethodLabels: Record<string, string> = {
   stripe: 'Stripe',
   paypal: 'PayPal',
@@ -74,33 +83,22 @@ export default function PaymentAnalyticsPage() {
   const { language } = useLanguage();
   const t = useTranslations(language);
 
-  const [stats, setStats] = useState<PaymentStats | null>(null);
+  const [region, setRegion] = useState<PaymentsRegion>('ALL');
+  const [stats, setStats] = useState<PaymentStatsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadStats = async () => {
+  const loadStats = async (targetRegion: PaymentsRegion) => {
     try {
       setIsLoading(true);
 
-      const supabase = getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-
-      if (!token) {
-        router.push('/auth/login');
-        return;
-      }
-
-      const response = await fetch('/api/admin/payments/stats', {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+      const response = await fetch(`/api/admin/payments/stats?region=${targetRegion}`, {
+        credentials: 'include',
         cache: 'no-store',
       });
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          router.push('/auth/login');
+          router.push('/admin/login');
           return;
         }
         throw new Error('Failed to load stats');
@@ -108,7 +106,7 @@ export default function PaymentAnalyticsPage() {
 
       const data = await response.json();
       if (data.success) {
-        setStats(data);
+        setStats(data as PaymentStatsResponse);
       }
     } catch (error) {
       console.error('Load stats error:', error);
@@ -123,9 +121,9 @@ export default function PaymentAnalyticsPage() {
   };
 
   useEffect(() => {
-    loadStats();
+    loadStats(region);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [region]);
 
   if (isLoading) {
     return (
@@ -140,16 +138,33 @@ export default function PaymentAnalyticsPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            {t.admin.paymentsAnalytics.title}
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-gray-900">
+              {t.admin.paymentsAnalytics.title}
+            </h1>
+            <Badge variant="secondary">
+              {region === 'ALL' ? 'CN + INTL' : region}
+            </Badge>
+          </div>
           <p className="text-gray-600 mt-1">
             {t.admin.paymentsAnalytics.subtitle}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={loadStats}>
+          <div className="flex items-center gap-1 rounded-lg border border-gray-200 p-1 bg-white">
+            {(['ALL', 'CN', 'INTL'] as const).map((r) => (
+              <Button
+                key={r}
+                variant={region === r ? 'default' : 'ghost'}
+                onClick={() => setRegion(r)}
+                className="h-8 px-3"
+              >
+                {r}
+              </Button>
+            ))}
+          </div>
+          <Button variant="outline" onClick={() => loadStats(region)}>
             <RefreshCw className="h-4 w-4 mr-2" />
             {t.admin.paymentsAnalytics.refresh}
           </Button>
@@ -161,6 +176,64 @@ export default function PaymentAnalyticsPage() {
           </Link>
         </div>
       </div>
+
+      {region === 'ALL' && stats?.regions ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center justify-between">
+                <span>{language === 'zh' ? 'CN 概览' : 'CN Overview'}</span>
+                <Badge variant="outline">CN</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{t.admin.paymentsAnalytics.totalRevenueCNY}</span>
+                <span className="font-medium text-green-700">¥{stats.regions.cn.overview.total_revenue_cny.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{t.admin.paymentsAnalytics.totalRevenueUSD}</span>
+                <span className="font-medium text-blue-700">${stats.regions.cn.overview.total_revenue_usd.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{t.admin.paymentsAnalytics.payments}</span>
+                <span className="font-medium">{stats.regions.cn.overview.total_payments}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{t.admin.paymentsAnalytics.creditsIssued}</span>
+                <span className="font-medium">{stats.regions.cn.overview.total_credits_issued.toLocaleString()}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center justify-between">
+                <span>{language === 'zh' ? 'INTL 概览' : 'INTL Overview'}</span>
+                <Badge variant="outline">INTL</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{t.admin.paymentsAnalytics.totalRevenueCNY}</span>
+                <span className="font-medium text-green-700">¥{stats.regions.intl.overview.total_revenue_cny.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{t.admin.paymentsAnalytics.totalRevenueUSD}</span>
+                <span className="font-medium text-blue-700">${stats.regions.intl.overview.total_revenue_usd.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{t.admin.paymentsAnalytics.payments}</span>
+                <span className="font-medium">{stats.regions.intl.overview.total_payments}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600">{t.admin.paymentsAnalytics.creditsIssued}</span>
+                <span className="font-medium">{stats.regions.intl.overview.total_credits_issued.toLocaleString()}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
 
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

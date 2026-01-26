@@ -661,6 +661,7 @@ export default function AIBudgetPage() {
   const [intlLoading, setIntlLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [showBoth, setShowBoth] = useState(false);
 
   const loadStatsForRegion = useCallback(
     async (region: AiRegion) => {
@@ -731,14 +732,14 @@ export default function AIBudgetPage() {
     let interval: NodeJS.Timeout | null = null;
     if (autoRefresh) {
       interval = setInterval(() => {
-        loadStatsForRegion(selectedRegion);
+        loadAll();
       }, 30000);
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [autoRefresh, selectedRegion, loadAll, loadStatsForRegion]);
+  }, [autoRefresh, loadAll, loadStatsForRegion]);
 
   const currentStats = selectedRegion === 'CN' ? cnStats : intlStats;
   const currentError = selectedRegion === 'CN' ? cnError : intlError;
@@ -762,7 +763,14 @@ export default function AIBudgetPage() {
               <TabsTrigger value="INTL">INTL</TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button variant="outline" onClick={() => loadStatsForRegion(selectedRegion)}>
+          <Button
+            variant={showBoth ? 'default' : 'outline'}
+            onClick={() => setShowBoth(!showBoth)}
+            className={showBoth ? 'bg-slate-900 hover:bg-slate-800' : ''}
+          >
+            {showBoth ? (language === 'zh' ? '同屏：开' : 'Both: On') : (language === 'zh' ? '同屏：关' : 'Both: Off')}
+          </Button>
+          <Button variant="outline" onClick={() => (showBoth ? loadAll() : loadStatsForRegion(selectedRegion))}>
             <RefreshCw className="h-4 w-4 mr-2" />
             {t.admin.aiBudget.refresh}
           </Button>
@@ -794,34 +802,87 @@ export default function AIBudgetPage() {
         </div>
       )}
 
-      {currentError ? (
-        <Card className="border-red-200 bg-red-50 mb-6">
-          <CardHeader className="py-4">
-            <CardTitle className="text-sm text-red-700">
-              {language === 'zh' ? '加载失败' : 'Load failed'}
-            </CardTitle>
-            <CardDescription className="text-red-600 break-all">
-              {currentError}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      ) : null}
+      {showBoth ? (
+        <>
+          {cnError ? (
+            <Card className="border-red-200 bg-red-50 mb-6">
+              <CardHeader className="py-4">
+                <CardTitle className="text-sm text-red-700">
+                  {language === 'zh' ? 'CN 加载失败' : 'CN Load failed'}
+                </CardTitle>
+                <CardDescription className="text-red-600 break-all">{cnError}</CardDescription>
+              </CardHeader>
+            </Card>
+          ) : null}
+          {intlError ? (
+            <Card className="border-red-200 bg-red-50 mb-6">
+              <CardHeader className="py-4">
+                <CardTitle className="text-sm text-red-700">
+                  {language === 'zh' ? 'INTL 加载失败' : 'INTL Load failed'}
+                </CardTitle>
+                <CardDescription className="text-red-600 break-all">{intlError}</CardDescription>
+              </CardHeader>
+            </Card>
+          ) : null}
 
-      {currentLoading && !currentStats ? (
-        <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          {language === 'zh' ? '加载中' : 'Loading'}
-        </div>
-      ) : null}
+          {cnLoading && !cnStats ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {language === 'zh' ? 'CN 加载中' : 'CN Loading'}
+            </div>
+          ) : null}
+          {intlLoading && !intlStats ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {language === 'zh' ? 'INTL 加载中' : 'INTL Loading'}
+            </div>
+          ) : null}
 
-      <Tabs value={selectedRegion} onValueChange={(v) => setSelectedRegion(v as AiRegion)}>
-        <TabsContent value="CN">
-          <AIBudgetStatsView stats={cnStats} />
-        </TabsContent>
-        <TabsContent value="INTL">
-          <AIBudgetStatsView stats={intlStats} />
-        </TabsContent>
-      </Tabs>
+          <div className="space-y-10">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Badge variant="outline">CN</Badge>
+              </div>
+              <AIBudgetStatsView stats={cnStats} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Badge variant="outline">INTL</Badge>
+              </div>
+              <AIBudgetStatsView stats={intlStats} />
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {currentError ? (
+            <Card className="border-red-200 bg-red-50 mb-6">
+              <CardHeader className="py-4">
+                <CardTitle className="text-sm text-red-700">
+                  {language === 'zh' ? '加载失败' : 'Load failed'}
+                </CardTitle>
+                <CardDescription className="text-red-600 break-all">{currentError}</CardDescription>
+              </CardHeader>
+            </Card>
+          ) : null}
+
+          {currentLoading && !currentStats ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {language === 'zh' ? '加载中' : 'Loading'}
+            </div>
+          ) : null}
+
+          <Tabs value={selectedRegion} onValueChange={(v) => setSelectedRegion(v as AiRegion)}>
+            <TabsContent value="CN">
+              <AIBudgetStatsView stats={cnStats} />
+            </TabsContent>
+            <TabsContent value="INTL">
+              <AIBudgetStatsView stats={intlStats} />
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
     </div>
   );
 }

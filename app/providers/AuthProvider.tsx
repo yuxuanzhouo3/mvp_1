@@ -39,6 +39,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     isInitializedRef.current = true;
 
+    const isAdminRoute =
+      typeof window !== 'undefined' && window.location.pathname.startsWith('/admin');
+    if (isAdminRoute) {
+      setUser(null);
+      userRef.current = null;
+      setSession(null);
+      setLoading(false);
+      return;
+    }
+
     const initializeAuth = async () => {
       try {
         const isCN = isChinaDeployment();

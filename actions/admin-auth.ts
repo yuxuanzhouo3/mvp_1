@@ -12,6 +12,7 @@ import {
   getAdminSession,
 } from "@/utils/session";
 import { redirect } from "next/navigation";
+import crypto from "crypto";
 
 export interface LoginResult {
   success: boolean;
@@ -50,7 +51,7 @@ export async function adminLogin(
 
     if (error) {
       console.error("[adminLogin] Supabase query failed", error);
-      return { success: false, error: "用户名或密码错误" };
+      return { success: false, error: "数据库查询失败" };
     }
 
     if (!admin) {
@@ -58,9 +59,34 @@ export async function adminLogin(
     }
 
     // 验证密码
-    const isValid = await verifyPassword(password, admin.password_hash);
+    const stored = typeof admin.password_hash === "string" ? admin.password_hash : "";
+    if (!stored) {
+      return { success: false, error: "用户名或密码错误" };
+    }
+
+    const isBcryptHash = /^\$2[aby]\$\d{2}\$/.test(stored);
+    let isValid = false;
+    if (isBcryptHash) {
+      isValid = await verifyPassword(password, stored);
+    } else {
+      try {
+        const a = Buffer.from(password, "utf8");
+        const b = Buffer.from(stored, "utf8");
+        isValid = a.length === b.length && crypto.timingSafeEqual(a, b);
+      } catch {
+        isValid = password === stored;
+      }
+    }
     if (!isValid) {
       return { success: false, error: "用户名或密码错误" };
+    }
+
+    if (!isBcryptHash) {
+      const newHash = await hashPassword(password);
+      await supabaseAdmin
+        .from("admin_users")
+        .update({ password_hash: newHash, updated_at: new Date().toISOString() })
+        .eq("id", admin.id);
     }
 
     // 更新最后登录时间

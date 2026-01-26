@@ -78,7 +78,7 @@ function SidebarContent({
   return (
     <>
       {/* 导航菜单 */}
-      <nav className="flex-1 p-3 md:p-4 space-y-4 overflow-y-auto mt-4">
+      <nav className="flex-1 p-3 md:p-4 space-y-4 overflow-y-auto overscroll-contain mt-4">
         {/* 主要功能 */}
         <div className="space-y-1">
           {navItems.map((item) => {

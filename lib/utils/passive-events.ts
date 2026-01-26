@@ -16,8 +16,12 @@ export function enablePassiveEventListeners() {
     listener: EventListenerOrEventListenerObject | null,
     options?: boolean | AddEventListenerOptions
   ) {
-    if (!PASSIVE_EVENTS.has(type) || options === null || options === undefined) {
+    if (!PASSIVE_EVENTS.has(type) || options === null) {
       return originalAddEventListener.call(this, type, listener, options as any);
+    }
+
+    if (options === undefined) {
+      return originalAddEventListener.call(this, type, listener, { passive: true });
     }
 
     if (typeof options === 'boolean') {
@@ -33,4 +37,3 @@ export function enablePassiveEventListeners() {
 
   patched = true;
 }
-
