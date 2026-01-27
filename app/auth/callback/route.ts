@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { getSupabaseAnonKey, getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 
 // 延迟初始化 Admin client，避免构建时因缺少环境变量而失败
 function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = getSupabaseUrl();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   
-  if (!url || !key) {
+  if (!url || !key || isPlaceholderSupabaseUrl(url)) {
     throw new Error('Supabase configuration is missing');
   }
   
@@ -35,9 +36,16 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const cookieStore = cookies();
+    const supabaseUrl = getSupabaseUrl();
+    const supabaseAnonKey = getSupabaseAnonKey();
+    if (!supabaseUrl || !supabaseAnonKey || isPlaceholderSupabaseUrl(supabaseUrl)) {
+      return NextResponse.redirect(
+        `${requestUrl.origin}/auth/login?error=${encodeURIComponent('Supabase configuration is missing')}`
+      );
+    }
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      supabaseUrl,
+      supabaseAnonKey,
       {
         cookies: {
           get(name: string) {

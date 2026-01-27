@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 import { requireUser } from '@/lib/auth/requireUser';
+import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 import {
   validatePhotoBuffer,
   ALLOWED_MIME_TYPES,
@@ -24,9 +25,14 @@ const ALLOWED_TYPES = [...ALLOWED_MIME_TYPES];
 
 // INTL 环境: 创建用于存储操作的 Supabase 客户端
 function createSupabaseAdmin() {
+  const url = getSupabaseUrl();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key || isPlaceholderSupabaseUrl(url)) {
+    throw new Error('Supabase configuration missing');
+  }
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    url,
+    key,
     {
       auth: {
         autoRefreshToken: false,

@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
+import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 
 export async function GET() {
   try {
     // Check if we're in mock mode
-    const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
+    const url = getSupabaseUrl();
+    const isMockMode = !url || url === 'https://mock.supabase.co' || isPlaceholderSupabaseUrl(url);
     
     if (isMockMode) {
       // In mock mode, return success without database check
       return NextResponse.json(
         { 
           status: 'ok',
-          database: 'mock',
+          database: url ? 'mock' : 'not_configured',
           timestamp: new Date().toISOString(),
           version: '1.0.0',
           environment: process.env.NODE_ENV,

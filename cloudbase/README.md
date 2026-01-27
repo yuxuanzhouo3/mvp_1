@@ -140,6 +140,8 @@ CLOUDBASE_SECRET_KEY=your-secret-key
 # Supabase 配置（管理员登录、统计等，复用 INTL Supabase 项目）
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_URL=your-supabase-url
+SUPABASE_ANON_KEY=your-supabase-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 ```
 

@@ -9,6 +9,7 @@ import { isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 import { requireUser } from '@/lib/auth/requireUser';
 import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
+import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,9 +17,14 @@ const MAX_AUDIO_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_AUDIO_TYPES = ['audio/webm', 'audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4', 'audio/aac'];
 
 function createSupabaseAdmin() {
+  const url = getSupabaseUrl();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key || isPlaceholderSupabaseUrl(url)) {
+    throw new Error('Supabase configuration missing');
+  }
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    url,
+    key,
     { auth: { autoRefreshToken: false, persistSession: false } }
   );
 }

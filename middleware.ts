@@ -4,6 +4,7 @@ import { geoRouter } from "@/lib/architecture-modules/core/geo-router";
 import { RegionType } from "@/lib/architecture-modules/core/types";
 import { fingerprintToken, verifySessionToken } from "@/lib/auth/session-edge";
 import { verifyAdminSessionTokenEdge } from "@/utils/session-edge";
+import { getSupabaseAnonKey, getSupabaseUrl, isPlaceholderSupabaseUrl } from "@/lib/config/supabase-env";
 
 // Routes that require authentication
 const protectedRoutes = [
@@ -27,10 +28,10 @@ const ADMIN_SESSION_COOKIE_NAME = "admin_session";
  * Create Supabase client for middleware
  */
 function createMiddlewareClient(request: NextRequest, response: NextResponse) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseKey = getSupabaseAnonKey();
 
-  if (!supabaseUrl || !supabaseKey) {
+  if (!supabaseUrl || !supabaseKey || isPlaceholderSupabaseUrl(supabaseUrl)) {
     return null;
   }
 

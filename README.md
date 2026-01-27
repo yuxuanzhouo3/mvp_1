@@ -170,9 +170,13 @@ npm run test:db          # Test database connection
 Create a `.env.local` file with the following variables:
 
 ```env
-# Supabase
+# Supabase (Client)
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+
+# Supabase (Server Runtime)
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_key
 
 # Redis

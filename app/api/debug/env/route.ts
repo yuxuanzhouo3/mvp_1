@@ -36,6 +36,8 @@ export async function GET(request: NextRequest) {
     // Supabase 配置
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? `SET (${process.env.NEXT_PUBLIC_SUPABASE_URL.substring(0, 30)}...)` : 'NOT SET',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'SET (hidden)' : 'NOT SET',
+    SUPABASE_URL: process.env.SUPABASE_URL ? `SET (${process.env.SUPABASE_URL.substring(0, 30)}...)` : 'NOT SET',
+    SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY ? 'SET (hidden)' : 'NOT SET',
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET (hidden)' : 'NOT SET',
     
     // 其他有用信息
@@ -70,6 +72,18 @@ export async function GET(request: NextRequest) {
     diagnostics.push('⚠️ SUPABASE_SERVICE_ROLE_KEY 未设置，管理员登录等依赖 Supabase 的功能可能失败');
   } else {
     diagnostics.push('✅ SUPABASE_SERVICE_ROLE_KEY 已设置');
+  }
+
+  if (envInfo.SUPABASE_URL === 'NOT SET') {
+    diagnostics.push('⚠️ SUPABASE_URL 未设置，服务端 Supabase 调用可能失败（建议设置 SUPABASE_URL 而非依赖 NEXT_PUBLIC_SUPABASE_URL）');
+  } else if (String(process.env.SUPABASE_URL || '').includes('build-placeholder.supabase.co') || String(process.env.SUPABASE_URL || '').includes('your_supabase_url_here')) {
+    diagnostics.push('❌ SUPABASE_URL 仍为占位符，将导致服务端访问 Supabase 失败');
+  } else {
+    diagnostics.push('✅ SUPABASE_URL 已设置且非占位符');
+  }
+
+  if (String(process.env.NEXT_PUBLIC_SUPABASE_URL || '').includes('build-placeholder.supabase.co')) {
+    diagnostics.push('⚠️ NEXT_PUBLIC_SUPABASE_URL 为 build-placeholder，占位值不应出现在生产环境');
   }
 
   return NextResponse.json({

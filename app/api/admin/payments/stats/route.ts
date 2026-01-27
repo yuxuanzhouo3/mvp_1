@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCnServiceDbClient, getIntlServiceDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 import { verifyAdminSessionToken } from '@/utils/session';
 
 // Force dynamic rendering to avoid caching issues
@@ -31,7 +32,8 @@ function hasCnDbConfig(): boolean {
 }
 
 function hasIntlDbConfig(): boolean {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const url = getSupabaseUrl();
+  return !!(url && !isPlaceholderSupabaseUrl(url) && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
 function getProxySecret(): string | null {
@@ -236,9 +238,14 @@ async function proxyFetchRegion(request: NextRequest, targetOrigin: string, regi
 
 // INTL 环境
 function createSupabaseAdmin() {
+  const url = getSupabaseUrl();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key || isPlaceholderSupabaseUrl(url)) {
+    throw new Error('Supabase admin configuration missing. Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.');
+  }
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    url,
+    key,
     {
       auth: {
         autoRefreshToken: false,

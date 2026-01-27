@@ -5,6 +5,7 @@
 
 import admin from 'firebase-admin';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 
 /**
  * 检查是否启用 Firebase（仅 INTL 环境）
@@ -21,9 +22,9 @@ function getSupabaseAdmin(): SupabaseClient | null {
     return null;
   }
   if (!supabaseAdmin) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const url = getSupabaseUrl();
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) {
+    if (!url || !key || isPlaceholderSupabaseUrl(url)) {
       return null;
     }
     supabaseAdmin = createClient(url, key, {

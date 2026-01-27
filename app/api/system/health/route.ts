@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
   
   try {
     // Check if we're in mock mode
-    const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
+    const url = getSupabaseUrl();
+    const isMockMode = !url || url === 'https://mock.supabase.co' || isPlaceholderSupabaseUrl(url);
     
     if (isMockMode) {
       // Return mock system health data

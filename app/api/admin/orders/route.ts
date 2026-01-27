@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     const fetchIntl = async (skip: number, take: number) => {
       if (!supabaseAdmin) {
         const missing: string[] = [];
-        if (!process.env.NEXT_PUBLIC_SUPABASE_URL) missing.push("NEXT_PUBLIC_SUPABASE_URL");
+        if (!(process.env.SUPABASE_URL ?? process.env["NEXT_PUBLIC_SUPABASE_URL"])) missing.push("SUPABASE_URL");
         if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
         return { ok: false as const, missing, total: 0, orders: [] as any[] };
       }

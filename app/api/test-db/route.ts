@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 
 export async function GET() {
   try {
     console.log('🔍 Testing database connection...');
 
     // Check if we're in mock mode
-    const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
+    const url = getSupabaseUrl();
+    const isMockMode = !url || url === 'https://mock.supabase.co' || isPlaceholderSupabaseUrl(url);
 
     if (isMockMode) {
       console.log('🎭 Mock mode: Simulating database connection');
@@ -96,6 +98,16 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { action, data } = body;
+
+    const url = getSupabaseUrl();
+    const isMockMode = !url || url === 'https://mock.supabase.co' || isPlaceholderSupabaseUrl(url);
+    if (isMockMode) {
+      return NextResponse.json({
+        status: 'success',
+        mode: 'mock',
+        message: 'Database connection simulated successfully',
+      });
+    }
 
     // Create Supabase client
     const supabase = createClient();

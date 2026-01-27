@@ -11,6 +11,7 @@ import { getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 import { requireUser } from '@/lib/auth/requireUser';
 import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
+import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,9 +26,9 @@ const ALLOWED_FILE_TYPES = [
 ];
 
 function createSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = getSupabaseUrl();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
+  if (!url || !key || isPlaceholderSupabaseUrl(url)) {
     throw new Error('Supabase configuration missing');
   }
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });

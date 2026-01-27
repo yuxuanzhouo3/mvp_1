@@ -4,12 +4,13 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUrl, isPlaceholderSupabaseUrl } from "@/lib/config/supabase-env";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = getSupabaseUrl();
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export const supabaseAdmin =
-  supabaseUrl && supabaseServiceKey
+  supabaseUrl && supabaseServiceKey && !isPlaceholderSupabaseUrl(supabaseUrl)
     ? createClient(supabaseUrl, supabaseServiceKey, {
         auth: {
           autoRefreshToken: false,

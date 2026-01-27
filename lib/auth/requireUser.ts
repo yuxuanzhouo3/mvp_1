@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient } from '@/lib/db-client';
 import { isChinaRequest } from '@/lib/config/request-region';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAnonKey, getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 import { fingerprintToken, verifySessionToken } from '@/lib/auth/session';
 import { warn } from '@/lib/logger';
 import { getExternalRequestOrigin } from '@/lib/http/request-origin';
@@ -129,9 +130,9 @@ export async function requireUser(request: NextRequest): Promise<AuthenticatedUs
   if (authHeader?.startsWith('Bearer ')) {
     try {
       const token = authHeader.slice('Bearer '.length);
-      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      if (url && key) {
+      const url = getSupabaseUrl();
+      const key = getSupabaseAnonKey();
+      if (url && key && !isPlaceholderSupabaseUrl(url)) {
         const anonClient = createClient(url, key, {
           auth: { autoRefreshToken: false, persistSession: false },
         });

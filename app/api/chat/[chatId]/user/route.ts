@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { requireUser } from '@/lib/auth/requireUser';
 import { defaultPrivacySettings } from '@/lib/validations/settings';
+import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 
 // 统一认证函数
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
@@ -28,7 +29,8 @@ export async function GET(
 ) {
   try {
     // Check if we're in mock mode
-    const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
+    const url = getSupabaseUrl();
+    const isMockMode = url === 'https://mock.supabase.co' || isPlaceholderSupabaseUrl(url);
 
     if (isMockMode) {
       // Return mock user data

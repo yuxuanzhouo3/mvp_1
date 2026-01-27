@@ -718,8 +718,12 @@ export async function authenticateRequest(
     // INTL 环境: 使用 Supabase 验证 token
     if (!supabaseAdmin) {
       const { createClient } = await import('@supabase/supabase-js');
+      const url = process.env.SUPABASE_URL ?? process.env['NEXT_PUBLIC_SUPABASE_URL'];
+      if (!url || url.includes('build-placeholder.supabase.co') || url.includes('your_supabase_url_here')) {
+        return null;
+      }
       supabaseAdmin = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        url,
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
         { auth: { autoRefreshToken: false, persistSession: false } }
       );

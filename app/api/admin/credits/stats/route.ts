@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCnServiceDbClient, getIntlServiceDbClient } from '@/lib/db-client';
 import { createClient } from '@supabase/supabase-js';
 import { getDeploymentRegionFromRequest } from '@/lib/config/request-region';
+import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 import { verifyAdminSessionToken } from '@/utils/session';
 import { aggregateCreditsStats, toNumber } from '@/lib/admin/credits-analytics';
 
@@ -21,9 +22,14 @@ const CN_APP_ORIGIN = process.env.CN_APP_ORIGIN || 'https://personalink.mornscie
 const INTL_APP_ORIGIN = process.env.INTL_APP_ORIGIN || 'https://www.mornhub.lat';
 
 function createSupabaseAdmin() {
+  const url = getSupabaseUrl();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key || isPlaceholderSupabaseUrl(url)) {
+    throw new Error('Supabase admin configuration missing. Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.');
+  }
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    url,
+    key,
     {
       auth: {
         autoRefreshToken: false,
@@ -54,7 +60,8 @@ async function verifyAdminSessionFromCookie(request: NextRequest): Promise<boole
 
 async function verifyAdminBearerViaSupabase(token: string): Promise<boolean> {
   try {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return false;
+    const url = getSupabaseUrl();
+    if (!url || isPlaceholderSupabaseUrl(url) || !process.env.SUPABASE_SERVICE_ROLE_KEY) return false;
     const supabase = createSupabaseAdmin();
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) return false;
@@ -134,7 +141,8 @@ function hasCnDbConfig(): boolean {
 }
 
 function hasIntlDbConfig(): boolean {
-  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  const url = getSupabaseUrl();
+  return !!(url && !isPlaceholderSupabaseUrl(url) && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
 function getOriginForRegion(region: CreditsRegion): string {

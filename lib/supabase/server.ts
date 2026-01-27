@@ -1,21 +1,27 @@
 import { createServerClient } from '@supabase/ssr';
 import { createClient as createBasicClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { getSupabaseAnonKey, getSupabaseServiceRoleKey, getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 
-// Check if we're in mock mode (for build/deployment without real Supabase)
-const isMockMode = process.env.NODE_ENV === 'production' &&
-  (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
-   process.env.NEXT_PUBLIC_SUPABASE_URL === 'your_supabase_url_here');
+const supabaseUrl = getSupabaseUrl();
+const supabaseKey = getSupabaseAnonKey();
+const supabaseServiceKey = getSupabaseServiceRoleKey();
 
-const supabaseUrl = isMockMode ? 'https://mock.supabase.co' : process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = isMockMode ? 'mock-key' : process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+function assertSupabaseRouteConfig() {
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase configuration missing. Ensure SUPABASE_URL and SUPABASE_ANON_KEY are set.');
+  }
+  if (isPlaceholderSupabaseUrl(supabaseUrl)) {
+    throw new Error('Supabase URL is a placeholder. Ensure SUPABASE_URL is set to a real Supabase project URL.');
+  }
+}
 
 export const createClient = () => {
+  assertSupabaseRouteConfig();
   const cookieStore = cookies();
   return createServerClient(
-    supabaseUrl,
-    supabaseKey,
+    supabaseUrl!,
+    supabaseKey!,
     {
       cookies: {
         get(name: string) {
@@ -33,10 +39,11 @@ export const createClient = () => {
 };
 
 export const createRouteHandlerClient = () => {
+  assertSupabaseRouteConfig();
   const cookieStore = cookies();
   return createServerClient(
-    supabaseUrl,
-    supabaseKey,
+    supabaseUrl!,
+    supabaseKey!,
     {
       cookies: {
         get(name: string) {
@@ -63,7 +70,10 @@ export const createRouteHandlerClient = () => {
  */
 export const createServiceClient = () => {
   if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Supabase service configuration missing. Ensure SUPABASE_SERVICE_ROLE_KEY is set.');
+    throw new Error('Supabase service configuration missing. Ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.');
+  }
+  if (isPlaceholderSupabaseUrl(supabaseUrl)) {
+    throw new Error('Supabase URL is a placeholder. Ensure SUPABASE_URL is set to a real Supabase project URL.');
   }
 
   return createBasicClient(supabaseUrl, supabaseServiceKey, {

@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseAnonKey, getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 
 export async function GET(request: NextRequest) {
-  const isMockMode = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = getSupabaseUrl();
+  const key = getSupabaseAnonKey();
+  const isMockMode = !url || !key || isPlaceholderSupabaseUrl(url);
   
   return NextResponse.json({ 
     isMockMode,
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'not set',
-    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'set' : 'not set'
+    supabaseUrl: url || 'not set',
+    supabaseKey: key ? 'set' : 'not set'
   });
 } 

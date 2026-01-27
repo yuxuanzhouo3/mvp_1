@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { requireUser } from '@/lib/auth/requireUser';
+import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-env';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +27,8 @@ async function authenticateUser(request: NextRequest): Promise<{ userId: string;
 export async function GET(request: NextRequest) {
   try {
     // Check if we're in mock mode
-    const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL === 'https://mock.supabase.co';
+    const url = getSupabaseUrl();
+    const isMockMode = url === 'https://mock.supabase.co' || isPlaceholderSupabaseUrl(url);
 
     if (isMockMode) {
       // In mock mode, return mock chat data
