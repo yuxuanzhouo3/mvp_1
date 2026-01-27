@@ -205,7 +205,7 @@ async function computeAiStats(db: any, region: AiRegion) {
 
     dailyStats.push({
       date: dateStr,
-      sessions: daySessions.length + dayUsageLogs.length,
+      sessions: daySessions.length,
       tokens: daySessionTokens + dayUsageTokens,
     });
 
@@ -300,7 +300,7 @@ async function computeAiStats(db: any, region: AiRegion) {
       warning_threshold: BUDGET_WARNING_THRESHOLD * 100,
     },
     overview: {
-      total_sessions: totalSessions + assistantSessions,
+      total_sessions: totalSessions,
       total_tokens: totalTokensWithLogs,
       unique_users: new Set(
         [...allSessions.map((s: any) => s.user_id), ...allUsageLogs.map((l: any) => l.user_id)].filter(Boolean)

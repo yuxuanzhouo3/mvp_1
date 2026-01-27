@@ -11,6 +11,8 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { usePathname, useRouter } from 'next/navigation';
 import { NotificationDropdown } from '@/components/dashboard/NotificationDropdown';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { getDownloadUrl } from '@/lib/config/download.config';
+import type { PlatformType, MacOSArchType } from '@/lib/config/download.config';
 
 export function GlobalHeader() {
   const [showSettings, setShowSettings] = useState(false);
@@ -23,6 +25,16 @@ export function GlobalHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+
+  const openDownload = (platform: PlatformType, arch?: MacOSArchType) => {
+    const url = getDownloadUrl(platform, isChinaDeployment(), arch);
+    if (url && url !== '#') {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } else {
+      router.push('/download');
+    }
+    setShowDownload(false);
+  };
 
   // Handle theme context safely
   let theme: 'blue' = 'blue';
@@ -168,14 +180,14 @@ export function GlobalHeader() {
                         {language === 'zh' ? 'APP应用' : 'APP'}
                       </div>
                       <button
-                        onClick={() => {/* TODO: Add download link */}}
+                        onClick={() => openDownload('windows')}
                         className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         <span className="mr-2">🪟</span>
                         Windows APP
                       </button>
                       <button
-                        onClick={() => {/* TODO: Add download link */}}
+                        onClick={() => openDownload('macos', 'apple-silicon')}
                         className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         <span className="mr-2">🍎</span>
@@ -189,14 +201,14 @@ export function GlobalHeader() {
                         {language === 'zh' ? '桌面端' : 'Desktop'}
                       </div>
                       <button
-                        onClick={() => {/* TODO: Add download link */}}
+                        onClick={() => openDownload('windows')}
                         className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         <span className="mr-2">🪟</span>
                         Windows {language === 'zh' ? '桌面端' : 'Desktop'}
                       </button>
                       <button
-                        onClick={() => {/* TODO: Add download link */}}
+                        onClick={() => openDownload('macos', 'apple-silicon')}
                         className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         <span className="mr-2">🍎</span>
@@ -210,7 +222,7 @@ export function GlobalHeader() {
                         {language === 'zh' ? '鸿蒙端' : 'HarmonyOS'}
                       </div>
                       <button
-                        onClick={() => {/* TODO: Add download link */}}
+                        onClick={() => openDownload('android')}
                         className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         <span className="mr-2">🔷</span>

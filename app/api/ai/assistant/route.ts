@@ -12,6 +12,8 @@ import { requireUser } from '@/lib/auth/requireUser';
 import { getAIServiceForRegion, getSystemPromptForRegion } from '@/lib/ai';
 import { getDeploymentRegionFromRequest } from '@/lib/config/request-region';
 import type { ChatMessage, AIChatSessionConfig } from '@/lib/ai/types';
+import { getServiceDbClient } from '@/lib/db-client';
+import { checkAiUsageLimit, deductAiUsage, insertAiUsageLog } from '@/lib/ai/usage';
 
 // 统一认证函数
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
@@ -102,6 +104,21 @@ export async function POST(request: NextRequest) {
       ...normalizedMessages,
     ];
 
+    const usageDb = await getServiceDbClient();
+    const limitResult = await checkAiUsageLimit(usageDb, authUser.userId, 'chat');
+    if (limitResult && limitResult.allowed === false) {
+      return NextResponse.json(
+        {
+          error: 'AI usage limit exceeded',
+          errorCode: 'AI_USAGE_LIMIT_EXCEEDED',
+          limit: limitResult.limit,
+          current: limitResult.current,
+          isVip: limitResult.is_vip,
+        },
+        { status: 429 }
+      );
+    }
+
     // 调用 AI 服务
     const response = await aiService.chat(fullMessages, {
       model: options?.model,
@@ -112,7 +129,14 @@ export async function POST(request: NextRequest) {
     // 记录使用情况
     console.log(`[AI Assistant] Response generated, tokens used: ${response.tokensUsed}`);
 
-    // TODO: 记录 AI 使用量到数据库用于限额控制
+    const nowIso = new Date().toISOString();
+    await insertAiUsageLog(usageDb, {
+      user_id: authUser.userId,
+      feature: 'assistant',
+      tokens_used: response.tokensUsed,
+      created_at: nowIso,
+    });
+    await deductAiUsage(usageDb, authUser.userId, 'chat');
 
     return NextResponse.json({
       success: true,

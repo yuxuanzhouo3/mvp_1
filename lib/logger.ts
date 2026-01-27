@@ -163,11 +163,38 @@ async function flushLogs(): Promise<void> {
   
   const logsToFlush = [...logBuffer];
   logBuffer = [];
-  
-  // TODO: 发送到Supabase日志表或外部日志服务
-  // 当前仅在开发环境打印
-  if (process.env.NODE_ENV === 'development') {
-    console.debug(`[Logger] Flushed ${logsToFlush.length} log entries`);
+
+  try {
+    if (typeof window !== 'undefined') {
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ logs: logsToFlush }),
+        credentials: 'include',
+        keepalive: true as any,
+      });
+      return;
+    }
+
+    const { supabaseAdmin } = await import('./supabaseAdmin');
+    if (!supabaseAdmin) return;
+
+    const rows = logsToFlush.map((entry) => ({
+      user_id: entry.userId || null,
+      level: entry.level,
+      category: entry.category,
+      message: entry.message,
+      data: entry.data || {},
+      occurred_at: entry.timestamp,
+      source: 'server',
+    }));
+
+    await supabaseAdmin.from('app_logs').insert(rows);
+  } catch (error) {
+    logBuffer = [...logsToFlush, ...logBuffer].slice(-LOG_BUFFER_SIZE * 2);
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Logger] flushLogs failed', error);
+    }
   }
 }
 
@@ -407,4 +434,3 @@ export const logger = {
 };
 
 export default logger;
-

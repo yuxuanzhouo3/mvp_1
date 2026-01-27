@@ -11,6 +11,7 @@ import type {
 } from './types';
 import { ALGORITHM_WEIGHTS, MATCHING_CONFIG } from './types';
 import { calculateDistance } from '@/lib/scoring';
+import { calculateMBTICompatibility } from '@/lib/mbti-compatibility';
 
 // ========================================
 // Task 2.1: 数据查询函数
@@ -175,8 +176,12 @@ export function calculateFactorSimilarity(
     const scoreA = userA.scoreBreakdown[factor];
     const scoreB = userB.scoreBreakdown[factor];
     
-    // 相似度 = 100 - |分数差|，限制在 [0, 100]
-    const matchDegree = Math.max(0, Math.min(100, 100 - Math.abs(scoreA - scoreB)));
+    let matchDegree: number;
+    if (factor === 'personality' && userA.mbti && userB.mbti) {
+      matchDegree = calculateMBTICompatibility(userA.mbti, userB.mbti);
+    } else {
+      matchDegree = Math.max(0, Math.min(100, 100 - Math.abs(scoreA - scoreB)));
+    }
     
     factorComparison[factor] = {
       user: scoreA,

@@ -23,6 +23,7 @@ import {
   calculateExpiresAt,
   getCandidateScoreRange
 } from './utils';
+import { calculateMBTICompatibility } from '@/lib/mbti-compatibility';
 
 // ========================================
 // 算法1: 金玉良缘（门当户对）
@@ -139,8 +140,10 @@ export function matchRomanticPursuit(
     // B接受A的可能性（双向评估）
     const acceptanceBToA = calculateAcceptance(user, candidate);
     
-    // 最终匹配分 = 几何平均（避免单方面过高）
-    const matchScore = clampScore(geometricMean(interestAToB, acceptanceBToA));
+    const personalityCompatibility = calculateMBTICompatibility(user.mbti, candidate.mbti);
+    const matchScore = clampScore(
+      geometricMean(interestAToB, acceptanceBToA) * 0.9 + personalityCompatibility * 0.1
+    );
     
     // 计算向上追求分
     const aspirationScore = candidateScore > userScore ? 100 : 80;
@@ -161,6 +164,7 @@ export function matchRomanticPursuit(
         interestAToB,
         acceptanceBToA,
         aspirationScore,
+        personalityCompatibility,
         mutualInterests: interestOverlap.mutualInterests,
         distance: distance ?? undefined,
         message: candidateScore > userScore 
@@ -253,10 +257,11 @@ export function matchSerendipity(
   for (const candidate of shuffledCandidates) {
     // 计算基础兼容度
     const baseCompatibility = 100 - Math.abs(userScore - candidate.totalScore);
+    const personalityCompatibility = calculateMBTICompatibility(user.mbti, candidate.mbti);
     
     // 生成随机匹配分
     const randomFactor = generateRandomScore(0, 40) - 20; // -20 到 +20
-    const matchScore = clampScore(baseCompatibility + randomFactor);
+    const matchScore = clampScore(baseCompatibility * 0.85 + personalityCompatibility * 0.15 + randomFactor);
     
     // 计算兴趣重合度
     const interestOverlap = calculateInterestOverlap(user.interests, candidate.interests);
@@ -272,6 +277,7 @@ export function matchSerendipity(
         userBaseScore: userScore,
         targetBaseScore: candidate.totalScore,
         randomFactor: Math.round(randomFactor * 10) / 10,
+        personalityCompatibility,
         mutualInterests: interestOverlap.mutualInterests,
         distance: distance ?? undefined,
         message: '缘分就是这么奇妙 ✨'
@@ -345,8 +351,8 @@ export function matchPragmatic(
       acceptanceBToA = Math.max(50, 80 + scoreDiff * 2);
     }
 
-    // 匹配分 = (成功率 + 接受度) / 2
-    const matchScore = clampScore((successRate + acceptanceBToA) / 2);
+    const personalityCompatibility = calculateMBTICompatibility(user.mbti, candidate.mbti);
+    const matchScore = clampScore((successRate + acceptanceBToA) / 2 * 0.9 + personalityCompatibility * 0.1);
 
     // 计算兴趣重合度
     const interestOverlap = calculateInterestOverlap(user.interests, candidate.interests);
@@ -363,6 +369,7 @@ export function matchPragmatic(
         targetBaseScore: candidateScore,
         successRate: Math.round(successRate),
         acceptanceBToA: Math.round(acceptanceBToA),
+        personalityCompatibility,
         mutualInterests: interestOverlap.mutualInterests,
         distance: distance ?? undefined,
         message: scoreDiff >= 10

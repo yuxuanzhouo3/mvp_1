@@ -508,19 +508,22 @@ export function calculatePersonalityScore(
   mbti: MBTIType | null | undefined,
   targetMbti?: MBTIType | null | undefined
 ): number {
-  // 如果没有MBTI数据，返回默认分数
   if (!mbti) {
-    return 70; // 默认性格分数
+    return 70;
   }
 
-  // 如果有目标MBTI，计算兼容性分数
   if (targetMbti) {
     return calculateMBTICompatibility(mbti, targetMbti);
   }
 
-  // 如果只有自己的MBTI，返回基础分数
-  // 所有MBTI类型都是平等的，返回固定的基础分
-  return 75;
+  const compatibilities = MBTI_COMPATIBILITY_MATRIX[mbti];
+  const values = Object.values(compatibilities);
+  if (values.length === 0) {
+    return 70;
+  }
+
+  const avg = values.reduce((sum, score) => sum + score, 0) / values.length;
+  return Math.round(avg * 10) / 10;
 }
 
 /**

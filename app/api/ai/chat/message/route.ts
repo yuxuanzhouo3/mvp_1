@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { requireUser } from '@/lib/auth/requireUser';
 import { getAIService } from '@/lib/ai';
+import { insertAiUsageLog } from '@/lib/ai/usage';
 
 // 统一认证函数
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     // 验证会话所有权
     const { data: chatSession } = await db
       .from('ai_chat_sessions')
-      .select('user_id, target_user_id, ended_at')
+      .select('id, user_id, target_user_id, ended_at, messages, token_usage, model_used')
       .eq('id', session_id)
       .single();
 
@@ -60,22 +61,15 @@ export async function POST(request: NextRequest) {
       .eq('id', chatSession.target_user_id)
       .single();
 
-    // 获取历史消息
-    const { data: historyMessages } = await db
-      .from('ai_chat_messages')
-      .select('role, content')
-      .eq('session_id', session_id)
-      .order('created_at', { ascending: true })
-      .limit(20);
-
-    // 保存用户消息
-    await db
-      .from('ai_chat_messages')
-      .insert({
-        session_id: session_id,
-        role: 'user',
-        content: message,
-      });
+    const existingMessages = Array.isArray(chatSession.messages) ? chatSession.messages : [];
+    const history = existingMessages
+      .filter((m: any) => m && typeof m === 'object')
+      .map((m: any) => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: typeof m.content === 'string' ? m.content : '',
+      }))
+      .filter((m: any) => typeof m.content === 'string' && m.content.trim().length > 0)
+      .slice(-20);
 
     // 构建 AI 提示
     const aiService = getAIService();
@@ -83,7 +77,7 @@ export async function POST(request: NextRequest) {
     
     const messages = [
       { role: 'system' as const, content: systemPrompt },
-      ...(historyMessages || []).map((m: any) => ({
+      ...history.map((m: any) => ({
         role: m.role as 'user' | 'assistant',
         content: m.content,
       })),
@@ -92,25 +86,46 @@ export async function POST(request: NextRequest) {
 
     // 调用 AI 服务
     const aiResponse = await aiService.chat(messages, {
+      model: chatSession.model_used || undefined,
       temperature: 0.8,
       maxTokens: 300,
     });
 
-    // 保存 AI 回复
-    await db
-      .from('ai_chat_messages')
-      .insert({
-        session_id: session_id,
-        role: 'assistant',
-        content: aiResponse.content,
-      });
+    const nowIso = new Date().toISOString();
+    const tokensUsed = typeof aiResponse?.tokensUsed === 'number' && Number.isFinite(aiResponse.tokensUsed) ? aiResponse.tokensUsed : 0;
 
+    const updatedMessages = [
+      ...history,
+      { role: 'user', content: String(message) },
+      { role: 'assistant', content: aiResponse.content },
+    ].slice(-20);
+
+    const currentTokenUsage = typeof chatSession.token_usage === 'number' ? chatSession.token_usage : 0;
+    const nextTokenUsage = currentTokenUsage + tokensUsed;
+
+    await insertAiUsageLog(db, {
+      user_id: authUser.userId,
+      feature: 'chat',
+      tokens_used: tokensUsed,
+      created_at: nowIso,
+    });
+
+    await db
+      .from('ai_chat_sessions')
+      .update({
+        messages: updatedMessages,
+        token_usage: nextTokenUsage,
+      })
+      .eq('id', session_id)
+      .eq('user_id', authUser.userId);
+
+    const messageCount = updatedMessages.length;
     return NextResponse.json({
       success: true,
       ai_reply: aiResponse.content,
-      tokens_used: aiResponse.tokensUsed,
-      message_count: (historyMessages?.length || 0) + 2,
-      show_reminder: ((historyMessages?.length || 0) + 2) % 5 === 0,
+      tokens_used: tokensUsed,
+      message_count: messageCount,
+      show_reminder: messageCount % 5 === 0,
       region: isCN ? 'CN' : 'INTL',
     });
   } catch (error: any) {

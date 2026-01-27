@@ -522,8 +522,7 @@ export function getWeights(
   evaluatorGender: GenderEnum | string,
   targetGender: GenderEnum | string
 ): WeightConfig {
-  // 女性评估男性的权重 (女看男)
-  const femaleEvaluatingMale: WeightConfig = {
+  const compatibleFemaleEvaluatingMale: WeightConfig = {
     [ScoringFactor.WEALTH]: 0.30,
     [ScoringFactor.EDUCATION]: 0.10,
     [ScoringFactor.AGE]: 0.15,
@@ -536,8 +535,7 @@ export function getWeights(
     [ScoringFactor.CHILDREN_PREFERENCE]: 0.05
   };
   
-  // 男性评估女性的权重 (男看女)
-  const maleEvaluatingFemale: WeightConfig = {
+  const compatibleMaleEvaluatingFemale: WeightConfig = {
     [ScoringFactor.WEALTH]: 0.10,
     [ScoringFactor.EDUCATION]: 0.10,
     [ScoringFactor.AGE]: 0.20,
@@ -550,80 +548,72 @@ export function getWeights(
     [ScoringFactor.CHILDREN_PREFERENCE]: 0.05
   };
   
-  // 根据不同算法调整权重（当前使用compatible_match作为基础）
-  // TODO: 为其他算法定义不同的权重配置
-  switch (algorithm) {
-    case 'romantic_match':
-      // 浪漫匹配：增加外貌和性格权重
-      if (evaluatorGender === 'female' && targetGender === 'male') {
-        return {
-          ...femaleEvaluatingMale,
-          [ScoringFactor.APPEARANCE]: 0.20,
-          [ScoringFactor.PERSONALITY]: 0.10,
-          [ScoringFactor.WEALTH]: 0.25
-        };
-      }
-      if (evaluatorGender === 'male' && targetGender === 'female') {
-        return {
-          ...maleEvaluatingFemale,
-          [ScoringFactor.APPEARANCE]: 0.30,
-          [ScoringFactor.PERSONALITY]: 0.10,
-          [ScoringFactor.AGE]: 0.15
-        };
-      }
-      break;
-      
-    case 'pragmatic_match':
-      // 务实匹配：增加财富和职业稳定性权重
-      if (evaluatorGender === 'female' && targetGender === 'male') {
-        return {
-          ...femaleEvaluatingMale,
-          [ScoringFactor.WEALTH]: 0.35,
-          [ScoringFactor.JOB_STABILITY]: 0.10,
-          [ScoringFactor.APPEARANCE]: 0.10
-        };
-      }
-      if (evaluatorGender === 'male' && targetGender === 'female') {
-        return {
-          ...maleEvaluatingFemale,
-          [ScoringFactor.EDUCATION]: 0.15,
-          [ScoringFactor.JOB_STABILITY]: 0.10,
-          [ScoringFactor.APPEARANCE]: 0.20
-        };
-      }
-      break;
-      
-    case 'serendipity':
-      // 随缘匹配：均衡权重
-      return {
-        [ScoringFactor.WEALTH]: 0.10,
-        [ScoringFactor.EDUCATION]: 0.10,
-        [ScoringFactor.AGE]: 0.10,
-        [ScoringFactor.BMI]: 0.10,
-        [ScoringFactor.APPEARANCE]: 0.10,
-        [ScoringFactor.RELATIONSHIP_HISTORY]: 0.10,
-        [ScoringFactor.PERSONALITY]: 0.10,
-        [ScoringFactor.JOB_STABILITY]: 0.10,
-        [ScoringFactor.LOCATION]: 0.10,
-        [ScoringFactor.CHILDREN_PREFERENCE]: 0.10
-      };
-      
-    case 'compatible_match':
-    default:
-      // 默认兼容匹配
-      break;
-  }
-  
-  // 默认返回基于性别的权重
-  if (evaluatorGender === 'female' && targetGender === 'male') {
-    return femaleEvaluatingMale;
-  }
-  if (evaluatorGender === 'male' && targetGender === 'female') {
-    return maleEvaluatingFemale;
-  }
-  
-  // 同性或其他情况，使用平均权重
-  return {
+  const romanticFemaleEvaluatingMale: WeightConfig = {
+    [ScoringFactor.WEALTH]: 0.25,
+    [ScoringFactor.EDUCATION]: 0.10,
+    [ScoringFactor.AGE]: 0.15,
+    [ScoringFactor.BMI]: 0.05,
+    [ScoringFactor.APPEARANCE]: 0.20,
+    [ScoringFactor.RELATIONSHIP_HISTORY]: 0.05,
+    [ScoringFactor.PERSONALITY]: 0.10,
+    [ScoringFactor.JOB_STABILITY]: 0.05,
+    [ScoringFactor.LOCATION]: 0.03,
+    [ScoringFactor.CHILDREN_PREFERENCE]: 0.02
+  };
+
+  const romanticMaleEvaluatingFemale: WeightConfig = {
+    [ScoringFactor.WEALTH]: 0.08,
+    [ScoringFactor.EDUCATION]: 0.10,
+    [ScoringFactor.AGE]: 0.15,
+    [ScoringFactor.BMI]: 0.05,
+    [ScoringFactor.APPEARANCE]: 0.32,
+    [ScoringFactor.RELATIONSHIP_HISTORY]: 0.10,
+    [ScoringFactor.PERSONALITY]: 0.10,
+    [ScoringFactor.JOB_STABILITY]: 0.04,
+    [ScoringFactor.LOCATION]: 0.03,
+    [ScoringFactor.CHILDREN_PREFERENCE]: 0.03
+  };
+
+  const pragmaticFemaleEvaluatingMale: WeightConfig = {
+    [ScoringFactor.WEALTH]: 0.35,
+    [ScoringFactor.EDUCATION]: 0.08,
+    [ScoringFactor.AGE]: 0.15,
+    [ScoringFactor.BMI]: 0.05,
+    [ScoringFactor.APPEARANCE]: 0.10,
+    [ScoringFactor.RELATIONSHIP_HISTORY]: 0.05,
+    [ScoringFactor.PERSONALITY]: 0.05,
+    [ScoringFactor.JOB_STABILITY]: 0.10,
+    [ScoringFactor.LOCATION]: 0.04,
+    [ScoringFactor.CHILDREN_PREFERENCE]: 0.03
+  };
+
+  const pragmaticMaleEvaluatingFemale: WeightConfig = {
+    [ScoringFactor.WEALTH]: 0.10,
+    [ScoringFactor.EDUCATION]: 0.15,
+    [ScoringFactor.AGE]: 0.18,
+    [ScoringFactor.BMI]: 0.05,
+    [ScoringFactor.APPEARANCE]: 0.20,
+    [ScoringFactor.RELATIONSHIP_HISTORY]: 0.10,
+    [ScoringFactor.PERSONALITY]: 0.05,
+    [ScoringFactor.JOB_STABILITY]: 0.10,
+    [ScoringFactor.LOCATION]: 0.04,
+    [ScoringFactor.CHILDREN_PREFERENCE]: 0.03
+  };
+
+  const serendipityAll: WeightConfig = {
+    [ScoringFactor.WEALTH]: 0.10,
+    [ScoringFactor.EDUCATION]: 0.10,
+    [ScoringFactor.AGE]: 0.10,
+    [ScoringFactor.BMI]: 0.10,
+    [ScoringFactor.APPEARANCE]: 0.10,
+    [ScoringFactor.RELATIONSHIP_HISTORY]: 0.10,
+    [ScoringFactor.PERSONALITY]: 0.10,
+    [ScoringFactor.JOB_STABILITY]: 0.10,
+    [ScoringFactor.LOCATION]: 0.10,
+    [ScoringFactor.CHILDREN_PREFERENCE]: 0.10
+  };
+
+  const otherAll: WeightConfig = {
     [ScoringFactor.WEALTH]: 0.15,
     [ScoringFactor.EDUCATION]: 0.10,
     [ScoringFactor.AGE]: 0.15,
@@ -635,6 +625,39 @@ export function getWeights(
     [ScoringFactor.LOCATION]: 0.10,
     [ScoringFactor.CHILDREN_PREFERENCE]: 0.05
   };
+
+  const presets: Record<AlgorithmType, { femaleEvaluatingMale: WeightConfig; maleEvaluatingFemale: WeightConfig; other: WeightConfig }> = {
+    compatible_match: {
+      femaleEvaluatingMale: compatibleFemaleEvaluatingMale,
+      maleEvaluatingFemale: compatibleMaleEvaluatingFemale,
+      other: otherAll,
+    },
+    romantic_match: {
+      femaleEvaluatingMale: romanticFemaleEvaluatingMale,
+      maleEvaluatingFemale: romanticMaleEvaluatingFemale,
+      other: otherAll,
+    },
+    pragmatic_match: {
+      femaleEvaluatingMale: pragmaticFemaleEvaluatingMale,
+      maleEvaluatingFemale: pragmaticMaleEvaluatingFemale,
+      other: otherAll,
+    },
+    serendipity: {
+      femaleEvaluatingMale: serendipityAll,
+      maleEvaluatingFemale: serendipityAll,
+      other: serendipityAll,
+    },
+  };
+
+  const preset = presets[algorithm] || presets.compatible_match;
+  if (evaluatorGender === 'female' && targetGender === 'male') {
+    return preset.femaleEvaluatingMale;
+  }
+  if (evaluatorGender === 'male' && targetGender === 'female') {
+    return preset.maleEvaluatingFemale;
+  }
+
+  return preset.other;
 }
 
 // ========================================

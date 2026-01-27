@@ -140,6 +140,7 @@ export interface MatchResult {
     aspirationScore?: number;      // 算法2: 向上追求分
     successRate?: number;          // 算法4: 成功率
     randomFactor?: number;         // 算法3: 随机因子
+    personalityCompatibility?: number;
     
     // 因子对比
     factorComparison?: {

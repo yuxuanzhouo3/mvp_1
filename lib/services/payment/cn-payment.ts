@@ -1285,15 +1285,35 @@ export class CnPaymentService implements IPaymentService {
         };
       }
 
-      // 更新支付记录状态
-      await this.updatePaymentStatus(payment.id, 'refunded', {
-        refund_id: result.refund_id,
-        refund_no: refundNo,
-        refund_amount: refundAmount,
-        refund_reason: reason,
-      });
+      const currentMetadata = payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {};
+      const currentRefund = (currentMetadata as any).refund && typeof (currentMetadata as any).refund === 'object'
+        ? (currentMetadata as any).refund
+        : {};
+      const nowIso = new Date().toISOString();
 
-      console.log(`[WeChat Refund V3] Refund success: ${payment.id} -> ${refundNo}`);
+      const db = await getServiceDbClient();
+      await db
+        .from('payments')
+        .update({
+          metadata: {
+            ...currentMetadata,
+            refund: {
+              ...currentRefund,
+              status: 'requested',
+              provider: 'wechat',
+              refund_id: result.refund_id,
+              refund_no: refundNo,
+              refund_amount: refundAmount,
+              refund_reason: reason,
+              requested_at: nowIso,
+              updated_at: nowIso,
+            },
+          },
+          updated_at: nowIso,
+        })
+        .eq('id', payment.id);
+
+      console.log(`[WeChat Refund V3] Refund requested: ${payment.id} -> ${refundNo}`);
 
       return {
         success: true,
@@ -1354,15 +1374,35 @@ export class CnPaymentService implements IPaymentService {
         };
       }
 
-      // 更新支付记录状态
-      await this.updatePaymentStatus(payment.id, 'refunded', {
-        refund_no: refundNo,
-        refund_amount: refundAmount,
-        refund_reason: reason,
-        alipay_trade_no: responseData.trade_no,
-      });
+      const currentMetadata = payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {};
+      const currentRefund = (currentMetadata as any).refund && typeof (currentMetadata as any).refund === 'object'
+        ? (currentMetadata as any).refund
+        : {};
+      const nowIso = new Date().toISOString();
 
-      console.log(`[Alipay Refund] Refund success: ${payment.id} -> ${refundNo}`);
+      const db = await getServiceDbClient();
+      await db
+        .from('payments')
+        .update({
+          metadata: {
+            ...currentMetadata,
+            refund: {
+              ...currentRefund,
+              status: 'requested',
+              provider: 'alipay',
+              refund_no: refundNo,
+              refund_amount: refundAmount,
+              refund_reason: reason,
+              alipay_trade_no: responseData.trade_no,
+              requested_at: nowIso,
+              updated_at: nowIso,
+            },
+          },
+          updated_at: nowIso,
+        })
+        .eq('id', payment.id);
+
+      console.log(`[Alipay Refund] Refund requested: ${payment.id} -> ${refundNo}`);
 
       return {
         success: true,

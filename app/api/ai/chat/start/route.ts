@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { requireUser } from '@/lib/auth/requireUser';
 import { getAIService } from '@/lib/ai';
+import { checkAiUsageLimit, deductAiUsage } from '@/lib/ai/usage';
 
 // 统一认证函数
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
@@ -54,54 +55,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 检查使用限额
-    if (isCN) {
-      const nowIso = new Date().toISOString();
-      const { data: existingLimits } = await db
-        .from('ai_usage_limits')
-        .select('*')
-        .eq('user_id', authUser.userId)
-        .single();
-
-      if (!existingLimits) {
-        await db.from('ai_usage_limits').insert({
-          user_id: authUser.userId,
-          daily_analysis_count: 0,
-          daily_analysis_limit: 3,
-          total_chat_count: 0,
-          total_chat_limit: 10,
-          last_reset_at: nowIso,
-          updated_at: nowIso,
-        });
-      } else {
-        const current = existingLimits.total_chat_count ?? 0;
-        const limit = existingLimits.total_chat_limit ?? 10;
-        if (existingLimits.total_chat_limit !== null && current >= limit) {
-          return NextResponse.json(
-            { error: '已达到聊天限额', current, limit },
-            { status: 429 }
-          );
-        }
-      }
-    } else {
-      try {
-        const { data: limitCheck } = await db.rpc('check_ai_usage_limit', {
-          p_user_id: authUser.userId,
-          p_limit_type: 'chat',
-        });
-
-        if (limitCheck && !limitCheck.allowed) {
-          return NextResponse.json(
-            {
-              error: 'Chat limit reached',
-              current: limitCheck.current,
-              limit: limitCheck.limit,
-              is_vip: limitCheck.is_vip,
-            },
-            { status: 429 }
-          );
-        }
-      } catch {}
+    const limitCheck = await checkAiUsageLimit(db, authUser.userId, 'chat');
+    if (limitCheck && !limitCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: isCN ? '已达到聊天限额' : 'Chat limit reached',
+          current: limitCheck.current,
+          limit: limitCheck.limit,
+          isVip: limitCheck.is_vip,
+        },
+        { status: 429 }
+      );
     }
 
     // 获取目标用户资料用于 AI 模拟
@@ -117,13 +81,22 @@ export async function POST(request: NextRequest) {
       }, { status: 404 });
     }
 
+    const aiService = getAIService();
+    const nowIso = new Date().toISOString();
+    const isVip = !!limitCheck?.is_vip;
+
     // 创建会话记录
     const { data: session, error: sessionError } = await db
       .from('ai_chat_sessions')
       .insert({
         user_id: authUser.userId,
         target_user_id: target_user_id,
-        started_at: new Date().toISOString(),
+        session_type: isVip ? 'vip_unlimited' : 'free_trial',
+        model_used: aiService.getDefaultModel(),
+        messages: [],
+        token_usage: 0,
+        target_user_consent: !isCN,
+        created_at: nowIso,
       })
       .select()
       .single();
@@ -135,32 +108,9 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // 扣减使用次数（按会话次数）
-    if (isCN) {
-      const { data: currentLimits } = await db
-        .from('ai_usage_limits')
-        .select('total_chat_count')
-        .eq('user_id', authUser.userId)
-        .single();
-
-      await db
-        .from('ai_usage_limits')
-        .update({
-          total_chat_count: (currentLimits?.total_chat_count ?? 0) + 1,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', authUser.userId);
-    } else {
-      try {
-        await db.rpc('deduct_ai_usage', {
-          p_user_id: authUser.userId,
-          p_usage_type: 'chat',
-        });
-      } catch {}
-    }
+    await deductAiUsage(db, authUser.userId, 'chat');
 
     // 生成初始 AI 消息
-    const aiService = getAIService();
     const initialMessage = await generateInitialMessage(aiService, targetUserProfile, isCN);
 
     return NextResponse.json({

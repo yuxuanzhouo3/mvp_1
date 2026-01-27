@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { requireUser } from '@/lib/auth/requireUser';
 import { getAIService } from '@/lib/ai';
+import { checkAiUsageLimit, deductAiUsage, insertAiUsageLog } from '@/lib/ai/usage';
 
 // 统一认证函数
 async function authenticateUser(request: NextRequest): Promise<{ userId: string; email?: string } | null> {
@@ -57,75 +58,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 检查使用限额（仅对非缓存请求扣减）
-    if (isCN) {
-      const nowIso = new Date().toISOString();
-      const today = nowIso.slice(0, 10);
-
-      const { data: existingLimits } = await db
-        .from('ai_usage_limits')
-        .select('*')
-        .eq('user_id', authUser.userId)
-        .single();
-
-      if (!existingLimits) {
-        await db.from('ai_usage_limits').insert({
-          user_id: authUser.userId,
-          daily_analysis_count: 0,
-          daily_analysis_limit: 3,
-          total_chat_count: 0,
-          total_chat_limit: 10,
-          last_reset_at: nowIso,
-          updated_at: nowIso,
-        });
-      } else {
-        const lastResetDate = (existingLimits.last_reset_at || nowIso).slice(0, 10);
-        if (lastResetDate !== today) {
-          await db
-            .from('ai_usage_limits')
-            .update({
-              daily_analysis_count: 0,
-              last_reset_at: nowIso,
-              updated_at: nowIso,
-            })
-            .eq('user_id', authUser.userId);
-        }
-      }
-
-      const { data: refreshedLimits } = await db
-        .from('ai_usage_limits')
-        .select('daily_analysis_count, daily_analysis_limit')
-        .eq('user_id', authUser.userId)
-        .single();
-
-      if (refreshedLimits) {
-        const current = refreshedLimits.daily_analysis_count ?? 0;
-        const limit = refreshedLimits.daily_analysis_limit ?? 3;
-        if (current >= limit) {
-          return NextResponse.json(
-            { error: '已达到每日分析限额', current, limit },
-            { status: 429 }
-          );
-        }
-      }
-    } else {
-      try {
-        const { data: limitCheck } = await db.rpc('check_ai_usage_limit', {
-          p_user_id: authUser.userId,
-          p_limit_type: 'analysis',
-        });
-
-        if (limitCheck && !limitCheck.allowed) {
-          return NextResponse.json(
-            {
-              error: 'Daily limit reached',
-              current: limitCheck.current,
-              limit: limitCheck.limit,
-            },
-            { status: 429 }
-          );
-        }
-      } catch {}
+    const limitCheck = await checkAiUsageLimit(db, authUser.userId, 'analysis');
+    if (limitCheck && !limitCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: isCN ? '已达到每日分析限额' : 'Daily limit reached',
+          current: limitCheck.current,
+          limit: limitCheck.limit,
+          isVip: limitCheck.is_vip,
+        },
+        { status: 429 }
+      );
     }
 
     // 获取目标用户完整资料
@@ -143,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     // 调用 AI 进行性格分析
     const aiService = getAIService();
-    const analysis = await generatePersonalityAnalysis(aiService, fullProfile, isCN);
+    const { analysis, tokensUsed } = await generatePersonalityAnalysis(aiService, fullProfile, isCN);
 
     // 缓存分析结果 (7天)
     const cacheExpiresAt = new Date();
@@ -157,44 +100,14 @@ export async function POST(request: NextRequest) {
       })
       .eq('user_id', target_user_id);
 
-    try {
-      await db
-        .from('ai_usage_logs')
-        .insert({
-          user_id: authUser.userId,
-          feature: 'analysis',
-          tokens_used: 0,
-        });
-    } catch {}
-
-    // 扣减使用次数（仅非缓存）
-    if (isCN) {
-      await db
-        .from('ai_usage_limits')
-        .update({ updated_at: new Date().toISOString() })
-        .eq('user_id', authUser.userId);
-
-      const { data: currentLimits } = await db
-        .from('ai_usage_limits')
-        .select('daily_analysis_count')
-        .eq('user_id', authUser.userId)
-        .single();
-
-      await db
-        .from('ai_usage_limits')
-        .update({
-          daily_analysis_count: (currentLimits?.daily_analysis_count ?? 0) + 1,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', authUser.userId);
-    } else {
-      try {
-        await db.rpc('deduct_ai_usage', {
-          p_user_id: authUser.userId,
-          p_usage_type: 'analysis',
-        });
-      } catch {}
-    }
+    const nowIso = new Date().toISOString();
+    await insertAiUsageLog(db, {
+      user_id: authUser.userId,
+      feature: 'analysis',
+      tokens_used: tokensUsed,
+      created_at: nowIso,
+    });
+    await deductAiUsage(db, authUser.userId, 'analysis');
 
     return NextResponse.json({
       analysis,
@@ -207,7 +120,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function generatePersonalityAnalysis(aiService: any, profile: any, isCN: boolean): Promise<any> {
+async function generatePersonalityAnalysis(
+  aiService: any,
+  profile: any,
+  isCN: boolean
+): Promise<{ analysis: any; tokensUsed: number }> {
   const prompt = isCN
     ? `请根据以下用户资料进行性格分析：
 
@@ -257,6 +174,7 @@ Return analysis in JSON format:
       { role: 'system', content: 'You are a personality analyst. Return only valid JSON.' },
       { role: 'user', content: prompt }
     ], { maxTokens: 800 });
+    const tokensUsed = typeof response?.tokensUsed === 'number' && Number.isFinite(response.tokensUsed) ? response.tokensUsed : 0;
 
     // 尝试解析 JSON
     const jsonMatch = response.content.match(/\{[\s\S]*\}/);
@@ -264,39 +182,48 @@ Return analysis in JSON format:
       const parsed = JSON.parse(jsonMatch[0]);
       // 确保所有数组字段存在
       return {
-        personality_summary: parsed.personality_summary || (isCN ? '暂无数据' : 'No data'),
-        compatibility_score: parsed.compatibility_score || 70,
-        compatibility_analysis: parsed.compatibility_analysis || (isCN ? '暂无数据' : 'No data'),
-        conversation_topics: parsed.conversation_topics || [],
-        dos: parsed.dos || [],
-        donts: parsed.donts || [],
-        potential_challenges: parsed.potential_challenges || [],
-        first_message_suggestions: parsed.first_message_suggestions || [],
+        analysis: {
+          personality_summary: parsed.personality_summary || (isCN ? '暂无数据' : 'No data'),
+          compatibility_score: parsed.compatibility_score || 70,
+          compatibility_analysis: parsed.compatibility_analysis || (isCN ? '暂无数据' : 'No data'),
+          conversation_topics: parsed.conversation_topics || [],
+          dos: parsed.dos || [],
+          donts: parsed.donts || [],
+          potential_challenges: parsed.potential_challenges || [],
+          first_message_suggestions: parsed.first_message_suggestions || [],
+        },
+        tokensUsed,
       };
     }
 
     // 如果无法解析，返回默认结构
     return {
-      personality_summary: isCN ? '暂无数据' : 'No data',
-      compatibility_score: 70,
-      compatibility_analysis: isCN ? '暂无数据' : 'No data',
-      conversation_topics: [],
-      dos: [],
-      donts: [],
-      potential_challenges: [],
-      first_message_suggestions: [],
+      analysis: {
+        personality_summary: isCN ? '暂无数据' : 'No data',
+        compatibility_score: 70,
+        compatibility_analysis: isCN ? '暂无数据' : 'No data',
+        conversation_topics: [],
+        dos: [],
+        donts: [],
+        potential_challenges: [],
+        first_message_suggestions: [],
+      },
+      tokensUsed,
     };
   } catch (error) {
     console.error('Error generating personality analysis:', error);
     return {
-      personality_summary: isCN ? '分析失败' : 'Analysis failed',
-      compatibility_score: 0,
-      compatibility_analysis: isCN ? '分析过程中出现错误' : 'Error during analysis',
-      conversation_topics: [],
-      dos: [],
-      donts: [],
-      potential_challenges: [],
-      first_message_suggestions: [],
+      analysis: {
+        personality_summary: isCN ? '分析失败' : 'Analysis failed',
+        compatibility_score: 0,
+        compatibility_analysis: isCN ? '分析过程中出现错误' : 'Error during analysis',
+        conversation_topics: [],
+        dos: [],
+        donts: [],
+        potential_challenges: [],
+        first_message_suggestions: [],
+      },
+      tokensUsed: 0,
     };
   }
 }
