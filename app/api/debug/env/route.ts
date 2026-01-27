@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     // Supabase 配置
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? `SET (${process.env.NEXT_PUBLIC_SUPABASE_URL.substring(0, 30)}...)` : 'NOT SET',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'SET (hidden)' : 'NOT SET',
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET (hidden)' : 'NOT SET',
     
     // 其他有用信息
     PORT: process.env.PORT || 'NOT SET',
@@ -63,6 +64,12 @@ export async function GET(request: NextRequest) {
     diagnostics.push('❌ Cloudbase Secret 未完整设置，API 认证将失败');
   } else {
     diagnostics.push('✅ Cloudbase Secret 已设置');
+  }
+
+  if (envInfo.SUPABASE_SERVICE_ROLE_KEY === 'NOT SET') {
+    diagnostics.push('⚠️ SUPABASE_SERVICE_ROLE_KEY 未设置，管理员登录等依赖 Supabase 的功能可能失败');
+  } else {
+    diagnostics.push('✅ SUPABASE_SERVICE_ROLE_KEY 已设置');
   }
 
   return NextResponse.json({

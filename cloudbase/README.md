@@ -136,7 +136,14 @@ NEXT_PUBLIC_DEPLOYMENT_REGION=CN
 NEXT_PUBLIC_CLOUDBASE_ENV_ID=your-env-id
 CLOUDBASE_SECRET_ID=your-secret-id
 CLOUDBASE_SECRET_KEY=your-secret-key
+
+# Supabase 配置（管理员登录、统计等，复用 INTL Supabase 项目）
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 ```
+
+> 建议 CN 与 INTL 部署共用同一个 Supabase 项目，保证 `admin_users` 等表数据一致，这样无论访问 https://personalink.mornscience.top 还是 https://www.mornhub.lat，管理员账号密码都保持统一。
 
 ### 初始化种子数据
 
