@@ -13,6 +13,7 @@ import { Mail, ArrowLeft, CheckCircle, Sparkles } from 'lucide-react';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -151,7 +152,7 @@ export default function ForgotPasswordPage() {
                   <Sparkles className="h-8 w-8 text-white" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  PersonaLink
+                  {isChinaDeployment() ? '晨佑个人链接' : 'PersonaLink'}
                 </h1>
               </Link>
             </div>

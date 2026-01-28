@@ -256,7 +256,7 @@ function CNNavigationComponent({
           {/* Logo */}
           <Link href="/" className="cn-nav-logo">
             <Heart className="w-6 h-6 fill-white" />
-            <span>PersonaLink</span>
+            <span>晨佑个人链接</span>
             <Badge className="cn-parent-mode-badge ml-2 text-xs py-0.5">
               家长相亲
             </Badge>

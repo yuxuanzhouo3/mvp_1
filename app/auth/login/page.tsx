@@ -191,7 +191,7 @@ export default function LoginPage() {
                   <Sparkles className="h-8 w-8 text-white" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  PersonaLink
+                  {isChinaDeployment() ? '晨佑个人链接' : 'PersonaLink'}
                 </h1>
               </Link>
             </div>

@@ -7,6 +7,7 @@ import { ArrowRight, Heart, MessageCircle, Shield, Zap, Users, Star, Sparkles, R
 import Link from 'next/link'
 import { useLanguage } from '@/components/language-provider'
 import { useTranslations } from '@/lib/i18n'
+import { isChinaDeployment } from '@/lib/config/deployment.config'
 import { useState, useEffect, useRef } from 'react'
 
 export default function HomePage() {
@@ -508,7 +509,7 @@ export default function HomePage() {
                 <Heart className="h-5 w-5 md:h-6 md:w-6 text-white" />
               </div>
               <span className="text-xl md:text-2xl font-bold">
-                PersonaLink
+                {isChinaDeployment() ? '晨佑个人链接' : 'PersonaLink'}
               </span>
             </div>
             <div className="flex flex-wrap justify-center gap-4 md:gap-8 text-xs md:text-sm">
@@ -520,6 +521,12 @@ export default function HomePage() {
           </div>
           <div className="text-center text-xs md:text-sm text-gray-400">
             {t.footer.copyright}
+            {isChinaDeployment() ? (
+              <>
+                <span className="mx-2">·</span>
+                <span>粤ICP备2024281756号-15A</span>
+              </>
+            ) : null}
           </div>
         </div>
       </footer>

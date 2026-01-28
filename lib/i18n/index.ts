@@ -3,14 +3,49 @@
  * 国际化工具函数
  */
 
+import { isChinaDeployment, deploymentConfig } from '@/lib/config/deployment.config'
 import { translations, type Language, type Translations } from './translations'
+
+const cnTranslationsCache = new Map<Language, Translations>()
 
 /**
  * 获取指定语言的完整翻译对象
  * Get complete translation object for specified language
  */
 export function getTranslations(language: Language): Translations {
-  return translations[language] || translations.en
+  const baseTranslations = translations[language] || translations.en
+  if (!isChinaDeployment()) return baseTranslations
+
+  const cached = cnTranslationsCache.get(language)
+  if (cached) return cached
+
+  const cnBrandName = deploymentConfig.appName
+
+  const replaceBrandTerms = (value: unknown): unknown => {
+    if (typeof value === 'string') {
+      return value
+        .replace(/PersonaLink/g, cnBrandName)
+        .replace(/邻客/g, cnBrandName)
+    }
+
+    if (Array.isArray(value)) {
+      return value.map(replaceBrandTerms)
+    }
+
+    if (value && typeof value === 'object') {
+      const result: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(value)) {
+        result[k] = replaceBrandTerms(v)
+      }
+      return result
+    }
+
+    return value
+  }
+
+  const processed = replaceBrandTerms(baseTranslations) as Translations
+  cnTranslationsCache.set(language, processed)
+  return processed
 }
 
 /**
@@ -23,7 +58,7 @@ export function getTranslations(language: Language): Translations {
  */
 export function t(language: Language, path: string): string {
   const keys = path.split('.')
-  let result: any = translations[language] || translations.en
+  let result: any = getTranslations(language)
 
   for (const key of keys) {
     result = result?.[key]

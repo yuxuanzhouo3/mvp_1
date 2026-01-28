@@ -124,7 +124,7 @@ export function GlobalHeader() {
                 <Heart className="h-4 w-4 md:h-6 md:w-6 text-white" />
               </div>
               <span className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
-                {isChinaDeployment() ? '邻客' : 'PersonaLink'}
+                {isChinaDeployment() ? '晨佑个人链接' : 'PersonaLink'}
               </span>
             </Link>
           </div>

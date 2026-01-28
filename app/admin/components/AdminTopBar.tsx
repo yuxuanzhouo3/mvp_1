@@ -4,6 +4,7 @@ import Link from "next/link";
 import { adminLogout } from "@/actions/admin-auth";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard, LogOut, User } from "lucide-react";
+import { isChinaDeployment } from "@/lib/config/deployment.config";
 
 interface AdminTopBarProps {
   username: string;
@@ -16,7 +17,7 @@ export default function AdminTopBar({ username }: AdminTopBarProps) {
         {/* Logo and Title */}
         <Link href="/admin/stats" className="flex items-center gap-3">
           <LayoutDashboard className="h-6 w-6 text-primary" />
-          <span className="text-xl font-bold">PersonaLink管理后台</span>
+          <span className="text-xl font-bold">{isChinaDeployment() ? "晨佑个人链接管理后台" : "PersonaLink管理后台"}</span>
         </Link>
 
         {/* User Info and Logout */}
