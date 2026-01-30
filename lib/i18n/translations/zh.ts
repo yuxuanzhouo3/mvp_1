@@ -644,8 +644,8 @@ export const zh = {
     // 匹配详情消息
     scoreMessages: {
       compatible: '你们的条件相近',
-      romantic: '勇敢追爱，冲！',
-      pragmatic: '稳稳的幸福',
+      romantic: '大胆去爱，冲！',
+      pragmatic: '高成功率，更稳妥',
       serendipity: '缘分就是这么奇妙',
     },
 

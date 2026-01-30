@@ -10,7 +10,7 @@
     "clean": "node scripts/clean-next.js",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "node --test tests-js/*.test.js",
+    "test": "node --test --test-concurrency=1 tests-js/*.test.js",
     "postinstall": "patch-package",
     "test:db": "node scripts/test-database.js",
     "test:payment-observability": "node scripts/verify-payment-observability.js",

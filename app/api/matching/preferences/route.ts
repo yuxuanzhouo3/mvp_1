@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDbClient, isChinaDeployment } from '@/lib/db-client';
 import { requireUser } from '@/lib/auth/requireUser';
 import type { AlgorithmType } from '@/lib/matching/types';
-import { ALGORITHM_NAMES } from '@/lib/matching/types';
+import { getAlgorithmDisplayNamesForRequest } from '@/lib/matching/algorithm-display-name';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,13 +60,15 @@ export async function GET(request: NextRequest) {
     }
 
     const searchPrefs = profile?.search_preferences || {};
+    const { names } = await getAlgorithmDisplayNamesForRequest(request);
+    const preferredAlgorithm = (searchPrefs.preferred_algorithm || 'compatible') as AlgorithmType;
 
     return NextResponse.json({
       success: true,
       data: {
         // 匹配算法偏好
-        preferredAlgorithm: searchPrefs.preferred_algorithm || 'compatible',
-        preferredAlgorithmName: ALGORITHM_NAMES[searchPrefs.preferred_algorithm as AlgorithmType || 'compatible'],
+        preferredAlgorithm,
+        preferredAlgorithmName: names[preferredAlgorithm],
         
         // 搜索范围设置
         searchRadiusKm: searchPrefs.search_radius_km || 50,
@@ -80,11 +82,13 @@ export async function GET(request: NextRequest) {
         incomeRequirement: searchPrefs.income_requirement || 'any',
         
         // 可用算法列表
-        availableAlgorithms: Object.entries(ALGORITHM_NAMES).map(([key, name]) => ({
-          id: key,
-          name,
-          description: getAlgorithmDescription(key as AlgorithmType, isCN)
-        }))
+        availableAlgorithms: (['compatible', 'romantic', 'pragmatic', 'serendipity'] as AlgorithmType[]).map(
+          (key) => ({
+            id: key,
+            name: names[key],
+            description: getAlgorithmDescription(key, isCN),
+          })
+        ),
       }
     });
 
@@ -199,11 +203,14 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    const { names } = await getAlgorithmDisplayNamesForRequest(request);
+    const preferredAlgorithmEffective = (updatedPrefs.preferred_algorithm || 'compatible') as AlgorithmType;
+
     return NextResponse.json({
       success: true,
       data: {
-        preferredAlgorithm: updatedPrefs.preferred_algorithm || 'compatible',
-        preferredAlgorithmName: ALGORITHM_NAMES[updatedPrefs.preferred_algorithm as AlgorithmType || 'compatible'],
+        preferredAlgorithm: preferredAlgorithmEffective,
+        preferredAlgorithmName: names[preferredAlgorithmEffective],
         searchRadiusKm: updatedPrefs.search_radius_km || 50,
         ageRangeMin: updatedPrefs.age_range_min || 18,
         ageRangeMax: updatedPrefs.age_range_max || 60,

@@ -20,9 +20,9 @@ import {
 import { 
   AlgorithmType, 
   MATCHING_CONFIG,
-  ALGORITHM_NAMES
 } from '@/lib/matching/types';
 import { filterSensitiveFields, isProfileVisible } from '@/lib/api/privacyFilter';
+import { getAlgorithmDisplayNamesForRequest } from '@/lib/matching/algorithm-display-name';
 
 function base64UrlEncode(input: string) {
   return Buffer.from(input, 'utf8')
@@ -106,6 +106,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const { names: algorithmNames } = await getAlgorithmDisplayNamesForRequest(request);
+
     // 构建查询
     let query = db
       .from('recommendations')
@@ -160,7 +162,7 @@ export async function GET(request: NextRequest) {
         data: {
           recommendations: [],
           algorithm: algorithm,
-          algorithmName: ALGORITHM_NAMES[algorithm],
+          algorithmName: algorithmNames[algorithm],
           total: 0,
           messageCode: 'NO_RECOMMENDATIONS'
         }
@@ -206,7 +208,7 @@ export async function GET(request: NextRequest) {
       data: {
         recommendations: enrichedRecommendations,
         algorithm: algorithm,
-        algorithmName: ALGORITHM_NAMES[algorithm],
+        algorithmName: algorithmNames[algorithm],
         total: enrichedRecommendations.length,
         nextCursor,
       }
@@ -255,6 +257,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const { names: algorithmNames } = await getAlgorithmDisplayNamesForRequest(request);
 
     // 获取当前用户完整资料
     const { data: currentUser, error: userError } = await db
@@ -367,7 +371,7 @@ export async function POST(request: NextRequest) {
         data: {
           recommendations: [],
           algorithm: algorithm,
-          algorithmName: ALGORITHM_NAMES[algorithm],
+          algorithmName: algorithmNames[algorithm],
           total: 0,
           messageCode: 'NO_CANDIDATES'
         }
@@ -457,7 +461,7 @@ export async function POST(request: NextRequest) {
       data: {
         recommendations: enrichedRecommendations,
         algorithm: algorithm,
-        algorithmName: ALGORITHM_NAMES[algorithm],
+        algorithmName: algorithmNames[algorithm],
         total: enrichedRecommendations.length,
         generatedAt: batchResult.generatedAt,
         expiresAt: batchResult.expiresAt

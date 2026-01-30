@@ -18,6 +18,8 @@ import {
   DollarSign,
   Cpu,
   Settings,
+  Tag,
+  Package,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +28,12 @@ interface AdminSidebarProps {
 }
 
 const navItems = [
+  {
+    href: "/admin/users",
+    label: "用户",
+    fullLabel: "用户管理",
+    icon: User,
+  },
   {
     href: "/admin/stats",
     label: "统计",
@@ -45,6 +53,16 @@ const featureManagementItems = [
     href: "/admin/photo-review",
     label: "照片审核",
     icon: Image,
+  },
+  {
+    href: "/admin/algorithm-names",
+    label: "算法名称",
+    icon: Tag,
+  },
+  {
+    href: "/admin/releases",
+    label: "版本管理",
+    icon: Package,
   },
   {
     href: "/admin/analytics/photos",

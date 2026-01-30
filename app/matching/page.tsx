@@ -144,10 +144,32 @@ function MatchingPageContent() {
   const [showScoreDetails, setShowScoreDetails] = useState(false);
   const autoLoadedRef = useRef(false);
   const isCN = isChinaDeployment();
+  const [algorithmNameOverrides, setAlgorithmNameOverrides] = useState<Partial<Record<AlgorithmType, string>>>({});
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/algorithm-names', {
+          headers: { 'x-lang': language },
+          cache: 'no-store',
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setAlgorithmNameOverrides(data?.names || {});
+      } catch {
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [language]);
 
   // Check admin status
   useEffect(() => {
@@ -350,7 +372,10 @@ function MatchingPageContent() {
       description: string;
       persona: string;
     }>;
-    return translations[key];
+    return {
+      ...translations[key],
+      name: algorithmNameOverrides[key] || translations[key].name,
+    };
   };
 
   // 获取分数详情显示
@@ -805,6 +830,7 @@ function MatchingPageContent() {
                   algorithmType: currentRecommendation.algorithmType,
                   scoreDetails: currentRecommendation.scoreDetails
                 }}
+                algorithmNameOverrides={algorithmNameOverrides}
                 showChart={true}
                 defaultExpanded={true}
               />

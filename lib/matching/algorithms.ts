@@ -168,7 +168,7 @@ export function matchRomanticPursuit(
         mutualInterests: interestOverlap.mutualInterests,
         distance: distance ?? undefined,
         message: candidateScore > userScore 
-          ? `TA比你优秀${Math.round(candidateScore - userScore)}分，勇敢追爱！`
+          ? `TA比你优秀${Math.round(candidateScore - userScore)}分，冲！`
           : `你们条件相当，成功率${Math.round(acceptanceBToA)}%`
       }
     });

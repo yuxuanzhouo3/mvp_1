@@ -19,14 +19,32 @@ export default function DownloadPage() {
   const [downloads, setDownloads] = useState<DownloadItem[]>([]);
 
   useEffect(() => {
-    const china = isChinaDeployment();
+    const urlParams = new URLSearchParams(window.location.search);
+    const regionParamRaw = (urlParams.get("region") || "").toUpperCase();
+    const regionParam = regionParamRaw === "CN" || regionParamRaw === "INTL" ? (regionParamRaw as "CN" | "INTL") : null;
+
+    const china = regionParam ? regionParam === "CN" : isChinaDeployment();
     setIsChina(china);
-
-    const config = getDownloadConfig(china ? "CN" : "INTL");
-    setDownloads(config.downloads);
-
     const platform = detectUserPlatform();
     setUserPlatform(platform);
+
+    const region = regionParam || (china ? "CN" : "INTL");
+    (async () => {
+      try {
+        const res = await fetch(`/api/releases?region=${region}`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const payload = (await res.json()) as { downloads?: DownloadItem[] };
+        if (payload.downloads && Array.isArray(payload.downloads)) {
+          setDownloads(payload.downloads);
+          return;
+        }
+        const config = getDownloadConfig(region);
+        setDownloads(config.downloads);
+      } catch {
+        const config = getDownloadConfig(region);
+        setDownloads(config.downloads);
+      }
+    })();
   }, []);
 
   /**

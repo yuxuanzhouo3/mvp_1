@@ -56,14 +56,11 @@ import {
 
 interface MatchScoreDetailsProps {
   matchResult: MatchResult;
+  algorithmDisplayName?: string;
+  algorithmNameOverrides?: Partial<Record<AlgorithmType, string>>;
   showChart?: boolean;
   defaultExpanded?: boolean;
   className?: string;
-}
-
-interface AlgorithmBadgeProps {
-  algorithm: AlgorithmType;
-  locale: 'en' | 'zh';
 }
 
 // ========================================
@@ -75,7 +72,6 @@ const algorithmConfig: Record<AlgorithmType, {
   color: string;
   bgColor: string;
   borderColor: string;
-  name: { en: string; zh: string };
   description: { en: string; zh: string };
 }> = {
   compatible: {
@@ -83,7 +79,6 @@ const algorithmConfig: Record<AlgorithmType, {
     color: 'text-amber-500',
     bgColor: 'bg-amber-500/10',
     borderColor: 'border-amber-500/30',
-    name: { en: 'Compatible Match', zh: '金玉良缘' },
     description: { en: 'Matching based on similar conditions', zh: '门当户对匹配' },
   },
   romantic: {
@@ -91,7 +86,6 @@ const algorithmConfig: Record<AlgorithmType, {
     color: 'text-rose-500',
     bgColor: 'bg-rose-500/10',
     borderColor: 'border-rose-500/30',
-    name: { en: 'Romantic Pursuit', zh: '勇敢追爱' },
     description: { en: 'Pursue excellence in matching', zh: '慕强择优匹配' },
   },
   pragmatic: {
@@ -99,7 +93,6 @@ const algorithmConfig: Record<AlgorithmType, {
     color: 'text-emerald-500',
     bgColor: 'bg-emerald-500/10',
     borderColor: 'border-emerald-500/30',
-    name: { en: 'Pragmatic Match', zh: '稳稳幸福' },
     description: { en: 'Practical matching with high success rate', zh: '务实匹配高成功率' },
   },
   serendipity: {
@@ -107,7 +100,6 @@ const algorithmConfig: Record<AlgorithmType, {
     color: 'text-violet-500',
     bgColor: 'bg-violet-500/10',
     borderColor: 'border-violet-500/30',
-    name: { en: 'Serendipity', zh: '心动盲盒' },
     description: { en: 'Leave room for serendipity', zh: '给缘分一个机会' },
   },
 };
@@ -132,26 +124,6 @@ const factorNames: Record<string, { en: string; zh: string }> = {
 // ========================================
 // 辅助组件
 // ========================================
-
-const AlgorithmBadge: React.FC<AlgorithmBadgeProps> = ({ algorithm, locale }) => {
-  const config = algorithmConfig[algorithm];
-  const Icon = config.icon;
-
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        'flex items-center gap-1.5 px-3 py-1 font-medium',
-        config.bgColor,
-        config.borderColor,
-        config.color
-      )}
-    >
-      <Icon className="w-4 h-4" />
-      <span>{config.name[locale]}</span>
-    </Badge>
-  );
-};
 
 const ScoreIndicator: React.FC<{ userScore: number; targetScore: number }> = ({
   userScore,
@@ -191,6 +163,8 @@ const ScoreIndicator: React.FC<{ userScore: number; targetScore: number }> = ({
 
 export const MatchScoreDetails: React.FC<MatchScoreDetailsProps> = ({
   matchResult,
+  algorithmDisplayName,
+  algorithmNameOverrides,
   showChart = true,
   defaultExpanded = false,
   className,
@@ -203,6 +177,11 @@ export const MatchScoreDetails: React.FC<MatchScoreDetailsProps> = ({
   const { algorithmType, matchScore, scoreDetails } = matchResult;
   const config = algorithmConfig[algorithmType];
   const Icon = config.icon;
+  const displayName =
+    algorithmDisplayName ||
+    algorithmNameOverrides?.[algorithmType] ||
+    t.matching.algorithms[algorithmType].name ||
+    algorithmType;
 
   // 准备雷达图数据
   const radarData = scoreDetails.factorComparison
@@ -224,7 +203,7 @@ export const MatchScoreDetails: React.FC<MatchScoreDetailsProps> = ({
             </div>
             <div>
               <CardTitle className="text-lg">
-                {config.name[locale]}
+                {displayName}
               </CardTitle>
               <CardDescription>
                 {config.description[locale]}

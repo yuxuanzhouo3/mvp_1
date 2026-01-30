@@ -5,13 +5,14 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
+import type { AlgoTypeEnum } from '@/types/database';
 import {
   Gem,
   Rocket,
@@ -35,7 +36,7 @@ import {
 // ========================================
 
 interface Algorithm {
-  id: string;
+  id: AlgoTypeEnum;
   icon: React.ReactNode;
   color: string;
   bgColor: string;
@@ -91,10 +92,12 @@ interface AlgorithmCardProps {
   isSelected: boolean;
   onSelect: () => void;
   t: any;
+  algorithmNameOverrides: Partial<Record<AlgoTypeEnum, string>>;
 }
 
-function AlgorithmCard({ algorithm, isSelected, onSelect, t }: AlgorithmCardProps) {
+function AlgorithmCard({ algorithm, isSelected, onSelect, t, algorithmNameOverrides }: AlgorithmCardProps) {
   const algoData = t.algorithmsPage[algorithm.id];
+  const displayName = algorithmNameOverrides[algorithm.id] || algoData.name;
 
   return (
     <Card
@@ -113,7 +116,7 @@ function AlgorithmCard({ algorithm, isSelected, onSelect, t }: AlgorithmCardProp
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <h3 className={`text-xl font-bold ${algorithm.color}`}>
-                {algoData.name}
+                {displayName}
               </h3>
               <Badge variant="outline" className={algorithm.color}>
                 {algoData.shortDesc}
@@ -149,10 +152,12 @@ function AlgorithmCard({ algorithm, isSelected, onSelect, t }: AlgorithmCardProp
 interface AlgorithmDetailProps {
   algorithm: Algorithm;
   t: any;
+  algorithmNameOverrides: Partial<Record<AlgoTypeEnum, string>>;
 }
 
-function AlgorithmDetail({ algorithm, t }: AlgorithmDetailProps) {
+function AlgorithmDetail({ algorithm, t, algorithmNameOverrides }: AlgorithmDetailProps) {
   const algoData = t.algorithmsPage[algorithm.id];
+  const displayName = algorithmNameOverrides[algorithm.id] || algoData.name;
 
   return (
     <div className="space-y-8">
@@ -164,7 +169,7 @@ function AlgorithmDetail({ algorithm, t }: AlgorithmDetailProps) {
           </div>
           <div>
             <h2 className={`text-3xl font-bold ${algorithm.color}`}>
-              {algoData.name}
+              {displayName}
             </h2>
             <p className="text-gray-600">{algoData.shortDesc}</p>
           </div>
@@ -278,6 +283,30 @@ export default function AlgorithmsPage() {
 
   const algorithms = getAlgorithms();
   const [selectedAlgorithm, setSelectedAlgorithm] = useState(algorithms[0]);
+  const [algorithmNameOverrides, setAlgorithmNameOverrides] = useState<
+    Partial<Record<AlgoTypeEnum, string>>
+  >({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch('/api/algorithm-names', {
+          headers: { 'x-lang': language },
+          cache: 'no-store',
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setAlgorithmNameOverrides(data?.names || {});
+      } catch {
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [language]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -358,12 +387,13 @@ export default function AlgorithmsPage() {
               isSelected={selectedAlgorithm.id === algo.id}
               onSelect={() => setSelectedAlgorithm(algo)}
               t={t}
+              algorithmNameOverrides={algorithmNameOverrides}
             />
           ))}
         </div>
 
         {/* 算法详情 */}
-        <AlgorithmDetail algorithm={selectedAlgorithm} t={t} />
+        <AlgorithmDetail algorithm={selectedAlgorithm} t={t} algorithmNameOverrides={algorithmNameOverrides} />
       </div>
 
       {/* CTA */}

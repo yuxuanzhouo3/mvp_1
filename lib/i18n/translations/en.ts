@@ -531,7 +531,7 @@ export const en = {
       compatible: 'Great compatibility match!',
       romantic: 'Aim high, you got this!',
       pragmatic: 'High chance of connection',
-      serendipity: 'Serendipity brought you together ✨',
+      serendipity: 'Fate brought you together ✨',
     },
 
     // API error messages
