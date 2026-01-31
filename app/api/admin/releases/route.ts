@@ -300,7 +300,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ cn, intl });
+    return NextResponse.json(
+      { cn, intl },
+      {
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
   } catch {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import cloudbase from "@cloudbase/node-sdk";
+import { Readable } from "node:stream";
 import { verifyAdminSessionToken } from "@/utils/session";
 import type { MacOSArchType, PlatformType } from "@/lib/config/download.config";
 
@@ -138,13 +139,15 @@ export async function POST(request: NextRequest) {
 
     const archPart = arch ? `-${arch}` : "";
     const cloudPath = `releases/${platform}/${version}/${Date.now()}${archPart}-${fileName}`;
-    const arrayBuffer = await request.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const fileContent = Readable.fromWeb(request.body as any);
 
-    const uploadResult = await app.uploadFile({
-      cloudPath,
-      fileContent: buffer as any,
-    });
+    const uploadResult = await app.uploadFile(
+      {
+        cloudPath,
+        fileContent: fileContent as any,
+      },
+      { timeout: 10 * 60 * 1000 }
+    );
 
     const fileIdOrPath = typeof uploadResult?.fileID === "string" && uploadResult.fileID
       ? uploadResult.fileID

@@ -12,10 +12,10 @@ function expectRoute(filePath, expectedSnippets) {
 }
 
 test('Admin 版本管理相关路由应存在', () => {
-  expectRoute('app/api/admin/releases/route.ts', ['export async function GET', 'proxyFetch']);
+  expectRoute('app/api/admin/releases/route.ts', ['export async function GET', 'proxyFetch', '"cache-control": "no-store"']);
   expectRoute('app/api/admin/releases/activate/route.ts', ['export async function POST']);
   expectRoute('app/api/admin/releases/delete/route.ts', ['export async function POST']);
-  expectRoute('app/api/admin/releases/upload/route.ts', ['export async function POST', 'arrayBuffer', 'fileNameParam']);
+  expectRoute('app/api/admin/releases/upload/route.ts', ['export async function POST', 'Readable.fromWeb', 'fileNameParam']);
   expectRoute('app/api/admin/releases/prepare-upload/route.ts', ['export async function POST', 'createSignedUploadUrl']);
   expectRoute('app/api/admin/releases/register/route.ts', ['export async function POST', '.from("releases")']);
   expectRoute('app/api/admin/releases/signed-download/route.ts', ['export async function POST', 'createSignedUrl']);
@@ -25,11 +25,13 @@ test('Admin 版本管理上传不应依赖 x-file-name header', () => {
   const page = path.resolve(process.cwd(), 'app/admin/releases/page.tsx');
   const pageContent = fs.readFileSync(page, 'utf8');
   assert.ok(!pageContent.includes('"x-file-name"'), 'admin/releases 页面不应设置 x-file-name header');
+  assert.ok(pageContent.includes('XMLHttpRequest'), 'CN 上传应使用 XMLHttpRequest 以展示上传进度');
 
   const uploadRoute = path.resolve(process.cwd(), 'app/api/admin/releases/upload/route.ts');
   const uploadContent = fs.readFileSync(uploadRoute, 'utf8');
   assert.ok(uploadContent.includes('fileNameParam'), 'upload 路由应支持 query 参数 fileName');
   assert.ok(uploadContent.includes('platform/version/fileName required'), 'upload 路由错误信息应提示 fileName');
+  assert.ok(!uploadContent.includes('request.arrayBuffer()'), 'upload 路由不应整包读入内存');
 });
 
 test('/api/releases 路由应存在并返回 downloads', () => {

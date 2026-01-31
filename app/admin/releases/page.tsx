@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -108,11 +109,12 @@ export default function AdminReleasesPage() {
         setActive: boolean;
         file: File | null;
         uploading: boolean;
+        progress: { loaded: number; total: number | null } | null;
       }
     >
   >({
-    cn: { platform: "windows", arch: null, version: "", releaseNotes: "", setActive: true, file: null, uploading: false },
-    intl: { platform: "windows", arch: null, version: "", releaseNotes: "", setActive: true, file: null, uploading: false },
+    cn: { platform: "windows", arch: null, version: "", releaseNotes: "", setActive: true, file: null, uploading: false, progress: null },
+    intl: { platform: "windows", arch: null, version: "", releaseNotes: "", setActive: true, file: null, uploading: false, progress: null },
   });
 
   const tabMeta = useMemo(
@@ -123,10 +125,10 @@ export default function AdminReleasesPage() {
     []
   );
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  const fetchAll = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     try {
-      const res = await fetch("/api/admin/releases", { cache: "no-store" });
+      const res = await fetch(`/api/admin/releases?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const payload = (await res.json()) as AdminReleasesResponse;
       setData({
@@ -138,13 +140,15 @@ export default function AdminReleasesPage() {
         intl: !!payload.intl,
       });
     } catch {
-      toast({
-        title: "加载失败",
-        description: "无法获取版本列表，请稍后重试。",
-        variant: "destructive",
-      });
+      if (!opts?.silent) {
+        toast({
+          title: "加载失败",
+          description: "无法获取版本列表，请稍后重试。",
+          variant: "destructive",
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [toast]);
 
@@ -210,15 +214,77 @@ export default function AdminReleasesPage() {
         params.set("fileSize", String(file.size));
         params.set("fileName", file.name);
         if (releaseNotes) params.set("releaseNotes", releaseNotes);
+        updateUploadState(region, { progress: { loaded: 0, total: file.size } });
 
-        const res = await fetch(`/api/admin/releases/upload?${params.toString()}`, {
-          method: "POST",
-          headers: {
-            "content-type": file.type || "application/octet-stream",
-          },
-          body: file,
+        const payload = await new Promise<any>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", `/api/admin/releases/upload?${params.toString()}`);
+          xhr.withCredentials = true;
+          xhr.setRequestHeader("content-type", file.type || "application/octet-stream");
+          xhr.upload.onprogress = (ev) => {
+            if (!ev) return;
+            updateUploadState(region, {
+              progress: { loaded: ev.loaded, total: typeof ev.total === "number" && ev.total > 0 ? ev.total : null },
+            });
+          };
+          xhr.onload = () => {
+            const ok = xhr.status >= 200 && xhr.status < 300;
+            if (!ok) {
+              try {
+                const json = JSON.parse(xhr.responseText || "{}");
+                const msg = typeof json?.error === "string" ? json.error : "";
+                return reject(new Error(msg || `HTTP ${xhr.status}`));
+              } catch {
+                return reject(new Error(`HTTP ${xhr.status}`));
+              }
+            }
+            try {
+              resolve(JSON.parse(xhr.responseText || "{}"));
+            } catch {
+              resolve({});
+            }
+          };
+          xhr.onerror = () => reject(new Error("Network error"));
+          xhr.send(file);
         });
-        if (!res.ok) throw new Error(await getHttpErrorMessage(res));
+
+        const optimisticId = typeof payload?.id === "string" && payload.id ? payload.id : `cn-${Date.now()}`;
+        setData((prev) => {
+          const nextList = [
+            {
+              id: optimisticId,
+              platform,
+              arch,
+              version,
+              fileName: file.name,
+              fileSize: file.size,
+              contentType: file.type || "application/octet-stream",
+              isActive: setActive,
+              releaseNotes: releaseNotes || null,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              source: "CN",
+              storage: {
+                provider: "cloudbase",
+                fileIdOrPath: typeof payload?.fileIdOrPath === "string" ? payload.fileIdOrPath : undefined,
+                path: typeof payload?.cloudPath === "string" ? payload.cloudPath : undefined,
+              },
+            } satisfies AdminRelease,
+            ...prev[region]
+              .map((it) => {
+                if (
+                  setActive &&
+                  it.platform === platform &&
+                  (platform !== "macos" || (it.arch || null) === (arch || null))
+                ) {
+                  return { ...it, isActive: false };
+                }
+                return it;
+              })
+              .filter((it) => it.id !== optimisticId),
+          ];
+          return { ...prev, [region]: nextList };
+        });
       } else {
         const prepare = await fetch("/api/admin/releases/prepare-upload", {
           method: "POST",
@@ -265,11 +331,47 @@ export default function AdminReleasesPage() {
           }),
         });
         if (!register.ok) throw new Error(await getHttpErrorMessage(register));
+
+        const regPayload = (await register.json().catch(() => ({}))) as any;
+        const optimisticId = typeof regPayload?.id === "string" && regPayload.id ? regPayload.id : `intl-${Date.now()}`;
+        setData((prev) => {
+          const nextList = [
+            {
+              id: optimisticId,
+              platform,
+              arch,
+              version,
+              fileName: file.name,
+              fileSize: file.size,
+              contentType: file.type || "application/octet-stream",
+              isActive: setActive,
+              releaseNotes: releaseNotes || null,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              source: "INTL",
+              storage: { provider: "supabase", bucket: prepPayload.bucket, path: prepPayload.path },
+            } satisfies AdminRelease,
+            ...prev[region]
+              .map((it) => {
+                if (
+                  setActive &&
+                  it.platform === platform &&
+                  (platform !== "macos" || (it.arch || null) === (arch || null))
+                ) {
+                  return { ...it, isActive: false };
+                }
+                return it;
+              })
+              .filter((it) => it.id !== optimisticId),
+          ];
+          return { ...prev, [region]: nextList };
+        });
       }
 
       toast({ title: "上传成功" });
-      updateUploadState(region, { file: null });
-      await fetchAll();
+      updateUploadState(region, { file: null, progress: null });
+      fetchAll({ silent: true });
+      setTimeout(() => fetchAll({ silent: true }), 1500);
     } catch (e: any) {
       toast({
         title: "上传失败",
@@ -277,7 +379,7 @@ export default function AdminReleasesPage() {
         variant: "destructive",
       });
     } finally {
-      updateUploadState(region, { uploading: false });
+      updateUploadState(region, { uploading: false, progress: null });
     }
   }
 
@@ -356,7 +458,7 @@ export default function AdminReleasesPage() {
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span>{title}</span>
-              <Button variant="outline" size="sm" onClick={fetchAll} disabled={disabled}>
+              <Button variant="outline" size="sm" onClick={() => fetchAll()} disabled={disabled}>
                 刷新
               </Button>
             </CardTitle>
@@ -428,7 +530,7 @@ export default function AdminReleasesPage() {
                 <div className="text-sm font-medium">安装包文件</div>
                 <Input
                   type="file"
-                  onChange={(e) => updateUploadState(region, { file: e.target.files?.[0] || null })}
+                onChange={(e) => updateUploadState(region, { file: e.target.files?.[0] || null, progress: null })}
                   disabled={disabled}
                 />
               </div>
@@ -459,6 +561,19 @@ export default function AdminReleasesPage() {
                 {state.uploading ? "上传中..." : "上传"}
               </Button>
             </div>
+
+            {state.uploading && source === "CN" && state.progress && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-600">
+                  <span>上传进度</span>
+                  <span>
+                    {formatBytes(state.progress.loaded)}
+                    {state.progress.total ? ` / ${formatBytes(state.progress.total)}` : ""}
+                  </span>
+                </div>
+                <Progress value={state.progress.total ? (state.progress.loaded / state.progress.total) * 100 : 5} />
+              </div>
+            )}
           </CardContent>
         </Card>
 
