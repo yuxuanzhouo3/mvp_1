@@ -108,9 +108,11 @@ export async function POST(request: NextRequest) {
     const setActive = url.searchParams.get("setActive") === "1";
     const releaseNotesParam = (url.searchParams.get("releaseNotes") || "").trim();
     const fileSizeParam = url.searchParams.get("fileSize");
+    const fileNameParam = (url.searchParams.get("fileName") || "").trim();
 
     const headerFileName = request.headers.get("x-file-name");
-    const fileName = headerFileName ? sanitizeFileName(headerFileName) : "";
+    const rawFileName = fileNameParam || headerFileName || "";
+    const fileName = rawFileName ? sanitizeFileName(rawFileName) : "";
     const contentType = request.headers.get("content-type");
     const contentLengthHeader = request.headers.get("content-length");
     const fileSize = contentLengthHeader
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest) {
       : (fileSizeParam ? Number(fileSizeParam) : null);
 
     if (!platform || !version || !fileName) {
-      return NextResponse.json({ error: "platform/version/x-file-name required" }, { status: 400 });
+      return NextResponse.json({ error: "platform/version/fileName required" }, { status: 400 });
     }
     if (url.searchParams.has("arch") && !arch) {
       return NextResponse.json({ error: "Invalid arch" }, { status: 400 });

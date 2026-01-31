@@ -208,13 +208,13 @@ export default function AdminReleasesPage() {
         });
         if (arch) params.set("arch", arch);
         params.set("fileSize", String(file.size));
+        params.set("fileName", file.name);
         if (releaseNotes) params.set("releaseNotes", releaseNotes);
 
         const res = await fetch(`/api/admin/releases/upload?${params.toString()}`, {
           method: "POST",
           headers: {
             "content-type": file.type || "application/octet-stream",
-            "x-file-name": file.name,
           },
           body: file,
         });

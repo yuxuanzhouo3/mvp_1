@@ -122,6 +122,12 @@ CN 环境使用以下 Cloudbase 数据库集合：
 | notifications | 通知记录 |
 | push_tokens | 推送 Token |
 
+### 版本管理
+
+| 集合名 | 说明 |
+|--------|------|
+| releases | 安装包版本记录（与 Supabase 表名一致） |
+
 ## 部署配置
 
 ### 环境变量

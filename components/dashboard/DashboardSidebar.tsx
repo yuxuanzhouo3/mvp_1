@@ -9,6 +9,7 @@ import { useAuth } from '@/app/providers/AuthProvider'
 import { useToast } from '@/hooks/use-toast'
 import { useLanguage } from '@/components/language-provider'
 import { useTranslations } from '@/lib/i18n'
+import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav'
 import {
   Home,
   MessageSquare,
@@ -105,33 +106,7 @@ export const DashboardSidebar = ({ user, isAdmin = false }: DashboardSidebarProp
 
   return (
     <>
-      {/* Mobile Bottom Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t z-50 safe-area-bottom">
-        <nav className="flex items-center justify-around h-14">
-          {[
-            { name: language === 'zh' ? '首页' : 'Home', href: '/dashboard', icon: Home },
-            { name: language === 'zh' ? '匹配' : 'Match', href: '/matching', icon: Heart },
-            { name: language === 'zh' ? '赞' : 'Likes', href: '/matching/history', icon: Heart },
-            { name: language === 'zh' ? '消息' : 'Messages', href: chatHref, icon: MessageSquare },
-            { name: language === 'zh' ? '个人资料' : 'Profile', href: '/dashboard/settings', icon: User },
-          ].map((item) => {
-            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname?.startsWith(item.href))
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex flex-col items-center justify-center flex-1 h-full py-1 transition-colors',
-                  isActive ? 'text-primary' : 'text-muted-foreground'
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                <span className="text-xs mt-1">{item.name}</span>
-              </Link>
-            )
-          })}
-        </nav>
-      </div>
+      <MobileBottomNav />
 
       {/* Desktop Sidebar */}
       <div className={`hidden md:block ${open ? 'w-64' : 'w-20'} shrink-0 transition-all duration-200`}>
