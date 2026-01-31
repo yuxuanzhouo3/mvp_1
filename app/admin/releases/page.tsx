@@ -131,14 +131,14 @@ export default function AdminReleasesPage() {
       const res = await fetch(`/api/admin/releases?t=${Date.now()}`, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const payload = (await res.json()) as AdminReleasesResponse;
-      setData({
-        cn: payload.cn || [],
-        intl: payload.intl || [],
-      });
-      setAvailableRegions({
-        cn: !!payload.cn,
-        intl: !!payload.intl,
-      });
+      setData((prev) => ({
+        cn: payload.cn ?? prev.cn,
+        intl: payload.intl ?? prev.intl,
+      }));
+      setAvailableRegions((prev) => ({
+        cn: payload.cn === undefined ? prev.cn : true,
+        intl: payload.intl === undefined ? prev.intl : true,
+      }));
     } catch {
       if (!opts?.silent) {
         toast({
@@ -168,6 +168,18 @@ export default function AdminReleasesPage() {
 
   useEffect(() => {
     fetchAll();
+  }, [fetchAll]);
+
+  useEffect(() => {
+    const interval = setInterval(() => fetchAll({ silent: true }), 12_000);
+    const onFocus = () => fetchAll({ silent: true });
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
   }, [fetchAll]);
 
   function updateUploadState(region: RegionKey, patch: Partial<(typeof uploadState)[RegionKey]>) {

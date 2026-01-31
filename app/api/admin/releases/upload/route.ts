@@ -131,15 +131,27 @@ export async function POST(request: NextRequest) {
     }
 
     const envId = process.env.CLOUDBASE_ENV_ID || process.env.NEXT_PUBLIC_CLOUDBASE_ENV_ID || "";
+    const secretId = process.env.CLOUDBASE_SECRET_ID || "";
+    const secretKey = process.env.CLOUDBASE_SECRET_KEY || "";
+    if (!envId || !secretId || !secretKey) {
+      return NextResponse.json(
+        { error: "Cloudbase 未配置（缺少 CLOUDBASE_ENV_ID/NEXT_PUBLIC_CLOUDBASE_ENV_ID 或 CLOUDBASE_SECRET_ID/CLOUDBASE_SECRET_KEY）" },
+        { status: 501 }
+      );
+    }
     const app = cloudbase.init({
       env: envId,
-      secretId: process.env.CLOUDBASE_SECRET_ID,
-      secretKey: process.env.CLOUDBASE_SECRET_KEY,
+      secretId,
+      secretKey,
     });
 
     const archPart = arch ? `-${arch}` : "";
     const cloudPath = `releases/${platform}/${version}/${Date.now()}${archPart}-${fileName}`;
-    const fileContent = Readable.fromWeb(request.body as any);
+    const bufferUploadThresholdBytes = 20 * 1024 * 1024;
+    const shouldUploadAsBuffer = typeof fileSize === "number" && Number.isFinite(fileSize) && fileSize > 0 && fileSize <= bufferUploadThresholdBytes;
+    const fileContent = shouldUploadAsBuffer
+      ? Buffer.from(await request.arrayBuffer())
+      : Readable.fromWeb(request.body as any);
 
     const uploadResult = await app.uploadFile(
       {
