@@ -83,6 +83,9 @@ export default function RootLayout({
 
   return (
     <html lang={htmlLang} suppressHydrationWarning>
+      <head>
+        {isChinaRegion && <script src="/wechat-android-bridge.js" defer />}
+      </head>
       <body className={`${systemFontClass} ${themeClass}`}>
         <ErrorBoundary>
           <Providers initialLanguage={initialLanguage} languageScope={isAdminRoute ? 'admin' : 'app'}>

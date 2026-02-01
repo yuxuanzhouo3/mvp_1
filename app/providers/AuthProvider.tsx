@@ -280,6 +280,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const redirectPath = '/dashboard';
+
+    // Check for Android WebView bridge
+    const androidBridge = (window as any)?.AndroidWeChatBridge;
+    if (androidBridge && typeof androidBridge.login === 'function') {
+      console.log('🤖 Android WeChat bridge detected, calling native login');
+      try {
+        androidBridge.login();
+        return { error: null };
+      } catch (e) {
+        console.error('Android WeChat bridge error:', e);
+      }
+    }
+
+    // Check for React Native WebView
     const rnWebView = (window as any)?.ReactNativeWebView;
     if (rnWebView && typeof rnWebView.postMessage === 'function') {
       try {
