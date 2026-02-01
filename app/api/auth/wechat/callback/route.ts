@@ -206,7 +206,12 @@ export async function GET(request: NextRequest) {
  * POST 请求 - 用于客户端 AJAX 调用
  */
 export async function POST(request: NextRequest) {
+  console.log('========================================');
+  console.log('[WeChat Callback POST] Request received');
+  console.log('========================================');
+
   if (!isChinaDeployment()) {
+    console.log('[WeChat Callback POST] ERROR: Not in CN deployment');
     return NextResponse.json(
       { error: 'WeChat OAuth only available in CN deployment' },
       { status: 400 }
@@ -215,10 +220,19 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+    console.log('[WeChat Callback POST] Request body:', JSON.stringify(body, null, 2));
+
     const { code, loginType, state } = body as { code: string; loginType?: string; state?: string };
     const normalizedLoginType = normalizeLoginType(loginType);
 
+    console.log('[WeChat Callback POST] Parsed parameters:');
+    console.log('  - code:', code ? `${code.substring(0, 10)}...` : 'MISSING');
+    console.log('  - loginType:', loginType);
+    console.log('  - normalizedLoginType:', normalizedLoginType);
+    console.log('  - state:', state ? 'present' : 'missing');
+
     if (!code) {
+      console.log('[WeChat Callback POST] ERROR: Missing authorization code');
       return NextResponse.json(
         { error: '缺少授权码', errorCode: 'MISSING_CODE' },
         { status: 400 }
@@ -226,19 +240,28 @@ export async function POST(request: NextRequest) {
     }
 
     if (normalizedLoginType === 'mobile_app') {
+      console.log('[WeChat Callback POST] Validating mobile_app state...');
       const signed = parseWeChatSignedState(state || null);
+      console.log('[WeChat Callback POST] Parsed state:', signed);
       if (!signed || signed.t !== 'mobile_app') {
+        console.log('[WeChat Callback POST] ERROR: Invalid state for mobile_app');
         return NextResponse.json(
           { error: '无效的 state', errorCode: 'INVALID_STATE' },
           { status: 401 }
         );
       }
+      console.log('[WeChat Callback POST] State validation passed');
     }
 
     // 获取配置
+    console.log('[WeChat Callback POST] Getting WeChat credentials for:', normalizedLoginType);
     const { appId, appSecret } = getWeChatOAuthCredentials(normalizedLoginType);
+    console.log('[WeChat Callback POST] Credentials:');
+    console.log('  - appId:', appId ? `${appId.substring(0, 8)}...` : 'MISSING');
+    console.log('  - appSecret:', appSecret ? 'present' : 'MISSING');
 
     if (!appId || !appSecret) {
+      console.log('[WeChat Callback POST] ERROR: WeChat configuration missing');
       return NextResponse.json(
         { error: '微信配置错误', errorCode: 'CONFIG_ERROR' },
         { status: 500 }
@@ -246,9 +269,18 @@ export async function POST(request: NextRequest) {
     }
 
     // 换取 token
+    console.log('[WeChat Callback POST] Exchanging code for access token...');
     const tokenData = await getWeChatAccessToken(appId, appSecret, code);
+    console.log('[WeChat Callback POST] Token response:', {
+      hasAccessToken: !!tokenData.access_token,
+      hasOpenid: !!tokenData.openid,
+      hasUnionid: !!tokenData.unionid,
+      errcode: tokenData.errcode,
+      errmsg: tokenData.errmsg,
+    });
 
     if (tokenData.errcode) {
+      console.log('[WeChat Callback POST] ERROR: WeChat token error:', tokenData.errcode, tokenData.errmsg);
       return NextResponse.json(
         { error: tokenData.errmsg || '微信授权失败', errorCode: `WECHAT_${tokenData.errcode}` },
         { status: 401 }
@@ -256,21 +288,37 @@ export async function POST(request: NextRequest) {
     }
 
     // 获取用户信息
+    console.log('[WeChat Callback POST] Fetching user info...');
     let userInfo: WeChatUserInfo | null = null;
     if (tokenData.access_token && tokenData.openid) {
       userInfo = await getWeChatUserInfo(tokenData.access_token, tokenData.openid);
+      console.log('[WeChat Callback POST] User info received:', {
+        hasNickname: !!userInfo?.nickname,
+        hasHeadimgurl: !!userInfo?.headimgurl,
+        errcode: userInfo?.errcode,
+      });
     }
 
     // 查找或创建用户
+    console.log('[WeChat Callback POST] Finding or creating user...');
     const user = await findOrCreateWeChatUser({
       openid: tokenData.openid!,
       unionid: tokenData.unionid,
       userInfo,
       loginType: normalizedLoginType,
     });
+    console.log('[WeChat Callback POST] User:', {
+      id: user.id,
+      displayName: user.displayName,
+    });
 
     // 创建会话
+    console.log('[WeChat Callback POST] Creating session...');
     const session = await createUserSession(user.id);
+    console.log('[WeChat Callback POST] Session created:', session ? 'success' : 'failed');
+
+    console.log('[WeChat Callback POST] ✅ Login successful!');
+    console.log('========================================');
 
     return NextResponse.json({
       success: true,
@@ -278,11 +326,16 @@ export async function POST(request: NextRequest) {
         id: user.id,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
+        email: user.email,
       },
       session,
     });
   } catch (error: any) {
-    console.error('[WeChat Callback POST] Error:', error);
+    console.error('========================================');
+    console.error('[WeChat Callback POST] ❌ ERROR:', error);
+    console.error('[WeChat Callback POST] Error message:', error.message);
+    console.error('[WeChat Callback POST] Error stack:', error.stack);
+    console.error('========================================');
     return NextResponse.json(
       { error: error.message || '登录失败', errorCode: 'LOGIN_ERROR' },
       { status: 500 }
