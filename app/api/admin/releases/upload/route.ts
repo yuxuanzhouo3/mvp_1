@@ -5,6 +5,7 @@ import { verifyAdminSessionToken } from "@/utils/session";
 import type { MacOSArchType, PlatformType } from "@/lib/config/download.config";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 const CN_APP_ORIGIN =
   process.env.CN_APP_ORIGIN || "https://personalink.mornscience.top";

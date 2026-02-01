@@ -50,9 +50,17 @@ type AdminRelease = {
   };
 };
 
+type RegionSource = "local" | "proxy" | "anon" | "unavailable";
+
+type AdminReleasesMeta = {
+  cn: { source: RegionSource; error?: string | null };
+  intl: { source: RegionSource; error?: string | null };
+};
+
 type AdminReleasesResponse = {
   cn?: AdminRelease[];
   intl?: AdminRelease[];
+  meta?: AdminReleasesMeta;
 };
 
 const PLATFORM_OPTIONS: Array<{ value: PlatformType; label: string }> = [
@@ -97,6 +105,10 @@ export default function AdminReleasesPage() {
     cn: [],
     intl: [],
   });
+  const [meta, setMeta] = useState<AdminReleasesMeta>({
+    cn: { source: "unavailable", error: null },
+    intl: { source: "unavailable", error: null },
+  });
 
   const [uploadState, setUploadState] = useState<
     Record<
@@ -135,9 +147,10 @@ export default function AdminReleasesPage() {
         cn: payload.cn ?? prev.cn,
         intl: payload.intl ?? prev.intl,
       }));
+      setMeta((prev) => payload.meta ?? prev);
       setAvailableRegions((prev) => ({
-        cn: payload.cn === undefined ? prev.cn : true,
-        intl: payload.intl === undefined ? prev.intl : true,
+        cn: payload.meta?.cn?.source ? payload.meta.cn.source !== "unavailable" : prev.cn,
+        intl: payload.meta?.intl?.source ? payload.meta.intl.source !== "unavailable" : prev.intl,
       }));
     } catch {
       if (!opts?.silent) {
@@ -463,6 +476,15 @@ export default function AdminReleasesPage() {
     const arch = normalizeArchForPlatform(platform, state.arch);
     const disabled = loading || state.uploading;
     const list = data[region];
+    const regionMeta = meta[region];
+    const sourceLabel =
+      regionMeta?.source === "local"
+        ? "本地直连"
+        : (regionMeta?.source === "proxy"
+          ? "跨环境代理"
+          : (regionMeta?.source === "anon"
+            ? "匿名只读"
+            : "不可用"));
 
     return (
       <div className="space-y-6">
@@ -476,6 +498,10 @@ export default function AdminReleasesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="text-xs text-slate-500">
+              数据源：{sourceLabel}
+              {regionMeta?.error ? `（${String(regionMeta.error)}）` : ""}
+            </div>
             {!availableRegions[region] && (
               <div className="text-sm text-slate-500">
                 当前环境暂时无法读取该侧数据（可能缺少数据库配置或跨环境代理失败）。页面仍可显示结构以便查看。

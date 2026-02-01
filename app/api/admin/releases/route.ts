@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import cloudbase from "@cloudbase/node-sdk";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { createClient } from "@supabase/supabase-js";
+import { getSupabaseAnonKey, getSupabaseUrl, isPlaceholderSupabaseUrl } from "@/lib/config/supabase-env";
 import { verifyAdminSessionToken } from "@/utils/session";
 import type { MacOSArchType, PlatformType } from "@/lib/config/download.config";
 
@@ -34,6 +36,13 @@ type AdminRelease = {
   };
 };
 
+type RegionSource = "local" | "proxy" | "anon" | "unavailable";
+
+type AdminReleasesMeta = {
+  cn: { source: RegionSource; error?: string | null };
+  intl: { source: RegionSource; error?: string | null };
+};
+
 function parseSource(value: string | null): Source {
   const normalized = (value || "").toUpperCase();
   if (normalized === "CN" || normalized === "INTL") return normalized;
@@ -50,6 +59,18 @@ function hasCnConfig(): boolean {
 
 function hasIntlConfig(): boolean {
   return !!supabaseAdmin;
+}
+
+function createSupabaseAnonClient() {
+  const url = getSupabaseUrl();
+  const anonKey = getSupabaseAnonKey();
+  if (!url || !anonKey || isPlaceholderSupabaseUrl(url)) return null;
+  return createClient(url, anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
 
 function getProxySecret(): string | null {
@@ -261,6 +282,67 @@ async function readIntl(): Promise<AdminRelease[]> {
   return out;
 }
 
+async function readIntlWithAnon(): Promise<AdminRelease[]> {
+  const anon = createSupabaseAnonClient();
+  if (!anon) return [];
+  const primary = await anon.from("releases").select("*").order("created_at", { ascending: false }).limit(200);
+  const fallback = primary.error
+    ? await anon.from("releases").select("*").order("createdAt", { ascending: false }).limit(200)
+    : null;
+  const data = primary.data || fallback?.data || [];
+
+  const out: AdminRelease[] = [];
+  for (const item of data || []) {
+    const platform = normalizePlatform(item?.platform);
+    const arch = normalizeArch(item?.arch);
+    const version = typeof item?.version === "string" ? item.version : "";
+    const fileName =
+      (typeof item?.file_name === "string" && item.file_name) ||
+      (typeof item?.fileName === "string" && item.fileName) ||
+      "";
+    const bucket =
+      (typeof item?.storage_bucket === "string" && item.storage_bucket) ||
+      (typeof item?.storageBucket === "string" && item.storageBucket) ||
+      "";
+    const path =
+      (typeof item?.storage_path === "string" && item.storage_path) ||
+      (typeof item?.storagePath === "string" && item.storagePath) ||
+      "";
+    const maybeUrl =
+      (typeof item?.url === "string" && item.url) ||
+      (typeof item?.download_url === "string" && item.download_url) ||
+      (typeof item?.downloadUrl === "string" && item.downloadUrl) ||
+      "";
+    if (!platform || !version.trim() || !fileName.trim()) continue;
+
+    out.push({
+      id: String(item?.id || ""),
+      platform,
+      arch,
+      version: version.trim(),
+      fileName: fileName.trim(),
+      fileSize:
+        typeof item?.file_size === "number"
+          ? item.file_size
+          : (typeof item?.fileSize === "number" ? item.fileSize : null),
+      contentType:
+        typeof item?.content_type === "string"
+          ? item.content_type
+          : (typeof item?.contentType === "string" ? item.contentType : null),
+      isActive: !!(item?.is_active ?? item?.isActive),
+      releaseNotes:
+        typeof item?.release_notes === "string"
+          ? item.release_notes
+          : (typeof item?.releaseNotes === "string" ? item.releaseNotes : null),
+      createdAt: typeof item?.created_at === "string" ? item.created_at : (typeof item?.createdAt === "string" ? item.createdAt : null),
+      updatedAt: typeof item?.updated_at === "string" ? item.updated_at : (typeof item?.updatedAt === "string" ? item.updatedAt : null),
+      source: "INTL",
+      storage: bucket && path ? { provider: "supabase", bucket, path } : { provider: "supabase", ...(maybeUrl ? { path: maybeUrl } : {}) },
+    });
+  }
+  return out;
+}
+
 export async function GET(request: NextRequest) {
   try {
     if (!isAuthorized(request)) {
@@ -270,38 +352,86 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const source = parseSource(url.searchParams.get("source"));
     const canProxy = !isInternalProxyRequest(request);
+    const currentOrigin = url.origin;
 
     let cn: AdminRelease[] | undefined;
     let intl: AdminRelease[] | undefined;
+    const meta: AdminReleasesMeta = {
+      cn: { source: "unavailable", error: null },
+      intl: { source: "unavailable", error: null },
+    };
 
     if (source === "CN" || source === "ALL") {
-      if (hasCnConfig()) {
-        cn = await readCn();
-      } else if (canProxy) {
+      if (currentOrigin === INTL_APP_ORIGIN && canProxy) {
         try {
-          const remote = await proxyFetch(request, CN_APP_ORIGIN, "CN", "GET");
-          cn = (remote as any)?.cn as AdminRelease[] | undefined;
+          const remote = (await proxyFetch(request, CN_APP_ORIGIN, "CN", "GET")) as any;
+          cn = remote?.cn as AdminRelease[] | undefined;
+          meta.cn = remote?.meta?.cn || { source: "proxy", error: null };
         } catch {
           cn = undefined;
+          meta.cn = { source: "unavailable", error: "CN proxy failed" };
+        }
+      } else if (hasCnConfig()) {
+        cn = await readCn();
+        meta.cn = { source: "local", error: null };
+      } else if (canProxy) {
+        try {
+          const remote = (await proxyFetch(request, CN_APP_ORIGIN, "CN", "GET")) as any;
+          cn = remote?.cn as AdminRelease[] | undefined;
+          meta.cn = remote?.meta?.cn || { source: "proxy", error: null };
+        } catch {
+          cn = undefined;
+          meta.cn = { source: "unavailable", error: "CN proxy failed" };
         }
       }
     }
 
     if (source === "INTL" || source === "ALL") {
-      if (hasIntlConfig()) {
-        intl = await readIntl();
-      } else if (canProxy) {
+      if (currentOrigin === CN_APP_ORIGIN && canProxy) {
         try {
-          const remote = await proxyFetch(request, INTL_APP_ORIGIN, "INTL", "GET");
-          intl = (remote as any)?.intl as AdminRelease[] | undefined;
+          const remote = (await proxyFetch(request, INTL_APP_ORIGIN, "INTL", "GET")) as any;
+          intl = remote?.intl as AdminRelease[] | undefined;
+          meta.intl = remote?.meta?.intl || { source: "proxy", error: null };
         } catch {
           intl = undefined;
+          meta.intl = { source: "unavailable", error: "INTL proxy failed" };
+        }
+      } else if (hasIntlConfig()) {
+        try {
+          intl = await readIntl();
+          meta.intl = { source: "local", error: null };
+        } catch (e: any) {
+          intl = undefined;
+          meta.intl = { source: "unavailable", error: e?.message ? String(e.message).slice(0, 200) : "INTL local read failed" };
+        }
+      } else if (canProxy) {
+        try {
+          const remote = (await proxyFetch(request, INTL_APP_ORIGIN, "INTL", "GET")) as any;
+          intl = remote?.intl as AdminRelease[] | undefined;
+          meta.intl = remote?.meta?.intl || { source: "proxy", error: null };
+        } catch {
+          intl = undefined;
+          meta.intl = { source: "unavailable", error: "INTL proxy failed" };
+        }
+      }
+
+      if (intl === undefined) {
+        try {
+          const anonList = await readIntlWithAnon();
+          if (anonList.length > 0) {
+            intl = anonList;
+            meta.intl = { source: "anon", error: null };
+          }
+        } catch (e: any) {
+          if (meta.intl.source === "unavailable") {
+            meta.intl = { source: "unavailable", error: e?.message ? String(e.message).slice(0, 200) : "INTL anon read failed" };
+          }
         }
       }
     }
 
     return NextResponse.json(
-      { cn, intl },
+      { cn, intl, meta },
       {
         headers: {
           "cache-control": "no-store",

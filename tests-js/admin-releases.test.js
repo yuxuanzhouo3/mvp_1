@@ -12,10 +12,22 @@ function expectRoute(filePath, expectedSnippets) {
 }
 
 test('Admin 版本管理相关路由应存在', () => {
-  expectRoute('app/api/admin/releases/route.ts', ['export async function GET', 'proxyFetch', '"cache-control": "no-store"']);
+  expectRoute('app/api/admin/releases/route.ts', [
+    'export async function GET',
+    'proxyFetch',
+    '"cache-control": "no-store"',
+    'meta',
+    'readIntlWithAnon'
+  ]);
   expectRoute('app/api/admin/releases/activate/route.ts', ['export async function POST']);
   expectRoute('app/api/admin/releases/delete/route.ts', ['export async function POST']);
-  expectRoute('app/api/admin/releases/upload/route.ts', ['export async function POST', 'Readable.fromWeb', 'fileNameParam', 'bufferUploadThresholdBytes']);
+  expectRoute('app/api/admin/releases/upload/route.ts', [
+    'export async function POST',
+    'export const maxDuration = 300',
+    'Readable.fromWeb',
+    'fileNameParam',
+    'bufferUploadThresholdBytes'
+  ]);
   expectRoute('app/api/admin/releases/prepare-upload/route.ts', ['export async function POST', 'createSignedUploadUrl']);
   expectRoute('app/api/admin/releases/register/route.ts', ['export async function POST', '.from("releases")']);
   expectRoute('app/api/admin/releases/signed-download/route.ts', ['export async function POST', 'createSignedUrl']);
@@ -26,6 +38,7 @@ test('Admin 版本管理上传不应依赖 x-file-name header', () => {
   const pageContent = fs.readFileSync(page, 'utf8');
   assert.ok(!pageContent.includes('"x-file-name"'), 'admin/releases 页面不应设置 x-file-name header');
   assert.ok(pageContent.includes('XMLHttpRequest'), 'CN 上传应使用 XMLHttpRequest 以展示上传进度');
+  assert.ok(pageContent.includes('数据源：'), 'admin/releases 页面应显示列表数据源信息');
 
   const uploadRoute = path.resolve(process.cwd(), 'app/api/admin/releases/upload/route.ts');
   const uploadContent = fs.readFileSync(uploadRoute, 'utf8');
