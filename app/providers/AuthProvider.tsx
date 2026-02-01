@@ -273,24 +273,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithWeChat = useCallback(async () => {
     console.log('🔐 SignInWithWeChat called');
+    console.log('📱 Environment check - isChinaDeployment:', isChinaDeployment());
+    console.log('🌐 Current URL:', window.location.href);
+    console.log('🔍 User Agent:', navigator.userAgent);
 
     // INTL 环境不支持微信登录
     if (!isChinaDeployment()) {
+      console.log('❌ Not in China deployment, WeChat login not available');
       return { error: { message: 'WeChat login is not available in international region' } };
     }
 
     const redirectPath = '/dashboard';
 
     // Check for Android WebView bridge
+    console.log('🔍 Checking for AndroidWeChatBridge...');
+    console.log('🔍 window object keys:', Object.keys(window).filter(k => k.includes('Android') || k.includes('WeChat')));
     const androidBridge = (window as any)?.AndroidWeChatBridge;
+    console.log('🔍 AndroidWeChatBridge exists:', !!androidBridge);
+    console.log('🔍 AndroidWeChatBridge type:', typeof androidBridge);
+    if (androidBridge) {
+      console.log('🔍 AndroidWeChatBridge.login exists:', !!androidBridge.login);
+      console.log('🔍 AndroidWeChatBridge.login type:', typeof androidBridge.login);
+    }
+
     if (androidBridge && typeof androidBridge.login === 'function') {
-      console.log('🤖 Android WeChat bridge detected, calling native login');
+      console.log('✅ Android WeChat bridge detected, calling native login');
       try {
+        console.log('📞 Calling androidBridge.login()...');
         androidBridge.login();
+        console.log('✅ androidBridge.login() called successfully');
         return { error: null };
       } catch (e) {
-        console.error('Android WeChat bridge error:', e);
+        console.error('❌ Android WeChat bridge error:', e);
       }
+    } else {
+      console.log('⚠️ Android WeChat bridge not detected or login method not available');
     }
 
     // Check for React Native WebView
