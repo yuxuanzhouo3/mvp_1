@@ -326,7 +326,6 @@ export async function POST(request: NextRequest) {
         id: user.id,
         displayName: user.displayName,
         avatarUrl: user.avatarUrl,
-        email: user.email,
       },
       session,
     });
