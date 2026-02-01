@@ -100,6 +100,27 @@ export function isChinaDeployment(): boolean {
   return false;
 }
 
+export function isChinaDeploymentFromRequest(request: Request): boolean {
+  const envRegion = process.env.NEXT_PUBLIC_DEPLOYMENT_REGION;
+  if (envRegion === "CN") return true;
+  if (envRegion === "INTL") return false;
+
+  const headerRegion = request.headers.get('x-deployment-region');
+  if (headerRegion === 'CN') return true;
+  if (headerRegion === 'INTL') return false;
+
+  try {
+    const url = new URL(request.url);
+    const host = url.host.toLowerCase();
+    if (host.includes('mornscience.top')) return true;
+    if (host.includes('mornhub.lat')) return false;
+  } catch {
+    return false;
+  }
+
+  return false;
+}
+
 /**
  * 判断是否为国际区域
  */

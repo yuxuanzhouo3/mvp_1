@@ -99,6 +99,18 @@ function isWeChatMiniProgram(): boolean {
 }
 
 /**
+ * 检测是否在移动设备上
+ */
+function isMobileDevice(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+}
+
+/**
  * CN 认证服务 - 基于腾讯云 Cloudbase Auth + 微信登录
  */
 export class CnAuthService implements IAuthService {
@@ -217,6 +229,18 @@ export class CnAuthService implements IAuthService {
           success: true,
           session: {
             accessToken: 'miniprogram', // 标识需要使用小程序登录流程
+          },
+        };
+      }
+
+      // 检测是否为移动设备
+      if (isMobileDevice()) {
+        // 移动设备 - 使用微信移动应用登录
+        console.log('[WeChat Auth] Using mobile app login flow');
+        return {
+          success: true,
+          session: {
+            accessToken: 'mobile_app', // 标识需要使用移动应用登录流程
           },
         };
       }

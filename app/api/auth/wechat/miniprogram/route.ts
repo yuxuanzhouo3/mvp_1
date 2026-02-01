@@ -10,6 +10,7 @@ import {
   findOrCreateWeChatUser,
   createUserSession,
 } from '@/lib/services/auth/wechat-db';
+import { isChinaDeploymentFromRequest } from '@/lib/config/deployment.config';
 
 // 微信小程序登录凭证校验接口
 const WECHAT_CODE2SESSION_URL = 'https://api.weixin.qq.com/sns/jscode2session';
@@ -23,6 +24,13 @@ interface Code2SessionResponse {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isChinaDeploymentFromRequest(request)) {
+    return NextResponse.json(
+      { error: 'WeChat OAuth only available in CN deployment' },
+      { status: 400 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { code, encryptedData, iv } = body as {

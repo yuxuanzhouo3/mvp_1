@@ -10,6 +10,7 @@ import {
   checkExistingBinding,
   bindWeChatToUser,
 } from '@/lib/services/auth/wechat-db';
+import { isChinaDeploymentFromRequest } from '@/lib/config/deployment.config';
 
 // 微信 Access Token 接口
 const WECHAT_ACCESS_TOKEN_URL = 'https://api.weixin.qq.com/sns/oauth2/access_token';
@@ -39,6 +40,13 @@ interface WeChatUserInfo {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isChinaDeploymentFromRequest(request)) {
+    return NextResponse.json(
+      { error: 'WeChat OAuth only available in CN deployment' },
+      { status: 400 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { userId, code } = body as {

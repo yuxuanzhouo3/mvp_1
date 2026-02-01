@@ -10,8 +10,16 @@ import {
   getUserLoginMethods,
   unbindWeChatFromUser,
 } from '@/lib/services/auth/wechat-db';
+import { isChinaDeploymentFromRequest } from '@/lib/config/deployment.config';
 
 export async function POST(request: NextRequest) {
+  if (!isChinaDeploymentFromRequest(request)) {
+    return NextResponse.json(
+      { error: 'WeChat OAuth only available in CN deployment' },
+      { status: 400 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { userId } = body as { userId: string };
