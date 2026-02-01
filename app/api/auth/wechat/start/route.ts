@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { getExternalRequestOrigin } from '@/lib/http/request-origin';
+import { getWeChatOAuthCredentials } from '@/lib/services/auth/wechat-oauth';
 
 function normalizeRedirectPath(input: string | null): string {
   if (!input) return '/dashboard';
@@ -34,11 +35,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const redirectPath = normalizeRedirectPath(searchParams.get('redirect'));
 
-  const appId =
-    process.env.NEXT_PUBLIC_WECHAT_APP_ID ||
-    process.env.NEXT_PUBLIC_WECHAT_OPEN_APP_ID ||
-    process.env.WECHAT_APP_ID ||
-    '';
+  const { appId } = getWeChatOAuthCredentials('open');
 
   if (!appId) {
     const errorUrl = new URL('/auth/login', request.url);

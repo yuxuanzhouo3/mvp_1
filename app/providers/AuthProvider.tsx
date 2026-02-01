@@ -280,6 +280,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const redirectPath = '/dashboard';
+    const rnWebView = (window as any)?.ReactNativeWebView;
+    if (rnWebView && typeof rnWebView.postMessage === 'function') {
+      try {
+        const response = await fetch(
+          `/api/auth/wechat/app/start?redirect=${encodeURIComponent(redirectPath)}`,
+          { method: 'GET', cache: 'no-store' }
+        );
+        const data = await response.json();
+        if (response.ok && data?.appId && data?.state) {
+          rnWebView.postMessage(
+            JSON.stringify({
+              type: 'WECHAT_MOBILE_APP_LOGIN',
+              appId: data.appId,
+              state: data.state,
+              scope: data.scope,
+            })
+          );
+          return { error: null };
+        }
+      } catch {}
+    }
+
     window.location.href = `/api/auth/wechat/start?redirect=${encodeURIComponent(redirectPath)}`;
 
     return { error: null };

@@ -13,6 +13,11 @@ import {
 } from '@/lib/services/auth/wechat-db';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { getExternalRequestOrigin } from '@/lib/http/request-origin';
+import {
+  getWeChatOAuthCredentials,
+  parseWeChatSignedState,
+  WeChatLoginType,
+} from '@/lib/services/auth/wechat-oauth';
 
 // 微信 Access Token 接口
 const WECHAT_ACCESS_TOKEN_URL = 'https://api.weixin.qq.com/sns/oauth2/access_token';
@@ -82,7 +87,7 @@ export async function GET(request: NextRequest) {
     const loginType = parseLoginType(state, parsedState);
     console.log(`[WeChat Callback] Processing ${loginType} login`);
 
-    if (parsedState?.nonce) {
+    if (parsedState?.nonce && parsedState.source === 'legacy') {
       const cookieNonce = request.cookies.get('wechat_oauth_state')?.value;
       const isSecureCookie = isSecureCookieRequest(request);
       if (!cookieNonce || cookieNonce !== parsedState.nonce) {
@@ -102,7 +107,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 获取对应的 AppID 和 Secret
-    const { appId, appSecret } = getWeChatConfig(loginType);
+    const { appId, appSecret } = getWeChatOAuthCredentials(loginType);
 
     if (!appId || !appSecret) {
       throw new Error('WeChat configuration missing');
@@ -210,7 +215,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { code, loginType = 'open' } = body as { code: string; loginType?: string };
+    const { code, loginType, state } = body as { code: string; loginType?: string; state?: string };
+    const normalizedLoginType = normalizeLoginType(loginType);
 
     if (!code) {
       return NextResponse.json(
@@ -219,8 +225,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (normalizedLoginType === 'mobile_app') {
+      const signed = parseWeChatSignedState(state || null);
+      if (!signed || signed.t !== 'mobile_app') {
+        return NextResponse.json(
+          { error: '无效的 state', errorCode: 'INVALID_STATE' },
+          { status: 401 }
+        );
+      }
+    }
+
     // 获取配置
-    const { appId, appSecret } = getWeChatConfig(loginType);
+    const { appId, appSecret } = getWeChatOAuthCredentials(normalizedLoginType);
 
     if (!appId || !appSecret) {
       return NextResponse.json(
@@ -250,7 +266,7 @@ export async function POST(request: NextRequest) {
       openid: tokenData.openid!,
       unionid: tokenData.unionid,
       userInfo,
-      loginType,
+      loginType: normalizedLoginType,
     });
 
     // 创建会话
@@ -276,27 +292,50 @@ export async function POST(request: NextRequest) {
 
 // ============ 辅助函数 ============
 
-function parseState(state: string | null): { nonce?: string; redirectPath?: string; loginType?: string } | null {
+type ParsedState =
+  | { nonce?: string; redirectPath?: string; loginType?: WeChatLoginType; source: 'legacy' | 'signed' }
+  | null;
+
+function parseState(state: string | null): ParsedState {
   if (!state) return null;
   if (state.startsWith('wechat_')) return null;
+  if (state.includes('.')) {
+    const signed = parseWeChatSignedState(state);
+    if (!signed) return null;
+    return {
+      nonce: signed.n,
+      redirectPath: signed.r,
+      loginType: signed.t,
+      source: 'signed',
+    };
+  }
   try {
     const decoded = JSON.parse(Buffer.from(state, 'base64url').toString('utf-8')) as any;
     return {
       nonce: typeof decoded?.n === 'string' ? decoded.n : undefined,
       redirectPath: typeof decoded?.r === 'string' ? decoded.r : undefined,
-      loginType: typeof decoded?.t === 'string' ? decoded.t : undefined,
+      loginType:
+        decoded?.t === 'open' || decoded?.t === 'miniprogram' || decoded?.t === 'mobile_app'
+          ? decoded.t
+          : undefined,
+      source: 'legacy',
     };
   } catch {
     return null;
   }
 }
 
-function parseLoginType(state: string | null, parsedState?: { loginType?: string } | null): string {
+function parseLoginType(state: string | null, parsedState?: { loginType?: WeChatLoginType } | null): WeChatLoginType {
   const fromState = parsedState?.loginType;
-  if (fromState === 'miniprogram' || fromState === 'open') return fromState;
+  if (fromState === 'miniprogram' || fromState === 'open' || fromState === 'mobile_app') return fromState;
   if (!state) return 'open';
   if (state.startsWith('wechat_open_')) return 'open';
   if (state.startsWith('wechat_mini_')) return 'miniprogram';
+  return 'open';
+}
+
+function normalizeLoginType(input?: string): WeChatLoginType {
+  if (input === 'open' || input === 'miniprogram' || input === 'mobile_app') return input;
   return 'open';
 }
 
@@ -315,25 +354,6 @@ function isSecureCookieRequest(request: NextRequest): boolean {
   const host = request.headers.get('host') || '';
   const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
   return isSecureRequest || !isLocalhost;
-}
-
-/**
- * 获取微信配置
- */
-function getWeChatConfig(loginType: string): { appId: string; appSecret: string } {
-  switch (loginType) {
-    case 'miniprogram':
-      return {
-        appId: process.env.WECHAT_MINIPROGRAM_APP_ID || '',
-        appSecret: process.env.WECHAT_MINIPROGRAM_APP_SECRET || '',
-      };
-    case 'open':
-    default:
-      return {
-        appId: process.env.WECHAT_APP_ID || '',
-        appSecret: process.env.WECHAT_APP_SECRET || '',
-      };
-  }
 }
 
 /**
