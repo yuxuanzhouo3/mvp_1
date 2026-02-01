@@ -285,15 +285,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const redirectPath = '/dashboard';
 
-    // Check for Android WebView bridge
-    console.log('🔍 Checking for AndroidWeChatBridge...');
-    console.log('🔍 window object keys:', Object.keys(window).filter(k => k.includes('Android') || k.includes('WeChat')));
-    const androidBridge = (window as any)?.AndroidWeChatBridge;
-    console.log('🔍 AndroidWeChatBridge exists:', !!androidBridge);
-    console.log('🔍 AndroidWeChatBridge type:', typeof androidBridge);
-    if (androidBridge) {
-      console.log('🔍 AndroidWeChatBridge.login exists:', !!androidBridge.login);
-      console.log('🔍 AndroidWeChatBridge.login type:', typeof androidBridge.login);
+    // Check for Android WebView bridge with retry mechanism
+    const checkAndroidBridge = () => {
+      console.log('🔍 Checking for AndroidWeChatBridge...');
+      console.log('🔍 window object keys:', Object.keys(window).filter(k => k.includes('Android') || k.includes('WeChat')));
+      const androidBridge = (window as any)?.AndroidWeChatBridge;
+      console.log('🔍 AndroidWeChatBridge exists:', !!androidBridge);
+      console.log('🔍 AndroidWeChatBridge type:', typeof androidBridge);
+      if (androidBridge) {
+        console.log('🔍 AndroidWeChatBridge.login exists:', !!androidBridge.login);
+        console.log('🔍 AndroidWeChatBridge.login type:', typeof androidBridge.login);
+      }
+      return androidBridge;
+    };
+
+    let androidBridge = checkAndroidBridge();
+
+    // If bridge not found, retry after a short delay
+    if (!androidBridge || typeof androidBridge.login !== 'function') {
+      console.log('⏳ Bridge not found, retrying after 100ms...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      androidBridge = checkAndroidBridge();
     }
 
     if (androidBridge && typeof androidBridge.login === 'function') {
