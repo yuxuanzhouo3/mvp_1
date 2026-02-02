@@ -323,13 +323,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         sessionStorage.setItem('wechat_mobile_app_state', state);
 
+        if (typeof androidBridge.startLogin === 'function') {
+          androidBridge.startLogin(state);
+          return { error: null };
+        }
+
         if (typeof androidBridge.loginWithState === 'function') {
           androidBridge.loginWithState(state);
           return { error: null };
         }
 
-        androidBridge.login();
-        return { error: null };
+        console.error('❌ Android bridge missing signed state methods');
+        return { error: { message: 'Android bridge 不支持签名 state，请更新应用' } };
       } catch (e) {
         console.error('❌ Android WeChat bridge error:', e);
         return { error: { message: '无法初始化微信登录' } };

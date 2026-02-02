@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isChinaDeploymentFromRequest } from '@/lib/config/deployment.config';
 import { createWeChatSignedState, getWeChatOAuthCredentials } from '@/lib/services/auth/wechat-oauth';
+import { randomUUID } from 'node:crypto';
 
 function normalizeRedirectPath(input: string | null): string {
   if (!input) return '/dashboard';
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const nonce = crypto.randomUUID();
+  const nonce = randomUUID();
   const state = createWeChatSignedState({
     nonce,
     redirectPath,

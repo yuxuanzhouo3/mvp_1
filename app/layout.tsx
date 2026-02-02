@@ -86,7 +86,7 @@ export default function RootLayout({
   return (
     <html lang={htmlLang} suppressHydrationWarning>
       <head>
-        {isChinaRegion && <script src="/wechat-android-bridge.js" defer />}
+        {isChinaRegion && <script src="/wechat-android-bridge.js" />}
       </head>
       <body className={`${systemFontClass} ${themeClass}`}>
         <ErrorBoundary>
