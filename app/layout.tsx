@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import './globals.css'
 import { Providers } from '@/components/providers'
 import { Toaster } from '@/components/ui/toaster'
@@ -85,10 +86,8 @@ export default function RootLayout({
 
   return (
     <html lang={htmlLang} suppressHydrationWarning>
-      <head>
-        {isChinaRegion && <script src="/wechat-android-bridge.js" />}
-      </head>
       <body className={`${systemFontClass} ${themeClass}`}>
+        {isChinaRegion && <Script src="/wechat-android-bridge.js" strategy="beforeInteractive" />}
         <ErrorBoundary>
           <Providers initialLanguage={initialLanguage} languageScope={isAdminRoute ? 'admin' : 'app'}>
             <div className="bg-background">
