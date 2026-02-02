@@ -320,7 +320,12 @@ export async function POST(request: NextRequest) {
     console.log('[WeChat Callback POST] ✅ Login successful!');
     console.log('========================================');
 
-    return NextResponse.json({
+    // Create response with authentication cookies
+    const host = request.headers.get('host') || '';
+    const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    const isSecureCookie = isSecureCookieRequest(request) || !isLocalhost;
+
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -329,6 +334,27 @@ export async function POST(request: NextRequest) {
       },
       session,
     });
+
+    // Set authentication cookies
+    response.cookies.set('cn_session', session, {
+      httpOnly: true,
+      secure: isSecureCookie,
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: '/',
+    });
+
+    if (!isLocalhost) {
+      response.cookies.set('cn_session_cross', session, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'none',
+        maxAge: 7 * 24 * 60 * 60,
+        path: '/',
+      });
+    }
+
+    return response;
   } catch (error: any) {
     console.error('========================================');
     console.error('[WeChat Callback POST] ❌ ERROR:', error);
