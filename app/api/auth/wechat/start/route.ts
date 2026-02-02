@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { isChinaDeploymentFromRequest } from '@/lib/config/deployment.config';
 import { getExternalRequestOrigin } from '@/lib/http/request-origin';
 import { getWeChatOAuthCredentials } from '@/lib/services/auth/wechat-oauth';
 
@@ -25,7 +25,7 @@ function isSecureCookieRequest(request: NextRequest): boolean {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isChinaDeployment()) {
+  if (!isChinaDeploymentFromRequest(request)) {
     return NextResponse.json(
       { error: 'WeChat OAuth only available in CN deployment' },
       { status: 400 }

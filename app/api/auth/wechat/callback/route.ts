@@ -11,7 +11,7 @@ import {
   findOrCreateWeChatUser,
   createUserSession,
 } from '@/lib/services/auth/wechat-db';
-import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { isChinaDeploymentFromRequest } from '@/lib/config/deployment.config';
 import { getExternalRequestOrigin } from '@/lib/http/request-origin';
 import {
   getWeChatOAuthCredentials,
@@ -52,7 +52,7 @@ interface WeChatUserInfo {
  * GET 请求 - 处理微信授权重定向回调
  */
 export async function GET(request: NextRequest) {
-  if (!isChinaDeployment()) {
+  if (!isChinaDeploymentFromRequest(request)) {
     return NextResponse.json(
       { error: 'WeChat OAuth only available in CN deployment' },
       { status: 400 }
@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
   console.log('[WeChat Callback POST] Request received');
   console.log('========================================');
 
-  if (!isChinaDeployment()) {
+  if (!isChinaDeploymentFromRequest(request)) {
     console.log('[WeChat Callback POST] ERROR: Not in CN deployment');
     return NextResponse.json(
       { error: 'WeChat OAuth only available in CN deployment' },

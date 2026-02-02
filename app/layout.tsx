@@ -19,7 +19,8 @@ function resolveDeploymentRegion(headerStore: { get(name: string): string | null
 export async function generateMetadata(): Promise<Metadata> {
   const headerStore = headers();
   const region = resolveDeploymentRegion(headerStore);
-  const isChinaRegion = region === 'CN';
+  const host = (headerStore.get('x-forwarded-host') || headerStore.get('host') || '').toLowerCase();
+  const isChinaRegion = region === 'CN' || host.includes('mornscience.top');
   const locale = isChinaRegion ? 'zh-CN' : 'en-US';
 
   return {
@@ -66,7 +67,8 @@ export default function RootLayout({
   const headerLang = headerStore.get('x-lang')
   const acceptLanguage = headerStore.get('accept-language') || ''
   const region = resolveDeploymentRegion(headerStore);
-  const isChinaRegion = region === 'CN';
+  const host = (headerStore.get('x-forwarded-host') || headerStore.get('host') || '').toLowerCase();
+  const isChinaRegion = region === 'CN' || host.includes('mornscience.top');
   const themeClass = isChinaRegion ? 'theme-cn' : 'theme-intl-modern';
 
   const initialLanguage: Language = isAdminRoute

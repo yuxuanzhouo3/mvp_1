@@ -9,16 +9,31 @@
   console.log('📱 ========================================');
 
   // Handler for WeChat login success
-  window.handleWeChatLoginSuccess = async function(code) {
+  window.handleWeChatLoginSuccess = async function(code, state) {
     console.log('🎉 ========================================');
     console.log('🎉 WeChat login success callback triggered!');
     console.log('🎉 Authorization code received:', code);
     console.log('🎉 ========================================');
 
     try {
+      const effectiveState =
+        state ||
+        (function() {
+          try {
+            return sessionStorage.getItem('wechat_mobile_app_state');
+          } catch {
+            return null;
+          }
+        })();
+
+      if (!effectiveState) {
+        alert('微信登录失败: 缺少 state，请重试');
+        return;
+      }
+
       console.log('📤 Sending authorization code to backend...');
       console.log('📤 API endpoint: /api/auth/wechat/callback');
-      console.log('📤 Request body:', JSON.stringify({ code: code, loginType: 'mobile_app' }));
+      console.log('📤 Request body:', JSON.stringify({ code: code, loginType: 'mobile_app', state: effectiveState }));
 
       const response = await fetch('/api/auth/wechat/callback', {
         method: 'POST',
@@ -28,7 +43,8 @@
         credentials: 'include',
         body: JSON.stringify({
           code: code,
-          loginType: 'mobile_app'
+          loginType: 'mobile_app',
+          state: effectiveState
         })
       });
 

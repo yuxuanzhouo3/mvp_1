@@ -309,17 +309,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (androidBridge && typeof androidBridge.login === 'function') {
-      console.log('✅ Android WeChat bridge detected, calling native login');
       try {
-        console.log('📞 Calling androidBridge.login()...');
+        const response = await fetch(
+          `/api/auth/wechat/app/start?redirect=${encodeURIComponent(redirectPath)}`,
+          { method: 'GET', cache: 'no-store' }
+        );
+        const data = await response.json();
+        const state = typeof data?.state === 'string' ? data.state : null;
+
+        if (!response.ok || !state) {
+          return { error: { message: data?.error || '无法初始化微信登录' } };
+        }
+
+        sessionStorage.setItem('wechat_mobile_app_state', state);
+
+        if (typeof androidBridge.loginWithState === 'function') {
+          androidBridge.loginWithState(state);
+          return { error: null };
+        }
+
         androidBridge.login();
-        console.log('✅ androidBridge.login() called successfully');
         return { error: null };
       } catch (e) {
         console.error('❌ Android WeChat bridge error:', e);
+        return { error: { message: '无法初始化微信登录' } };
       }
-    } else {
-      console.log('⚠️ Android WeChat bridge not detected or login method not available');
     }
 
     // Check for React Native WebView

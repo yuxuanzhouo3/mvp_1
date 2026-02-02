@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { isChinaDeploymentFromRequest } from '@/lib/config/deployment.config';
 import { createWeChatSignedState, getWeChatOAuthCredentials } from '@/lib/services/auth/wechat-oauth';
 
 function normalizeRedirectPath(input: string | null): string {
@@ -10,7 +10,7 @@ function normalizeRedirectPath(input: string | null): string {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isChinaDeployment()) {
+  if (!isChinaDeploymentFromRequest(request)) {
     return NextResponse.json(
       { error: 'WeChat OAuth only available in CN deployment' },
       { status: 400 }
