@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { adminLogout } from "@/actions/admin-auth";
@@ -17,7 +17,7 @@ export default function AdminTopBar({ username }: AdminTopBarProps) {
         {/* Logo and Title */}
         <Link href="/admin/stats" className="flex items-center gap-3">
           <LayoutDashboard className="h-6 w-6 text-primary" />
-          <span className="text-xl font-bold">{isChinaDeployment() ? "晨佑个人链接管理后台" : "PersonaLink管理后台"}</span>
+          <span className="text-xl font-bold">{isChinaDeployment() ? "摩尔相亲管理后台" : "PersonaLink管理后台"}</span>
         </Link>
 
         {/* User Info and Logout */}
@@ -45,3 +45,4 @@ export default function AdminTopBar({ username }: AdminTopBarProps) {
     </header>
   );
 }
+

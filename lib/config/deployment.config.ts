@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 部署配置文件
  * Deployment Configuration
  *
@@ -38,7 +38,7 @@ function generateConfig(region: DeploymentRegion): DeploymentConfig {
   return {
     region,
     defaultLanguage: isChinaRegion ? "zh" : "en",
-    appName: isChinaRegion ? "晨佑个人链接" : "PersonaLink - AI Friend Matcher",
+    appName: isChinaRegion ? "摩尔相亲" : "PersonaLink - AI Friend Matcher",
     version: "1.0.0",
   };
 }
@@ -134,3 +134,4 @@ export function isInternationalDeployment(): boolean {
 export function getDefaultLanguage(): "zh" | "en" {
   return deploymentConfig.defaultLanguage;
 }
+

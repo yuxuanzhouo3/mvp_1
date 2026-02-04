@@ -21,6 +21,7 @@ import {
   AlgorithmType, 
   MATCHING_CONFIG,
 } from '@/lib/matching/types';
+import { loadAlgorithmWeightsFromDb } from '@/lib/matching/algorithm-weights';
 import { filterSensitiveFields, isProfileVisible } from '@/lib/api/privacyFilter';
 import { getAlgorithmDisplayNamesForRequest } from '@/lib/matching/algorithm-display-name';
 
@@ -379,11 +380,12 @@ export async function POST(request: NextRequest) {
     }
 
     // 执行匹配算法
+    const weightsMap = await loadAlgorithmWeightsFromDb();
     const batchResult = generateDailyRecommendations(
       userProfile,
       candidates,
       algorithm,
-      { limit }
+      { limit, weightsMap }
     );
 
     // 如果强制刷新，先清理旧的未查看推荐

@@ -4,9 +4,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/app/providers/AuthProvider'
 import { ThemeProvider } from '@/context/ThemeProvider'
 import { LanguageProvider } from '@/components/language-provider'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { Language } from '@/lib/i18n'
 import { enablePassiveEventListeners } from '@/lib/utils/passive-events'
+
+if (typeof window !== 'undefined') {
+  enablePassiveEventListeners()
+}
 
 export function Providers({
   children,
@@ -25,10 +29,6 @@ export function Providers({
       },
     },
   }))
-
-  useEffect(() => {
-    enablePassiveEventListeners()
-  }, [])
 
   return (
     <QueryClientProvider client={queryClient}>

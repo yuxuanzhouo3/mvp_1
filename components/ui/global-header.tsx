@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -124,7 +124,7 @@ export function GlobalHeader() {
                 <Heart className="h-4 w-4 md:h-6 md:w-6 text-white" />
               </div>
               <span className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
-                {isChinaDeployment() ? '晨佑个人链接' : 'PersonaLink'}
+                {isChinaDeployment() ? '摩尔相亲' : 'PersonaLink'}
               </span>
             </Link>
           </div>
@@ -401,3 +401,4 @@ export function GlobalHeader() {
     </header>
   );
 }
+

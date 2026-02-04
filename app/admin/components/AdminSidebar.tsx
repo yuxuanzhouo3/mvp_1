@@ -60,6 +60,11 @@ const featureManagementItems = [
     icon: Tag,
   },
   {
+    href: "/admin/algorithm/configuration",
+    label: "算法配比",
+    icon: Settings,
+  },
+  {
     href: "/admin/releases",
     label: "版本管理",
     icon: Package,

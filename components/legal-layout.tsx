@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { useLanguage } from '@/components/language-provider';
@@ -32,7 +32,7 @@ export function LegalLayout({
       
       <footer className="mt-16 pt-8 border-t">
         <p className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} {isChinaDeployment() ? '晨佑个人链接' : 'PersonaLink'}. {t.legal.allRightsReserved}
+          © {new Date().getFullYear()} {isChinaDeployment() ? '摩尔相亲' : 'PersonaLink'}. {t.legal.allRightsReserved}
           {isChinaDeployment() ? (
             <>
               <span className="mx-2">·</span>
@@ -44,3 +44,4 @@ export function LegalLayout({
     </div>
   );
 } 
+

@@ -7,9 +7,11 @@ import type {
   UserMatchProfile, 
   CandidateFilters, 
   FactorWeights,
-  AlgorithmType
+  AlgorithmType,
+  AlgorithmWeightsMap
 } from './types';
 import { ALGORITHM_WEIGHTS, MATCHING_CONFIG } from './types';
+import { clampScoreToTick, rangeFromDiffTicks, rangeFromRatio, toTicks } from './score-range';
 import { calculateDistance } from '@/lib/scoring';
 import { calculateMBTICompatibility } from '@/lib/mbti-compatibility';
 
@@ -158,7 +160,8 @@ export function buildCandidateFilterConditions(
  */
 export function calculateFactorSimilarity(
   userA: UserMatchProfile,
-  userB: UserMatchProfile
+  userB: UserMatchProfile,
+  weights?: FactorWeights
 ): { 
   overallSimilarity: number;
   factorComparison: Record<string, { user: number; target: number; matchDegree: number }>;
@@ -171,6 +174,7 @@ export function calculateFactorSimilarity(
 
   const factorComparison: Record<string, { user: number; target: number; matchDegree: number }> = {};
   let totalSimilarity = 0;
+  let totalWeight = 0;
 
   for (const factor of factors) {
     const scoreA = userA.scoreBreakdown[factor];
@@ -189,11 +193,13 @@ export function calculateFactorSimilarity(
       matchDegree
     };
     
-    totalSimilarity += matchDegree;
+    const weight = weights ? weights[factor] || 0 : 1;
+    totalSimilarity += matchDegree * (weights ? weight : 1);
+    totalWeight += weights ? weight : 1;
   }
 
   return {
-    overallSimilarity: Math.round(totalSimilarity / factors.length * 10) / 10,
+    overallSimilarity: Math.round((totalWeight > 0 ? totalSimilarity / totalWeight : totalSimilarity / factors.length) * 10) / 10,
     factorComparison
   };
 }
@@ -258,9 +264,10 @@ export function calculateInterestOverlap(
 export function getAlgorithmWeights(
   algorithm: AlgorithmType,
   evaluatorGender: GenderEnum,
-  targetGender: GenderEnum
+  targetGender: GenderEnum,
+  weightsMap: AlgorithmWeightsMap = ALGORITHM_WEIGHTS
 ): FactorWeights {
-  const weights = ALGORITHM_WEIGHTS[algorithm];
+  const weights = weightsMap[algorithm] || ALGORITHM_WEIGHTS[algorithm];
   
   if (evaluatorGender === 'male' && targetGender === 'female') {
     return weights.maleEvaluatingFemale;
@@ -376,9 +383,10 @@ export function geometricMean(...values: number[]): number {
  * @returns 限制后的分数
  */
 export function clampScore(score: number): number {
+  const clamped = clampScoreToTick(score);
   return Math.max(
     MATCHING_CONFIG.MIN_MATCH_SCORE,
-    Math.min(MATCHING_CONFIG.MAX_MATCH_SCORE, Math.round(score * 10) / 10)
+    Math.min(MATCHING_CONFIG.MAX_MATCH_SCORE, clamped)
   );
 }
 
@@ -422,31 +430,31 @@ export function getCandidateScoreRange(
   switch (algorithm) {
     case 'compatible':
       // 门当户对: ±10分
-      return {
-        min: Math.max(0, userScore + ranges.compatible.minDiff),
-        max: Math.min(100, userScore + ranges.compatible.maxDiff)
-      };
+      return rangeFromDiffTicks(
+        userScore,
+        toTicks(ranges.compatible.minDiff),
+        toTicks(ranges.compatible.maxDiff)
+      );
       
     case 'romantic':
       // 慕强择优: -30% ~ +30%
-      return {
-        min: Math.max(0, userScore * ranges.romantic.minRatio),
-        max: Math.min(100, userScore * ranges.romantic.maxRatio)
-      };
+      return rangeFromRatio(userScore, ranges.romantic.minRatio, ranges.romantic.maxRatio);
       
     case 'serendipity':
       // 随机盲盒: ±40分
-      return {
-        min: Math.max(0, userScore + ranges.serendipity.minDiff),
-        max: Math.min(100, userScore + ranges.serendipity.maxDiff)
-      };
+      return rangeFromDiffTicks(
+        userScore,
+        toTicks(ranges.serendipity.minDiff),
+        toTicks(ranges.serendipity.maxDiff)
+      );
       
     case 'pragmatic':
       // 务实捡漏: -20 ~ +5分
-      return {
-        min: Math.max(0, userScore + ranges.pragmatic.minDiff),
-        max: Math.min(100, userScore + ranges.pragmatic.maxDiff)
-      };
+      return rangeFromDiffTicks(
+        userScore,
+        toTicks(ranges.pragmatic.minDiff),
+        toTicks(ranges.pragmatic.maxDiff)
+      );
       
     default:
       return { min: 0, max: 100 };

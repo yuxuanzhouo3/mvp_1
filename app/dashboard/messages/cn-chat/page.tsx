@@ -568,30 +568,30 @@ export default function CnChatPage() {
             {/* 聊天主区域 */}
             <div className="flex-1 min-h-0 flex flex-col">
             {/* 聊天头部 */}
-            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
-              <div className="flex items-center space-x-3">
+            <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 sm:p-4 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0">
                 {/* 移动端返回按钮 */}
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="md:hidden"
+                  className="md:hidden shrink-0"
                   onClick={() => setShowMobileList(true)}
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
 
-                <Avatar className="w-10 h-10">
+                <Avatar className="w-10 h-10 shrink-0">
                   <AvatarImage src={selectedRoom.otherUser?.avatarUrl} />
                   <AvatarFallback className="bg-gradient-to-br from-primary to-primary/70 text-white">
                     {selectedRoom.otherUser?.username?.charAt(0).toUpperCase() || '?'}
                   </AvatarFallback>
                 </Avatar>
 
-                <div>
-                  <h2 className="font-semibold text-gray-900 dark:text-white">
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-semibold text-gray-900 dark:text-white truncate">
                     {selectedRoom.otherUser?.username || (language === 'zh' ? '未知用户' : 'Unknown')}
                   </h2>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 truncate">
                     {selectedRoom.otherUser?.isOnline
                       ? (language === 'zh' ? '在线' : 'Online')
                       : (language === 'zh' ? '离线' : 'Offline')
@@ -601,7 +601,7 @@ export default function CnChatPage() {
               </div>
 
               {/* 操作按钮 */}
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center space-x-1 shrink-0">
                 <Button variant="ghost" size="sm" className="text-gray-500 hover:text-primary">
                   <Phone className="h-5 w-5" />
                 </Button>
@@ -768,7 +768,7 @@ export default function CnChatPage() {
             )}
 
             {/* 输入区域 */}
-            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-3 sm:p-4">
               <input
                 type="file"
                 ref={fileInputRef}
@@ -910,12 +910,12 @@ export default function CnChatPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-end space-x-2">
+                <div className="flex items-end gap-2 flex-wrap sm:flex-nowrap">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-gray-500 hover:text-primary"
+                    className="text-gray-500 hover:text-primary shrink-0"
                   >
                     <ImageIcon className="h-5 w-5" />
                   </Button>
@@ -924,12 +924,12 @@ export default function CnChatPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => videoInputRef.current?.click()}
-                    className="text-gray-500 hover:text-primary"
+                    className="text-gray-500 hover:text-primary shrink-0"
                   >
                     <Video className="h-5 w-5" />
                   </Button>
 
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <textarea
                       ref={inputRef}
                       value={inputValue}
@@ -942,18 +942,18 @@ export default function CnChatPage() {
                       }}
                       placeholder={language === 'zh' ? '输入消息...' : 'Type a message...'}
                       rows={1}
-                      className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      className="w-full min-w-0 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
                       style={{ maxHeight: '100px' }}
                     />
                   </div>
 
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                       className={cn(
-                        "text-gray-500 hover:text-primary",
+                        "text-gray-500 hover:text-primary shrink-0",
                         showEmojiPicker && "text-primary bg-primary/10"
                       )}
                     >
@@ -972,7 +972,7 @@ export default function CnChatPage() {
                       onClick={handleSend}
                       disabled={isSending}
                       size="sm"
-                      className="bg-primary text-white"
+                      className="bg-primary text-white shrink-0"
                     >
                       {isSending ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
@@ -984,7 +984,7 @@ export default function CnChatPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-primary"
+                      className="text-primary shrink-0"
                       onClick={async () => {
                         try {
                           const stream = await navigator.mediaDevices.getUserMedia({ audio: true });

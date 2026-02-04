@@ -5,6 +5,13 @@
  * 包含动态匹配策略的阈值配置
  */
 
+import {
+  DEFAULT_RANGE_EXPANSION_STEP_TICKS,
+  rangeFromDiffTicks,
+  rangeFromRatio,
+  toTicks,
+} from "@/lib/matching/score-range";
+
 // ========================================
 // 用户规模阈值配置
 // ========================================
@@ -41,41 +48,6 @@ export enum MatchingStrategy {
   /** 策略D：智能混合匹配（超大规模） */
   SMART_MIX = 'smart_mix',
 }
-
-// ========================================
-// 分数浮动配置
-// ========================================
-
-/**
- * 分数浮动配置
- */
-export const SCORE_FLOAT_CONFIG = {
-  /** 策略A：30%浮动 */
-  [MatchingStrategy.FLEXIBLE_FLOAT]: {
-    minRatio: 0.7,   // -30%
-    maxRatio: 1.3,   // +30%
-    description: '30%上下浮动匹配',
-  },
-  /** 策略B：精确匹配（允许±1分误差） */
-  [MatchingStrategy.EXACT_MATCH]: {
-    minDiff: -1,
-    maxDiff: 1,
-    description: '精确分数匹配',
-  },
-  /** 策略C：上浮匹配 */
-  [MatchingStrategy.UPWARD_FLOAT]: {
-    minDiff: 0.1,    // 下限：+0.1分
-    maxDiff: 1.0,    // 上限：+1分
-    description: '上浮0.1-1分匹配',
-  },
-  /** 策略D：智能混合 */
-  [MatchingStrategy.SMART_MIX]: {
-    baseMinRatio: 0.85,
-    baseMaxRatio: 1.15,
-    dynamicAdjustment: true,
-    description: '智能混合匹配',
-  },
-} as const;
 
 // ========================================
 // 匹配策略配置
@@ -203,8 +175,8 @@ export const DYNAMIC_MATCHING_CONFIG = {
   /** 匹配结果最小数量（如果结果太少则扩大范围） */
   MIN_RESULTS_THRESHOLD: 5,
 
-  /** 范围扩大步长（比例） */
-  RANGE_EXPANSION_STEP: 0.1, // 每次扩大10%
+  /** 范围扩大步长（tick，0.1 分为 1 tick） */
+  RANGE_EXPANSION_STEP_TICKS: DEFAULT_RANGE_EXPANSION_STEP_TICKS, // 每次扩大 0.3 分
 
   /** 最大扩大次数 */
   MAX_EXPANSION_ITERATIONS: 3,
@@ -247,41 +219,27 @@ export function getScoreRangeByStrategy(
   strategy: MatchingStrategy
 ): { min: number; max: number } {
   const config = DEFAULT_STRATEGY_CONFIGS.find(c => c.strategy === strategy);
-  
+
   if (!config) {
-    // 默认使用30%浮动
-    return {
-      min: Math.max(0, userScore * 0.7),
-      max: Math.min(100, userScore * 1.3),
-    };
+    // ????30%??
+    return rangeFromRatio(userScore, 0.7, 1.3);
   }
 
   const { type, minValue, maxValue } = config.scoreRangeParams;
 
   switch (type) {
     case 'ratio':
-      return {
-        min: Math.max(0, userScore * minValue),
-        max: Math.min(100, userScore * maxValue),
-      };
+      return rangeFromRatio(userScore, minValue, maxValue);
     case 'diff':
-      return {
-        min: Math.max(0, userScore + minValue),
-        max: Math.min(100, userScore + maxValue),
-      };
-    case 'dynamic':
-      // 动态调整：基础范围 + 基于分数的微调
+      return rangeFromDiffTicks(userScore, toTicks(minValue), toTicks(maxValue));
+    case 'dynamic': {
+      // ????????? + ???????
       const dynamicFactor = config.scoreRangeParams.dynamicFactor || 0.1;
       const adjustment = (50 - userScore) * dynamicFactor * 0.01;
-      return {
-        min: Math.max(0, userScore * (minValue + adjustment)),
-        max: Math.min(100, userScore * (maxValue + adjustment)),
-      };
+      return rangeFromRatio(userScore, minValue + adjustment, maxValue + adjustment);
+    }
     default:
-      return {
-        min: Math.max(0, userScore * 0.7),
-        max: Math.min(100, userScore * 1.3),
-      };
+      return rangeFromRatio(userScore, 0.7, 1.3);
   }
 }
 

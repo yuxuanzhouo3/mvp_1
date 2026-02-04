@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 import { useAuth } from '@/app/providers/AuthProvider';
+import { BirthDateField } from '@/components/profile/BirthDateField';
 import { User, MapPin, Calendar, Sparkles, Loader2, Navigation, CheckCircle, XCircle } from 'lucide-react';
 import type { CompleteProfileData, GenderEnum } from '@/types/database';
 
@@ -296,14 +297,13 @@ export default function Step1BasicInfo({ data, onUpdate, onValidChange }: Step1P
           {t.profileSetup?.birthDate || 'Birth Date'} <span className="text-red-500">*</span>
         </Label>
         <div className="flex gap-4 items-center">
-          <Input
+          <BirthDateField
             id="birthDate"
-            type="date"
             value={birthDate}
-            onChange={(e) => setBirthDate(e.target.value)}
-            max={maxDateStr}
-            min={minDateStr}
-            className={`flex-1 ${errors.birthDate ? 'border-red-500' : ''}`}
+            onChange={setBirthDate}
+            minDate={minDateStr}
+            maxDate={maxDateStr}
+            error={!!errors.birthDate}
           />
           {birthDate && !errors.birthDate && (
             <div className="px-4 py-2 bg-primary/10 rounded-lg text-primary font-medium">

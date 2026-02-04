@@ -193,14 +193,16 @@ export interface FactorWeights {
   childrenPreference: number;
 }
 
+export type AlgorithmWeightsMap = Record<AlgorithmType, {
+  maleEvaluatingFemale: FactorWeights;
+  femaleEvaluatingMale: FactorWeights;
+}>;
+
 /**
  * 算法权重配置表
  * 根据PRD中的权重表配置
  */
-export const ALGORITHM_WEIGHTS: Record<AlgorithmType, {
-  maleEvaluatingFemale: FactorWeights;
-  femaleEvaluatingMale: FactorWeights;
-}> = {
+export const ALGORITHM_WEIGHTS: AlgorithmWeightsMap = {
   // 算法1: 金玉良缘（门当户对）- 注重相似性
   compatible: {
     maleEvaluatingFemale: {

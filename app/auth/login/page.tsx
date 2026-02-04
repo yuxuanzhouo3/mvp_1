@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -191,7 +191,7 @@ export default function LoginPage() {
                   <Sparkles className="h-8 w-8 text-white" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {isChinaDeployment() ? '晨佑个人链接' : 'PersonaLink'}
+                  {isChinaDeployment() ? '摩尔相亲' : 'PersonaLink'}
                 </h1>
               </Link>
             </div>
@@ -397,3 +397,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
@@ -203,7 +203,7 @@ export default function RegisterPage() {
                   <Sparkles className="h-8 w-8 text-white" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {isChinaDeployment() ? '晨佑个人链接' : 'PersonaLink'}
+                  {isChinaDeployment() ? '摩尔相亲' : 'PersonaLink'}
                 </h1>
               </Link>
             </div>
@@ -468,3 +468,4 @@ export default function RegisterPage() {
     </div>
   );
 }
+

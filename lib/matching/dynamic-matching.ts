@@ -20,6 +20,7 @@ import {
   matchSerendipity,
   matchPragmatic,
 } from './algorithms';
+import { clampScoreToTick, expandRange } from './score-range';
 
 // ========================================
 // 类型定义
@@ -155,10 +156,14 @@ export function expandMatchingRange(
     filtered.length < minResults &&
     expansionLevel < DYNAMIC_MATCHING_CONFIG.MAX_EXPANSION_ITERATIONS
   ) {
-    // 扩大范围
-    const expansion = user.totalScore * DYNAMIC_MATCHING_CONFIG.RANGE_EXPANSION_STEP;
-    min = Math.max(0, min - expansion);
-    max = Math.min(100, max + expansion);
+    // 扩大范围（基于 tick）
+    const expanded = expandRange(
+      { min, max },
+      DYNAMIC_MATCHING_CONFIG.RANGE_EXPANSION_STEP_TICKS,
+      'both'
+    );
+    min = expanded.min;
+    max = expanded.max;
     
     filtered = candidates.filter(c => c.totalScore >= min && c.totalScore <= max);
     expansionLevel++;
@@ -381,8 +386,8 @@ export function generateDynamicFilterParams(
   const { min, max, strategy } = getDynamicScoreRange(userScore, userCount);
   
   return {
-    minScore: Math.round(min * 10) / 10,
-    maxScore: Math.round(max * 10) / 10,
+    minScore: clampScoreToTick(min),
+    maxScore: clampScoreToTick(max),
     strategy,
   };
 }

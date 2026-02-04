@@ -24,16 +24,26 @@ export class AuthError extends Error {
   }
 }
 
+function getAllowedOrigins(request: NextRequest): string[] {
+  const origins = new Set<string>();
+  const configuredOrigin = getExternalRequestOrigin(request);
+  if (configuredOrigin) origins.add(configuredOrigin);
+  try {
+    origins.add(new URL(request.url).origin);
+  } catch {}
+  return Array.from(origins);
+}
+
 function assertSameOrigin(request: NextRequest) {
   const method = request.method.toUpperCase();
   if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return;
 
-  const requestOrigin = getExternalRequestOrigin(request) || new URL(request.url).origin;
+  const allowedOrigins = getAllowedOrigins(request);
   const origin = request.headers.get('origin');
   const referer = request.headers.get('referer');
 
   if (origin) {
-    if (origin !== requestOrigin) {
+    if (!allowedOrigins.includes(origin)) {
       throw new AuthError(403, 'csrf_origin', 'csrf');
     }
     return;
@@ -42,7 +52,7 @@ function assertSameOrigin(request: NextRequest) {
   if (referer) {
     try {
       const refOrigin = new URL(referer).origin;
-      if (refOrigin !== requestOrigin) {
+      if (!allowedOrigins.includes(refOrigin)) {
         throw new AuthError(403, 'csrf_referer', 'csrf');
       }
       return;

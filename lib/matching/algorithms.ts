@@ -7,7 +7,8 @@ import type {
   UserMatchProfile, 
   MatchResult, 
   AlgorithmType,
-  BatchMatchResult 
+  BatchMatchResult,
+  AlgorithmWeightsMap
 } from './types';
 import { MATCHING_CONFIG } from './types';
 import {
@@ -23,6 +24,7 @@ import {
   calculateExpiresAt,
   getCandidateScoreRange
 } from './utils';
+import { DEFAULT_RANGE_EXPANSION_STEP_TICKS, expandRange } from './score-range';
 import { calculateMBTICompatibility } from '@/lib/mbti-compatibility';
 
 // ========================================
@@ -40,7 +42,8 @@ import { calculateMBTICompatibility } from '@/lib/mbti-compatibility';
 export function matchCompatible(
   user: UserMatchProfile,
   candidates: UserMatchProfile[],
-  limit: number = MATCHING_CONFIG.DEFAULT_RECOMMENDATION_COUNT
+  limit: number = MATCHING_CONFIG.DEFAULT_RECOMMENDATION_COUNT,
+  weightsMap?: AlgorithmWeightsMap
 ): MatchResult[] {
   const userScore = user.totalScore;
   const scoreRange = getCandidateScoreRange(userScore, 'compatible');
@@ -58,8 +61,9 @@ export function matchCompatible(
     const totalScoreSimilarity = Math.max(0, 100 - scoreDiff);
     
     // 计算因子相似度
+    const weights = getAlgorithmWeights('compatible', user.gender, candidate.gender, weightsMap);
     const { overallSimilarity: factorSimilarity, factorComparison } = 
-      calculateFactorSimilarity(user, candidate);
+      calculateFactorSimilarity(user, candidate, weights);
     
     // 计算兴趣重合度
     const interestOverlap = calculateInterestOverlap(user.interests, candidate.interests);
@@ -109,7 +113,8 @@ export function matchCompatible(
 export function matchRomanticPursuit(
   user: UserMatchProfile,
   candidates: UserMatchProfile[],
-  limit: number = MATCHING_CONFIG.DEFAULT_RECOMMENDATION_COUNT
+  limit: number = MATCHING_CONFIG.DEFAULT_RECOMMENDATION_COUNT,
+  weightsMap?: AlgorithmWeightsMap
 ): MatchResult[] {
   const userScore = user.totalScore;
   const scoreRange = getCandidateScoreRange(userScore, 'romantic');
@@ -138,7 +143,7 @@ export function matchRomanticPursuit(
     }
     
     // B接受A的可能性（双向评估）
-    const acceptanceBToA = calculateAcceptance(user, candidate);
+    const acceptanceBToA = calculateAcceptance(user, candidate, weightsMap);
     
     const personalityCompatibility = calculateMBTICompatibility(user.mbti, candidate.mbti);
     const matchScore = clampScore(
@@ -195,10 +200,11 @@ export function matchRomanticPursuit(
  */
 function calculateAcceptance(
   userA: UserMatchProfile,
-  userB: UserMatchProfile
+  userB: UserMatchProfile,
+  weightsMap?: AlgorithmWeightsMap
 ): number {
   // B的择偶标准（基于性别差异权重）
-  const weights = getAlgorithmWeights('romantic', userB.gender, userA.gender);
+  const weights = getAlgorithmWeights('romantic', userB.gender, userA.gender, weightsMap);
 
   // A在B眼中的吸引力分数
   const attractiveness = calculateWeightedAttractiveness(userA, weights);
@@ -239,7 +245,8 @@ function calculateAcceptance(
 export function matchSerendipity(
   user: UserMatchProfile,
   candidates: UserMatchProfile[],
-  limit: number = MATCHING_CONFIG.DEFAULT_RECOMMENDATION_COUNT
+  limit: number = MATCHING_CONFIG.DEFAULT_RECOMMENDATION_COUNT,
+  weightsMap?: AlgorithmWeightsMap
 ): MatchResult[] {
   const userScore = user.totalScore;
   const scoreRange = getCandidateScoreRange(userScore, 'serendipity');
@@ -255,8 +262,12 @@ export function matchSerendipity(
   const results: MatchResult[] = [];
   
   for (const candidate of shuffledCandidates) {
+    const weights = getAlgorithmWeights('serendipity', user.gender, candidate.gender, weightsMap);
+    const { overallSimilarity: factorSimilarity } = calculateFactorSimilarity(user, candidate, weights);
+
     // 计算基础兼容度
-    const baseCompatibility = 100 - Math.abs(userScore - candidate.totalScore);
+    const scoreSimilarity = 100 - Math.abs(userScore - candidate.totalScore);
+    const baseCompatibility = scoreSimilarity * 0.6 + factorSimilarity * 0.4;
     const personalityCompatibility = calculateMBTICompatibility(user.mbti, candidate.mbti);
     
     // 生成随机匹配分
@@ -308,56 +319,61 @@ export function matchSerendipity(
 export function matchPragmatic(
   user: UserMatchProfile,
   candidates: UserMatchProfile[],
-  limit: number = MATCHING_CONFIG.DEFAULT_RECOMMENDATION_COUNT
+  limit: number = MATCHING_CONFIG.DEFAULT_RECOMMENDATION_COUNT,
+  weightsMap?: AlgorithmWeightsMap
 ): MatchResult[] {
   const userScore = user.totalScore;
-  const scoreRange = getCandidateScoreRange(userScore, 'pragmatic');
+  const baseRange = getCandidateScoreRange(userScore, 'pragmatic');
+
+  let currentRange = { ...baseRange };
+  let eligibleCandidates = candidates.filter(
+    c => c.totalScore >= currentRange.min && c.totalScore <= currentRange.max
+  );
+
+  while (eligibleCandidates.length < limit && currentRange.min > 0) {
+    currentRange = expandRange(
+      currentRange,
+      DEFAULT_RANGE_EXPANSION_STEP_TICKS,
+      'down'
+    );
+    eligibleCandidates = candidates.filter(
+      c => c.totalScore >= currentRange.min && c.totalScore <= currentRange.max
+    );
+  }
 
   const results: MatchResult[] = [];
 
-  for (const candidate of candidates) {
-    // 筛选分数范围内的候选人
-    if (candidate.totalScore < scoreRange.min || candidate.totalScore > scoreRange.max) {
-      continue;
-    }
-
+  for (const candidate of eligibleCandidates) {
     const candidateScore = candidate.totalScore;
-    const scoreDiff = userScore - candidateScore; // 可能为负（候选人分数更高）
+    const scoreDiff = userScore - candidateScore; // ?????????????
+    const weights = getAlgorithmWeights('pragmatic', user.gender, candidate.gender, weightsMap);
+    const { overallSimilarity: factorSimilarity } = calculateFactorSimilarity(user, candidate, weights);
 
-    // 成功率计算（务实策略）
-    // 候选人分数低于自己时：成功率高（70% + 差距加成）
-    // 候选人分数高于自己时：成功率降低
+    // ???????????
     let successRate: number;
     if (scoreDiff >= 0) {
-      // 候选人分数 <= 用户分数
-      // 差10分=85%, 差20分=100%
       successRate = Math.min(100, 70 + scoreDiff * 1.5);
     } else {
-      // 候选人分数 > 用户分数
-      // 差-5分时成功率约62%
       successRate = Math.max(50, 70 + scoreDiff * 1.5);
     }
 
-    // B对A的接受度（根据分数差计算）
+    // B?A?????????????
     let acceptanceBToA: number;
     if (scoreDiff >= 10) {
-      // A明显比B优秀，B接受度很高
       acceptanceBToA = 95;
     } else if (scoreDiff >= 0) {
-      // A略优于或等于B
       acceptanceBToA = 85 + scoreDiff;
     } else {
-      // A不如B，B接受度降低
       acceptanceBToA = Math.max(50, 80 + scoreDiff * 2);
     }
 
     const personalityCompatibility = calculateMBTICompatibility(user.mbti, candidate.mbti);
-    const matchScore = clampScore((successRate + acceptanceBToA) / 2 * 0.9 + personalityCompatibility * 0.1);
+    const matchScore = clampScore((successRate + acceptanceBToA) / 2 * 0.75 + factorSimilarity * 0.15 + personalityCompatibility * 0.1);
 
-    // 计算兴趣重合度
+    // ???????
     const interestOverlap = calculateInterestOverlap(user.interests, candidate.interests);
 
-    // 计算距离
+    // ????
     const distance = calculateGeographicDistance(user.location, candidate.location);
 
     results.push({
@@ -373,17 +389,33 @@ export function matchPragmatic(
         mutualInterests: interestOverlap.mutualInterests,
         distance: distance ?? undefined,
         message: scoreDiff >= 10
-          ? `成功率：${Math.round(successRate)}%，稳稳的幸福`
+          ? `????${Math.round(successRate)}%??????`
           : scoreDiff >= 0
-          ? `成功率：${Math.round(successRate)}%，条件相当`
-          : `TA略优秀，成功率：${Math.round(successRate)}%`
+          ? `????${Math.round(successRate)}%?????`
+          : `TA????????${Math.round(successRate)}%`
       }
     });
   }
 
-  // 按匹配分排序（综合考虑成功率和接受度）
+  // ????????? <= ?????????
   return results
-    .sort((a, b) => b.matchScore - a.matchScore)
+    .sort((a, b) => {
+      const aScore = a.scoreDetails.targetBaseScore || 0;
+      const bScore = b.scoreDetails.targetBaseScore || 0;
+      const aAbove = aScore > userScore ? 1 : 0;
+      const bAbove = bScore > userScore ? 1 : 0;
+      if (aAbove !== bAbove) return aAbove - bAbove;
+
+      const diffA = Math.abs(userScore - aScore);
+      const diffB = Math.abs(userScore - bScore);
+      if (diffA !== diffB) return diffA - diffB;
+
+      const aSuccess = a.scoreDetails.successRate || 0;
+      const bSuccess = b.scoreDetails.successRate || 0;
+      if (bSuccess !== aSuccess) return bSuccess - aSuccess;
+
+      return b.matchScore - a.matchScore;
+    })
     .slice(0, limit);
 }
 
@@ -403,20 +435,21 @@ export function executeMatchingAlgorithm(
   algorithm: AlgorithmType,
   user: UserMatchProfile,
   candidates: UserMatchProfile[],
-  limit: number = MATCHING_CONFIG.DEFAULT_RECOMMENDATION_COUNT
+  limit: number = MATCHING_CONFIG.DEFAULT_RECOMMENDATION_COUNT,
+  weightsMap?: AlgorithmWeightsMap
 ): MatchResult[] {
   switch (algorithm) {
     case 'compatible':
-      return matchCompatible(user, candidates, limit);
+      return matchCompatible(user, candidates, limit, weightsMap);
     case 'romantic':
-      return matchRomanticPursuit(user, candidates, limit);
+      return matchRomanticPursuit(user, candidates, limit, weightsMap);
     case 'serendipity':
-      return matchSerendipity(user, candidates, limit);
+      return matchSerendipity(user, candidates, limit, weightsMap);
     case 'pragmatic':
-      return matchPragmatic(user, candidates, limit);
+      return matchPragmatic(user, candidates, limit, weightsMap);
     default:
       // 默认使用门当户对算法
-      return matchCompatible(user, candidates, limit);
+      return matchCompatible(user, candidates, limit, weightsMap);
   }
 }
 
@@ -437,12 +470,14 @@ export function generateDailyRecommendations(
     limit?: number;
     mixAlgorithms?: boolean;
     mixRatio?: { primary: number; secondary: number };
+    weightsMap?: AlgorithmWeightsMap;
   } = {}
 ): BatchMatchResult {
   const {
     limit = MATCHING_CONFIG.DEFAULT_RECOMMENDATION_COUNT,
     mixAlgorithms = false,
-    mixRatio = { primary: 0.7, secondary: 0.3 }
+    mixRatio = { primary: 0.7, secondary: 0.3 },
+    weightsMap
   } = options;
   
   let matches: MatchResult[];
@@ -457,7 +492,8 @@ export function generateDailyRecommendations(
       preferredAlgorithm, 
       user, 
       candidates, 
-      primaryCount
+      primaryCount,
+      weightsMap
     );
     
     // 副算法（使用随机盲盒增加惊喜）
@@ -471,13 +507,14 @@ export function generateDailyRecommendations(
       secondaryAlgorithm,
       user,
       remainingCandidates,
-      secondaryCount
+      secondaryCount,
+      weightsMap
     );
     
     matches = [...primaryMatches, ...secondaryMatches];
   } else {
     // 单一算法模式
-    matches = executeMatchingAlgorithm(preferredAlgorithm, user, candidates, limit);
+    matches = executeMatchingAlgorithm(preferredAlgorithm, user, candidates, limit, weightsMap);
   }
   
   // 去重处理

@@ -221,8 +221,13 @@ export default function SettingsPage() {
               </div>
 
               {/* Edit Profile Button */}
-              <Button className="w-full bg-black hover:bg-gray-800 text-white rounded-full py-6 text-base font-semibold">
-                ✏️ {language === 'zh' ? '编辑个人资料' : 'Edit Profile'}
+              <Button
+                asChild
+                className="w-full bg-black hover:bg-gray-800 text-white rounded-full py-6 text-base font-semibold"
+              >
+                <Link href="/profile/edit">
+                  ✏️ {language === 'zh' ? '编辑个人资料' : 'Edit Profile'}
+                </Link>
               </Button>
             </div>
           </CardContent>
@@ -340,8 +345,10 @@ export default function SettingsPage() {
                 </h3>
                 <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 truncate">{user?.email}</p>
               </div>
-              <Button variant="outline" size="sm" className="text-xs md:text-sm shrink-0">
-                {language === 'zh' ? '编辑' : 'Edit'}
+              <Button variant="outline" size="sm" className="text-xs md:text-sm shrink-0" asChild>
+                <Link href="/profile/edit">
+                  {language === 'zh' ? '编辑' : 'Edit'}
+                </Link>
               </Button>
             </div>
           </CardContent>

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -11,13 +11,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { useMarketValue } from '@/hooks/useMarketValue';
 import { CompactSuggestions } from '@/components/profile/ImprovementSuggestions';
 import { CompactScoreBadge } from '@/components/profile/ScoreBadge';
 import { MBTICompatibility } from '@/components/profile/MBTICompatibility';
+import { BirthDateField } from '@/components/profile/BirthDateField';
 import { getWeights } from '@/lib/scoring-core';
 import {
   User,
@@ -44,7 +44,6 @@ import Link from 'next/link';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 import type {
-  GenderEnum,
   EducationLevelEnum,
   CompanyTypeEnum,
   AnnualIncomeRangeEnum,
@@ -141,6 +140,10 @@ const MBTI_TYPES: { type: MBTIType; name: string; emoji: string }[] = [
 ];
 
 export default function ProfileEditPage() {
+  const selectClassName =
+    'mt-1 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background ' +
+    'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 ' +
+    'focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
   const [isLoading, setIsLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -468,19 +471,28 @@ export default function ProfileEditPage() {
                   <Sparkles className="h-4 w-4" />
                   {t.profileSetup?.gender || 'Gender'}
                 </Label>
-                <Select
-                  value={form.watch('gender') || ''}
-                  onValueChange={(val) => form.setValue('gender', val as GenderEnum)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder={t.profileSetup?.selectGender || 'Select gender'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="male">👨 {t.profileSetup?.genderMale || 'Male'}</SelectItem>
-                    <SelectItem value="female">👩 {t.profileSetup?.genderFemale || 'Female'}</SelectItem>
-                    <SelectItem value="other">🌈 {t.profileSetup?.genderOther || 'Other'}</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={form.control}
+                  name="gender"
+                  render={({ field }) => (
+                    <select
+                      id="gender"
+                      name={field.name}
+                      ref={field.ref}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      className={selectClassName}
+                    >
+                      <option value="" disabled>
+                        {t.profileSetup?.selectGender || 'Select gender'}
+                      </option>
+                      <option value="male">{'👨'} {t.profileSetup?.genderMale || 'Male'}</option>
+                      <option value="female">{'👩'} {t.profileSetup?.genderFemale || 'Female'}</option>
+                      <option value="other">{'🧑'} {t.profileSetup?.genderOther || 'Other'}</option>
+                    </select>
+                  )}
+                />
               </div>
 
               {/* Birth Date */}
@@ -490,12 +502,18 @@ export default function ProfileEditPage() {
                   {t.profileSetup?.birthDate || 'Birth Date'}
                 </Label>
                 <div className="flex gap-4 items-center mt-1">
-                  <Input
-                    {...form.register('birth_date')}
-                    type="date"
-                    max={maxDateStr}
-                    min={minDateStr}
-                    className="flex-1"
+                  <Controller
+                    control={form.control}
+                    name="birth_date"
+                    render={({ field }) => (
+                      <BirthDateField
+                        id="birth_date"
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        minDate={minDateStr}
+                        maxDate={maxDateStr}
+                      />
+                    )}
                   />
                   {birthDate && age >= 18 && (
                     <div className="px-4 py-2 bg-primary/10 rounded-lg text-primary font-medium">
@@ -615,21 +633,30 @@ export default function ProfileEditPage() {
                   <GraduationCap className="h-4 w-4" />
                   {t.profileEdit.education}
                 </Label>
-                <Select
-                  value={form.watch('education_level') || ''}
-                  onValueChange={(val) => form.setValue('education_level', val)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder={t.profileEdit.selectEducation} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {EDUCATION_LEVELS.map((level) => (
-                      <SelectItem key={level.value} value={level.value}>
-                        {level.icon} {(t.profileSetup as any)?.[level.labelKey] || level.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={form.control}
+                  name="education_level"
+                  render={({ field }) => (
+                    <select
+                      id="education_level"
+                      name={field.name}
+                      ref={field.ref}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      className={selectClassName}
+                    >
+                      <option value="" disabled>
+                        {t.profileEdit.selectEducation}
+                      </option>
+                      {EDUCATION_LEVELS.map((level) => (
+                        <option key={level.value} value={level.value}>
+                          {level.icon} {(t.profileSetup as any)?.[level.labelKey] || level.value}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
               </div>
 
               {/* Occupation */}
@@ -651,21 +678,30 @@ export default function ProfileEditPage() {
                   <Building2 className="h-4 w-4" />
                   {t.profileSetup?.companyType || 'Company Type'}
                 </Label>
-                <Select
-                  value={form.watch('company_type') || ''}
-                  onValueChange={(val) => form.setValue('company_type', val)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder={t.profileSetup?.selectCompanyType || 'Select company type'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COMPANY_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.icon} {(t.profileSetup as any)?.[type.labelKey] || type.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={form.control}
+                  name="company_type"
+                  render={({ field }) => (
+                    <select
+                      id="company_type"
+                      name={field.name}
+                      ref={field.ref}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      className={selectClassName}
+                    >
+                      <option value="" disabled>
+                        {t.profileSetup?.selectCompanyType || 'Select company type'}
+                      </option>
+                      {COMPANY_TYPES.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.icon} {(t.profileSetup as any)?.[type.labelKey] || type.value}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
               </div>
 
               {/* Annual Income */}
@@ -674,21 +710,30 @@ export default function ProfileEditPage() {
                   <DollarSign className="h-4 w-4" />
                   {t.profileSetup?.annualIncome || 'Annual Income'}
                 </Label>
-                <Select
-                  value={form.watch('annual_income_range') || ''}
-                  onValueChange={(val) => form.setValue('annual_income_range', val)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder={t.profileSetup?.selectIncome || 'Select income range'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INCOME_RANGES.map((range) => (
-                      <SelectItem key={range.value} value={range.value}>
-                        {range.icon} {(t.profileSetup as any)?.[range.labelKey] || range.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={form.control}
+                  name="annual_income_range"
+                  render={({ field }) => (
+                    <select
+                      id="annual_income_range"
+                      name={field.name}
+                      ref={field.ref}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      className={selectClassName}
+                    >
+                      <option value="" disabled>
+                        {t.profileSetup?.selectIncome || 'Select income range'}
+                      </option>
+                      {INCOME_RANGES.map((range) => (
+                        <option key={range.value} value={range.value}>
+                          {range.icon} {(t.profileSetup as any)?.[range.labelKey] || range.value}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
               </div>
             </CardContent>
           </Card>
@@ -709,21 +754,30 @@ export default function ProfileEditPage() {
                   <Heart className="h-4 w-4" />
                   {t.profileSetup?.maritalStatus || 'Marital Status'}
                 </Label>
-                <Select
-                  value={form.watch('marital_status') || ''}
-                  onValueChange={(val) => form.setValue('marital_status', val)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder={t.profileSetup?.selectMaritalStatus || 'Select marital status'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MARITAL_STATUS.map((status) => (
-                      <SelectItem key={status.value} value={status.value}>
-                        {status.icon} {(t.profileSetup as any)?.[status.labelKey] || status.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={form.control}
+                  name="marital_status"
+                  render={({ field }) => (
+                    <select
+                      id="marital_status"
+                      name={field.name}
+                      ref={field.ref}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      className={selectClassName}
+                    >
+                      <option value="" disabled>
+                        {t.profileSetup?.selectMaritalStatus || 'Select marital status'}
+                      </option>
+                      {MARITAL_STATUS.map((status) => (
+                        <option key={status.value} value={status.value}>
+                          {status.icon} {(t.profileSetup as any)?.[status.labelKey] || status.value}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
               </div>
 
               {/* Relationship History */}
@@ -758,21 +812,30 @@ export default function ProfileEditPage() {
                   <Baby className="h-4 w-4" />
                   {t.profileSetup?.childrenPreference || 'Children Preference'}
                 </Label>
-                <Select
-                  value={form.watch('children_preference') || ''}
-                  onValueChange={(val) => form.setValue('children_preference', val)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder={t.profileSetup?.selectChildrenPreference || 'Select preference'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CHILDREN_PREFERENCE.map((pref) => (
-                      <SelectItem key={pref.value} value={pref.value}>
-                        {pref.icon} {(t.profileSetup as any)?.[pref.labelKey] || pref.value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={form.control}
+                  name="children_preference"
+                  render={({ field }) => (
+                    <select
+                      id="children_preference"
+                      name={field.name}
+                      ref={field.ref}
+                      value={field.value ?? ''}
+                      onBlur={field.onBlur}
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      className={selectClassName}
+                    >
+                      <option value="" disabled>
+                        {t.profileSetup?.selectChildrenPreference || 'Select preference'}
+                      </option>
+                      {CHILDREN_PREFERENCE.map((pref) => (
+                        <option key={pref.value} value={pref.value}>
+                          {pref.icon} {(t.profileSetup as any)?.[pref.labelKey] || pref.value}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
               </div>
             </CardContent>
           </Card>

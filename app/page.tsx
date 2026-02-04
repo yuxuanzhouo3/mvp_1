@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -509,7 +509,7 @@ export default function HomePage() {
                 <Heart className="h-5 w-5 md:h-6 md:w-6 text-white" />
               </div>
               <span className="text-xl md:text-2xl font-bold">
-                {isChinaDeployment() ? '晨佑个人链接' : 'PersonaLink'}
+                {isChinaDeployment() ? '摩尔相亲' : 'PersonaLink'}
               </span>
             </div>
             <div className="flex flex-wrap justify-center gap-4 md:gap-8 text-xs md:text-sm">
@@ -533,3 +533,4 @@ export default function HomePage() {
     </div>
   )
 }
+

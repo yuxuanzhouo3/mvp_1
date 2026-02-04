@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+﻿import type { Metadata } from 'next'
 import Script from 'next/script'
 import './globals.css'
 import { Providers } from '@/components/providers'
@@ -25,18 +25,18 @@ export async function generateMetadata(): Promise<Metadata> {
   const locale = isChinaRegion ? 'zh-CN' : 'en-US';
 
   return {
-    title: isChinaRegion ? '晨佑个人链接' : 'PersonaLink - AI Friend Matcher',
+    title: isChinaRegion ? '摩尔相亲' : 'PersonaLink - AI Friend Matcher',
     description: isChinaRegion
       ? '基于个性兼容性找到你的完美AI朋友匹配'
       : 'Find your perfect AI friend match based on personality compatibility',
     keywords: ['AI', 'friendship', 'matching', 'personality', 'chat', '社交', '匹配', '个性', '聊天'],
-    authors: [{ name: isChinaRegion ? '晨佑个人链接' : 'PersonaLink Team' }],
+    authors: [{ name: isChinaRegion ? '摩尔相亲' : 'PersonaLink Team' }],
     icons: {
       icon: '/logo.png',
       apple: '/logo.png',
     },
     openGraph: {
-      title: isChinaRegion ? '晨佑个人链接' : 'PersonaLink - AI Friend Matcher',
+      title: isChinaRegion ? '摩尔相亲' : 'PersonaLink - AI Friend Matcher',
       description: isChinaRegion
         ? '基于个性兼容性找到你的完美AI朋友匹配'
         : 'Find your perfect AI friend match based on personality compatibility',
@@ -45,7 +45,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: 'summary_large_image',
-      title: isChinaRegion ? '晨佑个人链接' : 'PersonaLink - AI Friend Matcher',
+      title: isChinaRegion ? '摩尔相亲' : 'PersonaLink - AI Friend Matcher',
       description: isChinaRegion
         ? '基于个性兼容性找到你的完美AI朋友匹配'
         : 'Find your perfect AI friend match based on personality compatibility',
@@ -101,3 +101,4 @@ export default function RootLayout({
     </html>
   )
 }
+
