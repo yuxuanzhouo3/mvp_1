@@ -27,8 +27,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const isInitializedRef = useRef(false);
   const userRef = useRef<User | null>(null);
+
+  const addLog = useCallback((msg: string) => {
+    const time = new Date().toLocaleTimeString();
+    setDebugLogs(prev => [...prev, `[${time}] ${msg}`]);
+    console.log(`[AuthDebug] ${msg}`);
+  }, []);
 
   const supabase = getSupabaseClient();
 
@@ -56,8 +63,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const cnUserData = localStorage.getItem('cn_user');
 
         if (isCN) {
+          addLog('CN Environment detected');
           if (typeof window !== 'undefined') {
             try {
+              addLog('Current URL: ' + window.location.href);
               const url = new URL(window.location.href);
               const params = url.searchParams;
               const token = params.get('token');
@@ -72,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 let finalOpenid = openid;
 
                 if (!finalToken && mpCode) {
-                  console.log('[AuthProvider] mpCode detected, calling /api/wxlogin/check...');
+                  addLog('mpCode detected, calling /api/wxlogin/check...');
                   const checkRes = await fetch('/api/wxlogin/check', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -81,6 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     cache: 'no-store',
                   });
                   const checkJson = await checkRes.json();
+                  addLog(`/api/wxlogin/check response: ${checkRes.ok} ${checkJson?.success}`);
                   console.log('[AuthProvider] /api/wxlogin/check response:', checkRes.ok, checkJson?.success, checkJson?.errcode);
                   if (checkRes.ok && checkJson?.success && typeof checkJson?.token === 'string') {
                     finalToken = checkJson.token;
@@ -107,24 +117,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   });
                   console.log('[AuthProvider] mp-callback completed, status:', mpCallbackRes.status);
 
-                  // 立即获取用户信息以确保状态同步
+                  // 使用 mp-callback 返回的用户信息直接设置状态（避免 cookie 时序问题）
                   if (mpCallbackRes.ok) {
-                    console.log('[AuthProvider] Fetching cn-me to sync user state...');
-                    const meRes = await fetch('/api/auth/cn-me', {
-                      method: 'GET',
-                      credentials: 'include',
-                      cache: 'no-store',
-                    });
-                    if (meRes.ok) {
-                      const meResult = await meRes.json();
-                      const serverUser = meResult?.user;
+                    try {
+                      const mpCallbackData = await mpCallbackRes.json();
+                      addLog('mp-callback response data: ' + JSON.stringify(mpCallbackData));
+                      console.log('[AuthProvider] mp-callback response data:', mpCallbackData);
+                      const serverUser = mpCallbackData?.user;
                       if (serverUser?.id) {
                         const cnUser = {
                           id: serverUser.id,
-                          email: serverUser.email,
+                          email: '',
                           user_metadata: {
-                            display_name: serverUser.displayName,
-                            avatar_url: serverUser.avatarUrl,
+                            display_name: serverUser.displayName || mpNickName || '微信用户',
+                            avatar_url: serverUser.avatarUrl || mpAvatarUrl || '',
                           },
                         } as any;
                         console.log('[AuthProvider] MP login success, setting user:', serverUser.displayName || serverUser.id);
@@ -132,6 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         userRef.current = cnUser;
                         setSession(null);
                         localStorage.setItem('cn_user', JSON.stringify(cnUser));
+                        addLog('User set successfully: ' + cnUser.email);
                         // 清理URL参数后提前结束初始化
                         ['token', 'openid', 'expiresIn', 'mpCode', 'mpNickName', 'mpAvatarUrl', 'mpProfileTs'].forEach((k) =>
                           params.delete(k)
@@ -140,6 +147,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         setLoading(false);
                         return; // 提前返回，避免重复处理
                       }
+                    } catch (parseError) {
+                      console.error('[AuthProvider] Failed to parse mp-callback response:', parseError);
                     }
                   }
                 }
@@ -597,6 +606,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={value}>
       {children}
+      {isChinaDeployment() && (
+        <div style={{
+          position: 'fixed',
+          bottom: '10px',
+          left: '10px',
+          right: '10px',
+          height: '200px',
+          backgroundColor: 'rgba(0,0,0,0.8)',
+          color: '#fff',
+          zIndex: 9999,
+          overflowY: 'auto',
+          padding: '10px',
+          fontSize: '12px',
+          borderRadius: '8px',
+          pointerEvents: 'none'
+        }}>
+          <h4 style={{ margin: '0 0 5px 0', borderBottom: '1px solid #666' }}>Auth Debug Log</h4>
+          {debugLogs.map((log, i) => (
+            <div key={i}>{log}</div>
+          ))}
+        </div>
+      )}
     </AuthContext.Provider>
   );
 }

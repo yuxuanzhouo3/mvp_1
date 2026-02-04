@@ -78,7 +78,14 @@ export async function POST(request: NextRequest) {
     const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
     const isSecureCookie = isSecureCookieRequest(request) || !isLocalhost;
 
-    const response = NextResponse.json({ success: true });
+    const response = NextResponse.json({
+      success: true,
+      user: {
+        id: verified.userId,
+        displayName: nickName || existingUser.display_name || '微信用户',
+        avatarUrl: avatarUrl || existingUser.avatar_url || '',
+      },
+    });
     response.headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate, max-age=0');
     response.headers.set('Pragma', 'no-cache');
     response.headers.set('Expires', '0');
