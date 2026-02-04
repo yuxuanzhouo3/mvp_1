@@ -91,6 +91,15 @@ export default function RootLayout({
 
   return (
     <html lang={htmlLang} suppressHydrationWarning>
+      <head>
+        {/* 微信 JSSDK - 用于小程序 WebView 中调用 wx.miniProgram API */}
+        {isChinaRegion && (
+          <Script
+            src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"
+            strategy="beforeInteractive"
+          />
+        )}
+      </head>
       <body className={`${systemFontClass} ${themeClass}`}>
         {isChinaRegion && <Script src="/wechat-android-bridge.js" strategy="beforeInteractive" />}
         <ErrorBoundary>
