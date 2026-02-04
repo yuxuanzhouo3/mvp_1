@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { NotificationDropdown } from '@/components/dashboard/NotificationDropdow
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { getDownloadUrl } from '@/lib/config/download.config';
 import type { PlatformType, MacOSArchType } from '@/lib/config/download.config';
+import { getBrandName } from '@/lib/config/branding.config';
 
 export function GlobalHeader() {
   const [showSettings, setShowSettings] = useState(false);
@@ -124,7 +125,7 @@ export function GlobalHeader() {
                 <Heart className="h-4 w-4 md:h-6 md:w-6 text-white" />
               </div>
               <span className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
-                {isChinaDeployment() ? '摩尔相亲' : 'PersonaLink'}
+                {getBrandName()}
               </span>
             </Link>
           </div>

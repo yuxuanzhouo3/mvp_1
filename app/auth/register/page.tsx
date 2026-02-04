@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { getBrandName } from '@/lib/config/branding.config';
 import { Mail, Lock, User, CheckCircle, Sparkles, Shield, Check, X } from 'lucide-react';
 
 export default function RegisterPage() {
@@ -203,7 +204,7 @@ export default function RegisterPage() {
                   <Sparkles className="h-8 w-8 text-white" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {isChinaDeployment() ? '摩尔相亲' : 'PersonaLink'}
+                  {getBrandName({ isCN: isChinaDeployment() })}
                 </h1>
               </Link>
             </div>

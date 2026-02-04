@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, Suspense, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -15,6 +15,7 @@ import { getSupabaseClient } from '@/lib/supabase/client';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { getBrandName } from '@/lib/config/branding.config';
 
 const updatePasswordSchema = z.object({
   password: z.string()
@@ -256,7 +257,7 @@ function UpdatePasswordContent() {
                   <Sparkles className="h-8 w-8 text-white" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {isChinaDeployment() ? '摩尔相亲' : 'PersonaLink'}
+                  {getBrandName({ isCN: isChinaDeployment() })}
                 </h1>
               </Link>
             </div>

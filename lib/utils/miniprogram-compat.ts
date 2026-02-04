@@ -22,6 +22,28 @@ export function isWechatMiniProgram(): boolean {
   return typeof wx !== 'undefined' && typeof wx.getSystemInfoSync === 'function';
 }
 
+export function isWechatMiniProgramWebView(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+    return false;
+  }
+
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes('miniprogram')) return true;
+
+  const wxjsEnv = (window as any).__wxjs_environment;
+  if (wxjsEnv === 'miniprogram') return true;
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('_wxjs_environment') === 'miniprogram') return true;
+  } catch {}
+
+  const wxMiniProgram = (window as any)?.wx?.miniProgram;
+  if (wxMiniProgram) return true;
+
+  return false;
+}
+
 /**
  * 检测是否在微信浏览器中
  */

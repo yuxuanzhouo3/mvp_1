@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -12,6 +12,7 @@ import {
   DownloadItem,
 } from "@/lib/config/download.config";
 import { isChinaDeployment } from "@/lib/config/deployment.config";
+import { getBrandName } from "@/lib/config/branding.config";
 
 export default function DownloadPage() {
   const [isChina, setIsChina] = useState(false);
@@ -129,7 +130,7 @@ export default function DownloadPage() {
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             {isChina
-              ? "下载摩尔相亲客户端,享受更流畅的AI匹配体验"
+              ? `下载${getBrandName({ isCN: true })}客户端,享受更流畅的AI匹配体验`
               : "Download PersonaLink client for a better AI matching experience"}
           </p>
         </motion.div>

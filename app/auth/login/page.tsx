@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { getBrandName } from '@/lib/config/branding.config';
 import { Mail, Lock, Eye, EyeOff, Sparkles, Shield } from 'lucide-react';
 
 export default function LoginPage() {
@@ -191,7 +192,7 @@ export default function LoginPage() {
                   <Sparkles className="h-8 w-8 text-white" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {isChinaDeployment() ? '摩尔相亲' : 'PersonaLink'}
+                  {getBrandName({ isCN: isChinaDeployment() })}
                 </h1>
               </Link>
             </div>

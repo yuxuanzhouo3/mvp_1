@@ -6,6 +6,7 @@ import { getSupabaseClient } from '@/lib/supabase/client';
 import { clearAllCaches } from '@/lib/utils/cache-cleaner';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { getAuthServiceAsync } from '@/lib/services/auth';
+import { isWechatMiniProgramWebView } from '@/lib/utils/miniprogram-compat';
 
 interface AuthContextType {
   user: User | null;
@@ -55,6 +56,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const cnUserData = localStorage.getItem('cn_user');
 
         if (isCN) {
+          if (typeof window !== 'undefined') {
+            try {
+              const url = new URL(window.location.href);
+              const params = url.searchParams;
+              const token = params.get('token');
+              const mpCode = params.get('mpCode');
+              const openid = params.get('openid');
+              const mpNickName = params.get('mpNickName');
+              const mpAvatarUrl = params.get('mpAvatarUrl');
+
+              if (token || mpCode) {
+                let finalToken = token;
+                let finalOpenid = openid;
+
+                if (!finalToken && mpCode) {
+                  const checkRes = await fetch('/api/wxlogin/check', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: mpCode }),
+                    credentials: 'include',
+                    cache: 'no-store',
+                  });
+                  const checkJson = await checkRes.json();
+                  if (checkRes.ok && checkJson?.success && typeof checkJson?.token === 'string') {
+                    finalToken = checkJson.token;
+                    finalOpenid = typeof checkJson?.openid === 'string' ? checkJson.openid : finalOpenid;
+                  }
+                }
+
+                if (finalToken) {
+                  await fetch('/api/auth/mp-callback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      token: finalToken,
+                      openid: finalOpenid,
+                      nickName: mpNickName,
+                      avatarUrl: mpAvatarUrl,
+                    }),
+                    credentials: 'include',
+                    cache: 'no-store',
+                  });
+                }
+
+                ['token', 'openid', 'expiresIn', 'mpCode', 'mpNickName', 'mpAvatarUrl', 'mpProfileTs'].forEach((k) =>
+                  params.delete(k)
+                );
+                window.history.replaceState({}, '', url.toString());
+              }
+            } catch {}
+          }
+
           if (cnUserData) {
             try {
               const cnUser = JSON.parse(cnUserData) as User;
@@ -281,6 +334,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!isChinaDeployment()) {
       console.log('❌ Not in China deployment, WeChat login not available');
       return { error: { message: 'WeChat login is not available in international region' } };
+    }
+
+    if (isWechatMiniProgramWebView()) {
+      const returnUrl = window.location.href;
+      const encodedUrl = encodeURIComponent(returnUrl);
+      const mp = (window as any)?.wx?.miniProgram;
+
+      try {
+        if (mp && typeof mp.navigateTo === 'function') {
+          mp.navigateTo({ url: `/pages/webshell/login?returnUrl=${encodedUrl}` });
+          return { error: null };
+        }
+      } catch {}
+
+      try {
+        if (mp && typeof mp.postMessage === 'function') {
+          mp.postMessage({ type: 'REQUEST_WX_LOGIN', returnUrl });
+          return { error: null };
+        }
+      } catch {}
+
+      try {
+        if ((window as any)?.wx?.miniProgram?.postMessage) {
+          (window as any).wx.miniProgram.postMessage({ type: 'REQUEST_WX_LOGIN', returnUrl });
+          return { error: null };
+        }
+      } catch {}
+
+      return { error: { message: '当前微信小程序环境不支持登录调用方式' } };
     }
 
     const redirectPath = '/dashboard';

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { useLanguage } from '@/components/language-provider'
 import { useTranslations } from '@/lib/i18n'
 import { isChinaDeployment } from '@/lib/config/deployment.config'
+import { getBrandName } from '@/lib/config/branding.config'
 import { useState, useEffect, useRef } from 'react'
 
 export default function HomePage() {
@@ -509,7 +510,7 @@ export default function HomePage() {
                 <Heart className="h-5 w-5 md:h-6 md:w-6 text-white" />
               </div>
               <span className="text-xl md:text-2xl font-bold">
-                {isChinaDeployment() ? '摩尔相亲' : 'PersonaLink'}
+                {getBrandName()}
               </span>
             </div>
             <div className="flex flex-wrap justify-center gap-4 md:gap-8 text-xs md:text-sm">
@@ -524,7 +525,7 @@ export default function HomePage() {
             {isChinaDeployment() ? (
               <>
                 <span className="mx-2">·</span>
-                <span>粤ICP备2024281756号-15A</span>
+                <span>粤ICP备2024281756号-21X</span>
               </>
             ) : null}
           </div>

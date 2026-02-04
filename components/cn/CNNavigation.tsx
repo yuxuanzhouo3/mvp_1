@@ -1,4 +1,4 @@
-﻿/**
+/**
  * CN版导航栏组件
  * 简化版导航，适合中老年家长用户
  */
@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
+import { getBrandName } from '@/lib/config/branding.config';
 import { 
   Menu,
   X,
@@ -256,7 +257,7 @@ function CNNavigationComponent({
           {/* Logo */}
           <Link href="/" className="cn-nav-logo">
             <Heart className="w-6 h-6 fill-white" />
-            <span>摩尔相亲</span>
+            <span>{getBrandName({ isCN: true })}</span>
             <Badge className="cn-parent-mode-badge ml-2 text-xs py-0.5">
               家长相亲
             </Badge>

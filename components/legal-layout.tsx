@@ -1,9 +1,10 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations, interpolate } from '@/lib/i18n';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { getBrandName } from '@/lib/config/branding.config';
 
 export function LegalLayout({ 
   children,
@@ -32,11 +33,11 @@ export function LegalLayout({
       
       <footer className="mt-16 pt-8 border-t">
         <p className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} {isChinaDeployment() ? '摩尔相亲' : 'PersonaLink'}. {t.legal.allRightsReserved}
+          © {new Date().getFullYear()} {getBrandName({ isCN: isChinaDeployment() })}. {t.legal.allRightsReserved}
           {isChinaDeployment() ? (
             <>
               <span className="mx-2">·</span>
-              <span>粤ICP备2024281756号-15A</span>
+              <span>粤ICP备2024281756号-21X</span>
             </>
           ) : null}
         </p>

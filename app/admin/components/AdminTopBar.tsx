@@ -1,10 +1,11 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { adminLogout } from "@/actions/admin-auth";
 import { Button } from "@/components/ui/button";
 import { LayoutDashboard, LogOut, User } from "lucide-react";
 import { isChinaDeployment } from "@/lib/config/deployment.config";
+import { getBrandName } from "@/lib/config/branding.config";
 
 interface AdminTopBarProps {
   username: string;
@@ -17,7 +18,7 @@ export default function AdminTopBar({ username }: AdminTopBarProps) {
         {/* Logo and Title */}
         <Link href="/admin/stats" className="flex items-center gap-3">
           <LayoutDashboard className="h-6 w-6 text-primary" />
-          <span className="text-xl font-bold">{isChinaDeployment() ? "摩尔相亲管理后台" : "PersonaLink管理后台"}</span>
+          <span className="text-xl font-bold">{`${getBrandName({ isCN: isChinaDeployment() })}管理后台`}</span>
         </Link>
 
         {/* User Info and Logout */}

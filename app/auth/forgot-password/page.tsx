@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -14,6 +14,7 @@ import { getSupabaseClient } from '@/lib/supabase/client';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { getBrandName } from '@/lib/config/branding.config';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -152,7 +153,7 @@ export default function ForgotPasswordPage() {
                   <Sparkles className="h-8 w-8 text-white" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {isChinaDeployment() ? '摩尔相亲' : 'PersonaLink'}
+                  {getBrandName({ isCN: isChinaDeployment() })}
                 </h1>
               </Link>
             </div>
