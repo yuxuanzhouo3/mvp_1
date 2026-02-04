@@ -7,6 +7,8 @@ import { ErrorBoundary } from '@/components/ui/error-boundary'
 import { ConditionalHeader } from '@/components/ui/conditional-header'
 import { cookies, headers } from 'next/headers'
 import type { Language } from '@/lib/i18n'
+import { getBrandName } from '@/lib/config/branding.config'
+import { isWechatMiniProgramUserAgent } from '@/lib/utils/miniprogram-compat'
 
 // 使用系统字体栈，避免在中国区构建时无法访问 Google Fonts 的问题
 const systemFontClass = 'font-sans';
@@ -23,20 +25,23 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = (headerStore.get('x-forwarded-host') || headerStore.get('host') || '').toLowerCase();
   const isChinaRegion = region === 'CN' || host.includes('mornscience.top');
   const locale = isChinaRegion ? 'zh-CN' : 'en-US';
+  const userAgent = headerStore.get('user-agent') || '';
+  const isMiniProgram = isWechatMiniProgramUserAgent(userAgent);
+  const cnBrandName = getBrandName({ isCN: true, isWechatMiniProgram: isMiniProgram });
 
   return {
-    title: isChinaRegion ? '摩尔相亲' : 'PersonaLink - AI Friend Matcher',
+    title: isChinaRegion ? cnBrandName : 'PersonaLink - AI Friend Matcher',
     description: isChinaRegion
       ? '基于个性兼容性找到你的完美AI朋友匹配'
       : 'Find your perfect AI friend match based on personality compatibility',
     keywords: ['AI', 'friendship', 'matching', 'personality', 'chat', '社交', '匹配', '个性', '聊天'],
-    authors: [{ name: isChinaRegion ? '摩尔相亲' : 'PersonaLink Team' }],
+    authors: [{ name: isChinaRegion ? cnBrandName : 'PersonaLink Team' }],
     icons: {
       icon: '/logo.png',
       apple: '/logo.png',
     },
     openGraph: {
-      title: isChinaRegion ? '摩尔相亲' : 'PersonaLink - AI Friend Matcher',
+      title: isChinaRegion ? cnBrandName : 'PersonaLink - AI Friend Matcher',
       description: isChinaRegion
         ? '基于个性兼容性找到你的完美AI朋友匹配'
         : 'Find your perfect AI friend match based on personality compatibility',
@@ -45,7 +50,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: 'summary_large_image',
-      title: isChinaRegion ? '摩尔相亲' : 'PersonaLink - AI Friend Matcher',
+      title: isChinaRegion ? cnBrandName : 'PersonaLink - AI Friend Matcher',
       description: isChinaRegion
         ? '基于个性兼容性找到你的完美AI朋友匹配'
         : 'Find your perfect AI friend match based on personality compatibility',

@@ -38,9 +38,110 @@ export function isWechatMiniProgramWebView(): boolean {
     if (params.get('_wxjs_environment') === 'miniprogram') return true;
   } catch {}
 
-  const wxMiniProgram = (window as any)?.wx?.miniProgram;
-  if (wxMiniProgram) return true;
+  return false;
+}
 
+export function isWechatMiniProgramUserAgent(userAgent?: string | null): boolean {
+  if (!userAgent) return false;
+  return userAgent.toLowerCase().includes('miniprogram');
+}
+
+export interface WxMiniProgramBridge {
+  postMessage?: (data: unknown) => void;
+  navigateTo?: (options: { url: string }) => void;
+  navigateBack?: (options?: { delta?: number }) => void;
+  switchTab?: (options: { url: string }) => void;
+  reLaunch?: (options: { url: string }) => void;
+  redirectTo?: (options: { url: string }) => void;
+  getEnv?: (callback: (res: { miniprogram: boolean }) => void) => void;
+}
+
+function resolveWxMiniProgramBridge(): WxMiniProgramBridge | null {
+  if (typeof window === 'undefined') return null;
+  const wxObj = (window as any).wx;
+  if (!wxObj || typeof wxObj !== 'object') return null;
+  const mp = wxObj.miniProgram;
+  if (!mp || typeof mp !== 'object') return null;
+  return mp as WxMiniProgramBridge;
+}
+
+export function getWxMiniProgramBridge(): WxMiniProgramBridge | null {
+  return resolveWxMiniProgramBridge();
+}
+
+export async function waitForWxMiniProgramBridge(timeoutMs: number = 3000): Promise<WxMiniProgramBridge | null> {
+  if (typeof window === 'undefined') return null;
+
+  const ready = resolveWxMiniProgramBridge();
+  if (ready && (typeof ready.navigateTo === 'function' || typeof ready.postMessage === 'function')) {
+    console.log('[miniprogram] bridge ready immediately');
+    return ready;
+  }
+
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const intervalMs = 100;
+
+    const tick = () => {
+      const mp = resolveWxMiniProgramBridge();
+      if (mp && (typeof mp.navigateTo === 'function' || typeof mp.postMessage === 'function')) {
+        console.log('[miniprogram] bridge ready after', Date.now() - start, 'ms');
+        resolve(mp);
+        return;
+      }
+
+      if (Date.now() - start >= timeoutMs) {
+        console.warn('[miniprogram] bridge wait timeout after', Date.now() - start, 'ms');
+        resolve(mp ?? null);
+        return;
+      }
+
+      setTimeout(tick, intervalMs);
+    };
+
+    tick();
+  });
+}
+
+export async function requestWxMiniProgramLogin(returnUrl?: string): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+
+  const currentUrl = returnUrl || window.location.href;
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const wxEnv = (window as any).__wxjs_environment;
+  const hasWx = typeof (window as any).wx !== 'undefined';
+  const hasMp = !!(window as any)?.wx?.miniProgram;
+  console.log('[miniprogram] request login', {
+    currentUrl,
+    hasWx,
+    hasMp,
+    wxEnv,
+    ua,
+  });
+  const mp = await waitForWxMiniProgramBridge(3000);
+
+  if (mp && typeof mp.navigateTo === 'function') {
+    const encodedUrl = encodeURIComponent(currentUrl);
+    console.log('[miniprogram] using navigateTo for login');
+    mp.navigateTo({ url: `/pages/webshell/login?returnUrl=${encodedUrl}` });
+    return true;
+  }
+
+  const payload = { type: 'REQUEST_WX_LOGIN', returnUrl: currentUrl };
+
+  if (mp && typeof mp.postMessage === 'function') {
+    console.log('[miniprogram] using postMessage for login');
+    mp.postMessage({ data: payload });
+    return true;
+  }
+
+  if ((window as any)?.wx?.miniProgram?.postMessage) {
+    console.log('[miniprogram] using direct wx.miniProgram.postMessage for login');
+    (window as any).wx.miniProgram.postMessage({ data: payload });
+    return true;
+  }
+
+  console.warn('[miniprogram] login request failed: no available bridge method');
   return false;
 }
 
@@ -381,9 +482,14 @@ export function hideWechatLoading() {
 // eslint-disable-next-line import/no-anonymous-default-export
 export default {
   isWechatMiniProgram,
+  isWechatMiniProgramWebView,
+  isWechatMiniProgramUserAgent,
   isWechatBrowser,
   isMobileDevice,
   getWechatSystemInfo,
+  getWxMiniProgramBridge,
+  waitForWxMiniProgramBridge,
+  requestWxMiniProgramLogin,
   SENIOR_FRIENDLY_SIZES,
   pxToRpx,
   rpxToPx,

@@ -14,13 +14,20 @@ import {
   isChinaDeployment,
   getServiceConfigSummary,
 } from '@/lib/services';
+import { getBrandName } from '@/lib/config/branding.config';
+import { isWechatMiniProgramUserAgent } from '@/lib/utils/miniprogram-compat';
 import { getAIService } from '@/lib/ai';
 import { getPaymentService } from '@/lib/services/payment';
 import { getAuthService } from '@/lib/services/auth';
 
-export async function GET() {
+export async function GET(request: Request) {
   const isCN = isChinaDeployment();
   const serviceConfig = getServiceConfigSummary();
+  const userAgent = request.headers.get('user-agent');
+  const isMiniProgram = isWechatMiniProgramUserAgent(userAgent);
+  const appName = isCN
+    ? getBrandName({ isCN: true, isWechatMiniProgram: isMiniProgram })
+    : deploymentConfig.appName;
   
   // 获取各服务的可用配置
   const aiService = getAIService();
@@ -32,7 +39,7 @@ export async function GET() {
     deployment: {
       region: deploymentConfig.region,
       defaultLanguage: deploymentConfig.defaultLanguage,
-      appName: deploymentConfig.appName,
+      appName: appName,
       version: deploymentConfig.version,
     },
 

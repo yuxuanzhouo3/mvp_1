@@ -3,7 +3,8 @@
  * 国际化工具函数
  */
 
-import { isChinaDeployment, deploymentConfig } from '@/lib/config/deployment.config'
+import { isChinaDeployment } from '@/lib/config/deployment.config'
+import { getBrandName } from '@/lib/config/branding.config'
 import { translations, type Language, type Translations } from './translations'
 
 const cnTranslationsCache = new Map<Language, Translations>()
@@ -19,7 +20,7 @@ export function getTranslations(language: Language): Translations {
   const cached = cnTranslationsCache.get(language)
   if (cached) return cached
 
-  const cnBrandName = deploymentConfig.appName
+  const cnBrandName = getBrandName({ isCN: true })
 
   const replaceBrandTerms = (value: unknown): unknown => {
     if (typeof value === 'string') {

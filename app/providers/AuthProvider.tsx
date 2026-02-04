@@ -6,7 +6,7 @@ import { getSupabaseClient } from '@/lib/supabase/client';
 import { clearAllCaches } from '@/lib/utils/cache-cleaner';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { getAuthServiceAsync } from '@/lib/services/auth';
-import { isWechatMiniProgramWebView } from '@/lib/utils/miniprogram-compat';
+import { isWechatMiniProgramWebView, requestWxMiniProgramLogin } from '@/lib/utils/miniprogram-compat';
 
 interface AuthContextType {
   user: User | null;
@@ -338,30 +338,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (isWechatMiniProgramWebView()) {
       const returnUrl = window.location.href;
-      const encodedUrl = encodeURIComponent(returnUrl);
-      const mp = (window as any)?.wx?.miniProgram;
-
-      try {
-        if (mp && typeof mp.navigateTo === 'function') {
-          mp.navigateTo({ url: `/pages/webshell/login?returnUrl=${encodedUrl}` });
-          return { error: null };
-        }
-      } catch {}
-
-      try {
-        if (mp && typeof mp.postMessage === 'function') {
-          mp.postMessage({ type: 'REQUEST_WX_LOGIN', returnUrl });
-          return { error: null };
-        }
-      } catch {}
-
-      try {
-        if ((window as any)?.wx?.miniProgram?.postMessage) {
-          (window as any).wx.miniProgram.postMessage({ type: 'REQUEST_WX_LOGIN', returnUrl });
-          return { error: null };
-        }
-      } catch {}
-
+      const ok = await requestWxMiniProgramLogin(returnUrl);
+      if (ok) {
+        return { error: null };
+      }
+      console.warn('[Auth] MiniProgram login request failed', {
+        ua: navigator.userAgent,
+        wxEnv: (window as any).__wxjs_environment,
+        hasWx: typeof (window as any).wx !== 'undefined',
+        hasMiniProgram: !!(window as any)?.wx?.miniProgram,
+      });
       return { error: { message: '当前微信小程序环境不支持登录调用方式' } };
     }
 
