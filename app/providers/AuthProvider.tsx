@@ -67,10 +67,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const mpAvatarUrl = params.get('mpAvatarUrl');
 
               if (token || mpCode) {
+                console.log('[AuthProvider] MP login params detected:', { token: !!token, mpCode: !!mpCode, mpNickName, mpAvatarUrl: !!mpAvatarUrl });
                 let finalToken = token;
                 let finalOpenid = openid;
 
                 if (!finalToken && mpCode) {
+                  console.log('[AuthProvider] mpCode detected, calling /api/wxlogin/check...');
                   const checkRes = await fetch('/api/wxlogin/check', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -79,14 +81,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     cache: 'no-store',
                   });
                   const checkJson = await checkRes.json();
+                  console.log('[AuthProvider] /api/wxlogin/check response:', checkRes.ok, checkJson?.success, checkJson?.errcode);
                   if (checkRes.ok && checkJson?.success && typeof checkJson?.token === 'string') {
                     finalToken = checkJson.token;
                     finalOpenid = typeof checkJson?.openid === 'string' ? checkJson.openid : finalOpenid;
+                    console.log('[AuthProvider] Got token from check API');
+                  } else {
+                    console.error('[AuthProvider] check API failed:', checkJson?.error || checkJson?.errmsg);
                   }
                 }
 
                 if (finalToken) {
-                  await fetch('/api/auth/mp-callback', {
+                  console.log('[AuthProvider] Calling /api/auth/mp-callback...');
+                  const mpCallbackRes = await fetch('/api/auth/mp-callback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -98,6 +105,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     credentials: 'include',
                     cache: 'no-store',
                   });
+                  console.log('[AuthProvider] mp-callback completed, status:', mpCallbackRes.status);
+
+                  // 立即获取用户信息以确保状态同步
+                  if (mpCallbackRes.ok) {
+                    console.log('[AuthProvider] Fetching cn-me to sync user state...');
+                    const meRes = await fetch('/api/auth/cn-me', {
+                      method: 'GET',
+                      credentials: 'include',
+                      cache: 'no-store',
+                    });
+                    if (meRes.ok) {
+                      const meResult = await meRes.json();
+                      const serverUser = meResult?.user;
+                      if (serverUser?.id) {
+                        const cnUser = {
+                          id: serverUser.id,
+                          email: serverUser.email,
+                          user_metadata: {
+                            display_name: serverUser.displayName,
+                            avatar_url: serverUser.avatarUrl,
+                          },
+                        } as any;
+                        console.log('[AuthProvider] MP login success, setting user:', serverUser.displayName || serverUser.id);
+                        setUser(cnUser);
+                        userRef.current = cnUser;
+                        setSession(null);
+                        localStorage.setItem('cn_user', JSON.stringify(cnUser));
+                        // 清理URL参数后提前结束初始化
+                        ['token', 'openid', 'expiresIn', 'mpCode', 'mpNickName', 'mpAvatarUrl', 'mpProfileTs'].forEach((k) =>
+                          params.delete(k)
+                        );
+                        window.history.replaceState({}, '', url.toString());
+                        setLoading(false);
+                        return; // 提前返回，避免重复处理
+                      }
+                    }
+                  }
                 }
 
                 ['token', 'openid', 'expiresIn', 'mpCode', 'mpNickName', 'mpAvatarUrl', 'mpProfileTs'].forEach((k) =>
@@ -105,7 +149,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 );
                 window.history.replaceState({}, '', url.toString());
               }
-            } catch {}
+            } catch (e) {
+              console.error('[AuthProvider] MP login error:', e);
+            }
           }
 
           if (cnUserData) {
@@ -279,9 +325,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             avatar_url: result.user.avatarUrl,
           },
         } as any;
-        
+
         console.log('🔐 CN Login: Setting new user data for:', result.user.email, 'ID:', result.user.id);
-        
+
         setUser(cnUser);
         userRef.current = cnUser;
         setSession(null);
@@ -429,7 +475,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           );
           return { error: null };
         }
-      } catch {}
+      } catch { }
     }
 
     window.location.href = `/api/auth/wechat/start?redirect=${encodeURIComponent(redirectPath)}`;
