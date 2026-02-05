@@ -8,6 +8,7 @@ interface EmojiPickerProps {
   onClose: () => void;
   onSelect: (emoji: string) => void;
   language?: 'zh' | 'en';
+  placement?: 'top' | 'bottom' | 'inline';
 }
 
 const EMOJI_CATEGORIES = [
@@ -49,7 +50,13 @@ const EMOJI_CATEGORIES = [
   }
 ];
 
-export function EmojiPicker({ isOpen, onClose, onSelect, language = 'zh' }: EmojiPickerProps) {
+export function EmojiPicker({
+  isOpen,
+  onClose,
+  onSelect,
+  language = 'zh',
+  placement = 'top',
+}: EmojiPickerProps) {
   const [activeCategory, setActiveCategory] = useState(0);
   const pickerRef = useRef<HTMLDivElement>(null);
 
@@ -89,10 +96,15 @@ export function EmojiPicker({ isOpen, onClose, onSelect, language = 'zh' }: Emoj
 
   if (!isOpen) return null;
 
+  const placementClassName =
+    placement === 'inline'
+      ? 'w-full'
+      : `absolute right-0 w-80 ${placement === 'bottom' ? 'top-full mt-2' : 'bottom-full mb-2'}`;
+
   return (
     <div
       ref={pickerRef}
-      className="absolute bottom-full mb-2 right-0 w-80 max-h-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden"
+      className={`${placementClassName} max-h-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden`}
     >
       {/* 头部 */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700">

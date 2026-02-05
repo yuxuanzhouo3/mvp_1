@@ -109,6 +109,11 @@ export default function CnChatPage() {
     }
   }, [user?.id]);
 
+  const handleViewProfile = useCallback(() => {
+    if (!selectedRoom) return;
+    setShowUserProfile(true);
+  }, [selectedRoom]);
+
   const refreshVideoUrl = useCallback(async (message: ChatMessage) => {
     if (!user?.id) return false;
     if (!message?.id) return false;
@@ -458,6 +463,79 @@ export default function CnChatPage() {
 
   if (!mounted) return null;
 
+  const profilePanelHeader = (
+    <div className="flex items-center justify-between mb-4">
+      <h2 className="text-base font-semibold text-gray-900 dark:text-white">
+        {language === 'zh' ? '用户资料' : 'User Profile'}
+      </h2>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setShowUserProfile(false)}
+      >
+        <X className="h-5 w-5" />
+      </Button>
+    </div>
+  );
+
+  const profilePanelBody = selectedRoom ? (
+    <div className="p-4">
+      {profilePanelHeader}
+
+      {/* 用户头像和基本信息 */}
+      <div className="text-center mb-6">
+        <Avatar className="w-24 h-24 mx-auto mb-4">
+          <AvatarImage src={selectedRoom.otherUser?.avatarUrl} />
+          <AvatarFallback className="text-2xl bg-gradient-to-br from-primary to-primary/70 text-white">
+            {selectedRoom.otherUser?.username?.charAt(0).toUpperCase() || '?'}
+          </AvatarFallback>
+        </Avatar>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
+          {selectedRoom.otherUser?.username || (language === 'zh' ? '未知用户' : 'Unknown')}
+        </h2>
+        <p className="text-sm text-gray-500">
+          {selectedRoom.otherUser?.isOnline
+            ? (language === 'zh' ? '在线' : 'Online')
+            : (language === 'zh' ? '离线' : 'Offline')
+          }
+        </p>
+      </div>
+
+      {/* 用户详细信息 */}
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            {language === 'zh' ? '用户ID' : 'User ID'}
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 break-all">
+            {selectedRoom.otherUser?.id || 'N/A'}
+          </p>
+        </div>
+
+        {selectedRoom.otherUser?.email && (
+          <div>
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              {language === 'zh' ? '邮箱' : 'Email'}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 break-all">
+              {selectedRoom.otherUser.email}
+            </p>
+          </div>
+        )}
+
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            {language === 'zh' ? '会话信息' : 'Chat Info'}
+          </h3>
+          <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+            <p>{language === 'zh' ? '消息数量' : 'Messages'}: {messages.length}</p>
+            <p>{language === 'zh' ? '未读消息' : 'Unread'}: {selectedRoom.myUnreadCount || 0}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="h-full min-h-0 flex bg-gray-100 dark:bg-gray-900">
       {/* 左侧会话列表 */}
@@ -615,7 +693,7 @@ export default function CnChatPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setShowUserProfile(true)}>
+                    <DropdownMenuItem onClick={handleViewProfile}>
                       <User className="h-4 w-4 mr-2" />
                       {language === 'zh' ? '查看资料' : 'View Profile'}
                     </DropdownMenuItem>
@@ -650,23 +728,36 @@ export default function CnChatPage() {
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               {showSearchMessages && (
                 <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 pb-3">
-                  <div className="relative">
-                    <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder={language === 'zh' ? '搜索消息...' : 'Search messages...'}
-                      value={searchMessageQuery}
-                      onChange={(e) => setSearchMessageQuery(e.target.value)}
-                      className="w-full pl-9 pr-10 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    />
-                    {searchMessageQuery && (
-                      <button
-                        onClick={() => setSearchMessageQuery('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder={language === 'zh' ? '搜索消息...' : 'Search messages...'}
+                        value={searchMessageQuery}
+                        onChange={(e) => setSearchMessageQuery(e.target.value)}
+                        className="w-full pl-9 pr-10 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      />
+                      {searchMessageQuery && (
+                        <button
+                          onClick={() => setSearchMessageQuery('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => {
+                        setShowSearchMessages(false);
+                        setSearchMessageQuery('');
+                      }}
+                    >
+                      {language === 'zh' ? '退出' : 'Close'}
+                    </Button>
                   </div>
                 </div>
               )}
@@ -694,7 +785,7 @@ export default function CnChatPage() {
                       className={cn("flex", isOwn ? "justify-end" : "justify-start")}
                     >
                       <div className={cn(
-                        "flex items-end space-x-2 max-w-[70%]",
+                        "flex items-end space-x-2 max-w-[85%] sm:max-w-[75%] lg:max-w-[70%]",
                         isOwn && "flex-row-reverse space-x-reverse"
                       )}>
                         <Avatar className="w-8 h-8">
@@ -773,36 +864,55 @@ export default function CnChatPage() {
                 type="file"
                 ref={fileInputRef}
                 accept="image/*"
+                multiple
                 className="hidden"
                 onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file || !selectedRoom || !user?.id) return;
+                  const files = Array.from(e.target.files ?? []);
+                  if (files.length === 0 || !selectedRoom || !user?.id) return;
+
+                  const caption = inputValue.trim();
+                  if (caption) setInputValue("");
 
                   try {
                     setIsSending(true);
                     const roomId = selectedRoom.otherUser?.id || selectedRoom.id;
-                    const formData = new FormData();
-                    formData.append('image', file);
-                    formData.append('chatId', roomId);
+                    const service = chatServiceRef.current;
 
-                    const response = await fetch('/api/chat/upload-image', {
-                      method: 'POST',
-                      body: formData,
-                    });
+                    for (const file of files) {
+                      const formData = new FormData();
+                      formData.append('image', file);
+                      formData.append('chatId', roomId);
 
-                    const result = await response.json();
-                    if (!result.success) {
-                      console.error('Image upload failed:', result.error);
-                      return;
+                      const response = await fetch('/api/chat/upload-image', {
+                        method: "POST",
+                        body: formData,
+                      });
+
+                      const result = await response.json();
+                      if (!result.success) {
+                        console.error('Image upload failed:', result.error);
+                        continue;
+                      }
+
+                      if (service) {
+                        const sendResult = await service.sendMessage({
+                          roomId,
+                          content: "[??]",
+                          type: "image",
+                          metadata: { imageUrl: result.image_url, thumbnailUrl: result.image_url },
+                        });
+                        if (sendResult.success && sendResult.message) {
+                          setMessages(prev => [...prev, sendResult.message!]);
+                          setTimeout(() => scrollToBottom(), 100);
+                        }
+                      }
                     }
 
-                    const service = chatServiceRef.current;
-                    if (service) {
+                    if (caption && service) {
                       const sendResult = await service.sendMessage({
                         roomId,
-                        content: '[图片]',
-                        type: 'image',
-                        metadata: { imageUrl: result.image_url, thumbnailUrl: result.image_url },
+                        content: caption,
+                        type: "text",
                       });
                       if (sendResult.success && sendResult.message) {
                         setMessages(prev => [...prev, sendResult.message!]);
@@ -813,7 +923,7 @@ export default function CnChatPage() {
                     console.error('Image upload error:', error);
                   } finally {
                     setIsSending(false);
-                    if (fileInputRef.current) fileInputRef.current.value = '';
+                    if (fileInputRef.current) fileInputRef.current.value = "";
                   }
                 }}
               />
@@ -822,41 +932,60 @@ export default function CnChatPage() {
                 type="file"
                 ref={videoInputRef}
                 accept="video/*"
+                multiple
                 className="hidden"
                 onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file || !selectedRoom || !user?.id) return;
+                  const files = Array.from(e.target.files ?? []);
+                  if (files.length === 0 || !selectedRoom || !user?.id) return;
+
+                  const caption = inputValue.trim();
+                  if (caption) setInputValue("");
 
                   try {
                     setIsSending(true);
                     const roomId = selectedRoom.otherUser?.id || selectedRoom.id;
-                    const formData = new FormData();
-                    formData.append('video', file);
-                    formData.append('chatId', roomId);
-                    formData.append('duration', '0');
+                    const service = chatServiceRef.current;
 
-                    const response = await fetch('/api/chat/upload-video', {
-                      method: 'POST',
-                      body: formData,
-                    });
+                    for (const file of files) {
+                      const formData = new FormData();
+                      formData.append('video', file);
+                      formData.append('chatId', roomId);
+                      formData.append('duration', '0');
 
-                    const result = await response.json();
-                    if (!result.success) {
-                      console.error('Video upload failed:', result.error);
-                      return;
+                      const response = await fetch('/api/chat/upload-video', {
+                        method: "POST",
+                        body: formData,
+                      });
+
+                      const result = await response.json();
+                      if (!result.success) {
+                        console.error('Video upload failed:', result.error);
+                        continue;
+                      }
+
+                      if (service) {
+                        const sendResult = await service.sendMessage({
+                          roomId,
+                          content: "[??]",
+                          type: "video",
+                          metadata: {
+                            videoUrl: result.video_url,
+                            cloudbaseFileId: result.file_id,
+                            cloudbasePath: result.file_path,
+                          },
+                        });
+                        if (sendResult.success && sendResult.message) {
+                          setMessages(prev => [...prev, sendResult.message!]);
+                          setTimeout(() => scrollToBottom(), 100);
+                        }
+                      }
                     }
 
-                    const service = chatServiceRef.current;
-                    if (service) {
+                    if (caption && service) {
                       const sendResult = await service.sendMessage({
                         roomId,
-                        content: '[视频]',
-                        type: 'video',
-                        metadata: {
-                          videoUrl: result.video_url,
-                          cloudbaseFileId: result.file_id,
-                          cloudbasePath: result.file_path,
-                        },
+                        content: caption,
+                        type: "text",
                       });
                       if (sendResult.success && sendResult.message) {
                         setMessages(prev => [...prev, sendResult.message!]);
@@ -867,7 +996,7 @@ export default function CnChatPage() {
                     console.error('Video upload error:', error);
                   } finally {
                     setIsSending(false);
-                    if (videoInputRef.current) videoInputRef.current.value = '';
+                    if (videoInputRef.current) videoInputRef.current.value = "";
                   }
                 }}
               />
@@ -910,67 +1039,28 @@ export default function CnChatPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-end gap-2 flex-wrap sm:flex-nowrap">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-gray-500 hover:text-primary shrink-0"
-                  >
-                    <ImageIcon className="h-5 w-5" />
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => videoInputRef.current?.click()}
-                    className="text-gray-500 hover:text-primary shrink-0"
-                  >
-                    <Video className="h-5 w-5" />
-                  </Button>
-
-                  <div className="flex-1 min-w-0">
-                    <textarea
-                      ref={inputRef}
-                      value={inputValue}
-                      onChange={(e) => setInputValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSend();
-                        }
-                      }}
-                      placeholder={language === 'zh' ? '输入消息...' : 'Type a message...'}
-                      rows={1}
-                      className="w-full min-w-0 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
-                      style={{ maxHeight: '100px' }}
-                    />
-                  </div>
-
-                  <div className="relative shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      className={cn(
-                        "text-gray-500 hover:text-primary shrink-0",
-                        showEmojiPicker && "text-primary bg-primary/10"
-                      )}
-                    >
-                      <Smile className="h-5 w-5" />
-                    </Button>
-                    <EmojiPicker
-                      isOpen={showEmojiPicker}
-                      onClose={() => setShowEmojiPicker(false)}
-                      onSelect={handleEmojiSelect}
-                      language={language as 'zh' | 'en'}
-                    />
-                  </div>
-
-                  {inputValue.trim() ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1 min-w-0">
+                      <textarea
+                        ref={inputRef}
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSend();
+                          }
+                        }}
+                        placeholder={language === "zh" ? "输入消息..." : "Type a message..."}
+                        rows={1}
+                        className="w-full min-w-0 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        style={{ maxHeight: "100px" }}
+                      />
+                    </div>
                     <Button
                       onClick={handleSend}
-                      disabled={isSending}
+                      disabled={isSending || !inputValue.trim()}
                       size="sm"
                       className="bg-primary text-white shrink-0"
                     >
@@ -980,80 +1070,127 @@ export default function CnChatPage() {
                         <Send className="h-5 w-5" />
                       )}
                     </Button>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-primary shrink-0"
-                      onClick={async () => {
-                        try {
-                          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                          const mediaRecorder = new MediaRecorder(stream);
-                          audioChunksRef.current = [];
-                          mediaRecorderRef.current = mediaRecorder;
+                  </div>
+                
+                  <div className="grid grid-cols-4 gap-2 w-full">
+                    <div className="flex justify-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-gray-500 hover:text-primary"
+                      >
+                        <ImageIcon className="h-5 w-5" />
+                      </Button>
+                    </div>
 
-                          mediaRecorder.ondataavailable = (e) => {
-                            if (e.data.size > 0) audioChunksRef.current.push(e.data);
-                          };
+                    <div className="flex justify-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => videoInputRef.current?.click()}
+                        className="text-gray-500 hover:text-primary"
+                      >
+                        <Video className="h-5 w-5" />
+                      </Button>
+                    </div>
 
-                          mediaRecorder.onstop = async () => {
-                            stream.getTracks().forEach(t => t.stop());
-                            const duration = recordingDurationRef.current;
+                    <div className="flex justify-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        className={cn(
+                          "text-gray-500 hover:text-primary",
+                          showEmojiPicker && "text-primary bg-primary/10"
+                        )}
+                      >
+                        <Smile className="h-5 w-5" />
+                      </Button>
+                    </div>
 
-                            if (audioChunksRef.current.length > 0 && selectedRoom && user?.id) {
-                              try {
-                                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                                const roomId = selectedRoom.otherUser?.id || selectedRoom.id;
-                                const formData = new FormData();
-                                formData.append('audio', audioBlob, 'voice.webm');
-                                formData.append('chatId', roomId);
-                                formData.append('duration', String(duration));
+                    <div className="flex justify-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-primary"
+                        onClick={async () => {
+                          try {
+                            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                            const mediaRecorder = new MediaRecorder(stream);
+                            audioChunksRef.current = [];
+                            mediaRecorderRef.current = mediaRecorder;
 
-                                const response = await fetch('/api/chat/upload-audio', {
-                                  method: 'POST',
-                                  body: formData,
-                                });
+                            mediaRecorder.ondataavailable = (e) => {
+                              if (e.data.size > 0) audioChunksRef.current.push(e.data);
+                            };
 
-                                const result = await response.json();
-                                if (result.success) {
-                                  const service = chatServiceRef.current;
-                                  if (service) {
-                                    const sendResult = await service.sendMessage({
-                                      roomId,
-                                      content: '[语音]',
-                                      type: 'audio',
-                                      metadata: { audioUrl: result.audio_url, duration },
-                                    });
-                                    if (sendResult.success && sendResult.message) {
-                                      setMessages(prev => [...prev, sendResult.message!]);
-                                      setTimeout(() => scrollToBottom(), 100);
+                            mediaRecorder.onstop = async () => {
+                              stream.getTracks().forEach(t => t.stop());
+                              const duration = recordingDurationRef.current;
+
+                              if (audioChunksRef.current.length > 0 && selectedRoom && user?.id) {
+                                try {
+                                  const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+                                  const roomId = selectedRoom.otherUser?.id || selectedRoom.id;
+                                  const formData = new FormData();
+                                  formData.append("audio", audioBlob, "voice.webm");
+                                  formData.append("chatId", roomId);
+                                  formData.append("duration", String(duration));
+
+                                  const response = await fetch("/api/chat/upload-audio", {
+                                    method: "POST",
+                                    body: formData,
+                                  });
+
+                                  const result = await response.json();
+                                  if (result.success) {
+                                    const service = chatServiceRef.current;
+                                    if (service) {
+                                      const sendResult = await service.sendMessage({
+                                        roomId,
+                                        content: "[??]",
+                                        type: "audio",
+                                        metadata: { audioUrl: result.audio_url, duration },
+                                      });
+                                      if (sendResult.success && sendResult.message) {
+                                        setMessages(prev => [...prev, sendResult.message!]);
+                                        setTimeout(() => scrollToBottom(), 100);
+                                      }
                                     }
                                   }
+                                } catch (error) {
+                                  console.error("Audio upload error:", error);
                                 }
-                              } catch (error) {
-                                console.error('Audio upload error:', error);
                               }
-                            }
-                            setRecordingDuration(0);
-                          };
+                              setRecordingDuration(0);
+                            };
 
-                          mediaRecorder.start(100);
-                          setIsRecording(true);
+                            mediaRecorder.start(100);
+                            setIsRecording(true);
 
-                          recordingDurationRef.current = 0;
-                          recordingTimerRef.current = setInterval(() => {
-                            recordingDurationRef.current += 1;
-                            setRecordingDuration(recordingDurationRef.current);
-                            if (recordingDurationRef.current >= 60) mediaRecorderRef.current?.stop();
-                          }, 1000);
-                        } catch (err) {
-                          console.error('Microphone access denied:', err);
-                        }
-                      }}
-                    >
-                      <Mic className="h-5 w-5" />
-                    </Button>
-                  )}
+                            recordingDurationRef.current = 0;
+                            recordingTimerRef.current = setInterval(() => {
+                              recordingDurationRef.current += 1;
+                              setRecordingDuration(recordingDurationRef.current);
+                              if (recordingDurationRef.current >= 60) mediaRecorderRef.current?.stop();
+                            }, 1000);
+                          } catch (err) {
+                            console.error("Microphone access denied:", err);
+                          }
+                        }}
+                      >
+                        <Mic className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </div>
+                  <EmojiPicker
+                    isOpen={showEmojiPicker}
+                    onClose={() => setShowEmojiPicker(false)}
+                    onSelect={handleEmojiSelect}
+                    language={language as "zh" | "en"}
+                    placement="inline"
+                  />
                 </div>
               )}
             </div>
@@ -1061,72 +1198,22 @@ export default function CnChatPage() {
 
             {/* 用户资料侧边栏 */}
             {showUserProfile && selectedRoom && (
-              <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 overflow-y-auto">
-                <div className="p-4">
-                  {/* 关闭按钮 */}
-                  <div className="flex justify-end mb-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowUserProfile(false)}
-                    >
-                      <X className="h-5 w-5" />
-                    </Button>
-                  </div>
-
-                  {/* 用户头像和基本信息 */}
-                  <div className="text-center mb-6">
-                    <Avatar className="w-24 h-24 mx-auto mb-4">
-                      <AvatarImage src={selectedRoom.otherUser?.avatarUrl} />
-                      <AvatarFallback className="text-2xl bg-gradient-to-br from-primary to-primary/70 text-white">
-                        {selectedRoom.otherUser?.username?.charAt(0).toUpperCase() || '?'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                      {selectedRoom.otherUser?.username || (language === 'zh' ? '未知用户' : 'Unknown')}
-                    </h2>
-                    <p className="text-sm text-gray-500">
-                      {selectedRoom.otherUser?.isOnline
-                        ? (language === 'zh' ? '在线' : 'Online')
-                        : (language === 'zh' ? '离线' : 'Offline')
-                      }
-                    </p>
-                  </div>
-
-                  {/* 用户详细信息 */}
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        {language === 'zh' ? '用户ID' : 'User ID'}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 break-all">
-                        {selectedRoom.otherUser?.id || 'N/A'}
-                      </p>
-                    </div>
-
-                    {selectedRoom.otherUser?.email && (
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                          {language === 'zh' ? '邮箱' : 'Email'}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {selectedRoom.otherUser.email}
-                        </p>
-                      </div>
-                    )}
-
-                    <div>
-                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        {language === 'zh' ? '会话信息' : 'Chat Info'}
-                      </h3>
-                      <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                        <p>{language === 'zh' ? '消息数量' : 'Messages'}: {messages.length}</p>
-                        <p>{language === 'zh' ? '未读消息' : 'Unread'}: {selectedRoom.myUnreadCount || 0}</p>
-                      </div>
-                    </div>
+              <>
+                <div
+                  className="md:hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                  onClick={() => setShowUserProfile(false)}
+                >
+                  <div
+                    className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-2xl shadow-lg"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {profilePanelBody}
                   </div>
                 </div>
-              </div>
+                <div className="hidden md:block w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 overflow-y-auto">
+                  {profilePanelBody}
+                </div>
+              </>
             )}
           </div>
         ) : (
