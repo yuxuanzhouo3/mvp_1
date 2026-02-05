@@ -117,6 +117,9 @@ export function AIChatSimulation({
   };
 
   const watermark = session?.watermark?.[language] || (language === 'zh' ? '🤖 AI模拟回复' : '🤖 AI-simulated response');
+  const aiDisclaimer = language === 'zh'
+    ? '本服务为AI生成内容，结果仅供参考'
+    : 'This service is AI-generated content. Results are for reference only.';
 
   // 免责声明弹窗
   if (showDisclaimer) {
@@ -254,6 +257,13 @@ export function AIChatSimulation({
           ) : (
             `${Math.max(0, remainingChats ?? 0)}/${totalLimit} ${language === 'zh' ? '次对话剩余' : 'chats remaining'}`
           )}
+        </div>
+      </div>
+
+      <div className="px-4 pb-4">
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-200">
+          <AlertTriangle className="h-4 w-4 mt-0.5" />
+          <span>{aiDisclaimer}</span>
         </div>
       </div>
     </div>

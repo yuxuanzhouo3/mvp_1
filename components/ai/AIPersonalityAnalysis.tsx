@@ -82,6 +82,9 @@ export function AIPersonalityAnalysis({
     donts: language === 'zh' ? '避免做' : "Don'ts",
     challenges: language === 'zh' ? '潜在挑战' : 'Potential Challenges',
     firstMessage: language === 'zh' ? '开场白建议' : 'First Message Ideas',
+    aiDisclaimer: language === 'zh'
+      ? '本服务为AI生成内容，结果仅供参考'
+      : 'This service is AI-generated content. Results are for reference only.',
   };
 
   return (
@@ -256,6 +259,11 @@ export function AIPersonalityAnalysis({
           </Card>
         </div>
       )}
+
+      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-200">
+        <AlertTriangle className="h-4 w-4 mt-0.5" />
+        <span>{t.aiDisclaimer}</span>
+      </div>
     </div>
   );
 }
