@@ -360,7 +360,6 @@ async function getCloudbaseAdapter(): Promise<CloudbaseAdapter> {
         const insertData = Array.isArray(data) ? data : [data];
         const results: any[] = [];
         const keepUserId = this.tableName === 'users';
-        const keepUserId = this.tableName === 'users';
 
         for (const item of insertData) {
           // 验证数据不为空（排除 id, created_at, updated_at 后检查）
@@ -435,6 +434,7 @@ async function getCloudbaseAdapter(): Promise<CloudbaseAdapter> {
       try {
         const insertData = Array.isArray(data) ? data : [data];
         const results: any[] = [];
+        const keepUserId = this.tableName === 'users';
 
         for (const item of insertData) {
           // 验证数据不为空
