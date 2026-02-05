@@ -359,6 +359,8 @@ async function getCloudbaseAdapter(): Promise<CloudbaseAdapter> {
       try {
         const insertData = Array.isArray(data) ? data : [data];
         const results: any[] = [];
+        const keepUserId = this.tableName === 'users';
+        const keepUserId = this.tableName === 'users';
 
         for (const item of insertData) {
           // 验证数据不为空（排除 id, created_at, updated_at 后检查）
@@ -375,7 +377,9 @@ async function getCloudbaseAdapter(): Promise<CloudbaseAdapter> {
           if (preparedData.id) {
             preparedData._id = preparedData.id;
           }
-          delete preparedData.id;
+          if (!keepUserId) {
+            delete preparedData.id;
+          }
           preparedData.created_at = preparedData.created_at || new Date().toISOString();
           preparedData.updated_at = new Date().toISOString();
 
@@ -483,7 +487,9 @@ async function getCloudbaseAdapter(): Promise<CloudbaseAdapter> {
             if (preparedData.id) {
               preparedData._id = preparedData.id;
             }
-            delete preparedData.id;
+            if (!keepUserId) {
+              delete preparedData.id;
+            }
             preparedData.created_at = preparedData.created_at || new Date().toISOString();
             preparedData.updated_at = new Date().toISOString();
             const result = await this.collection.add(preparedData);

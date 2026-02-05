@@ -44,11 +44,23 @@ export async function POST(request: NextRequest) {
     const avatarUrl = typeof body?.avatarUrl === 'string' ? body.avatarUrl : '';
 
     const db = await getServiceDbClient();
-    const { data: existingUser } = await db
-      .from('users')
-      .select('id,wechat_openid,display_name,avatar_url')
-      .eq('id', verified.userId)
-      .single();
+    const selectUser = async (field: string, value: string) => {
+      if (!value) return null;
+      const { data } = await db
+        .from('users')
+        .select('id,wechat_openid,display_name,avatar_url')
+        .eq(field, value)
+        .single();
+      return data || null;
+    };
+
+    let existingUser = await selectUser('id', verified.userId);
+    if (!existingUser?.id && verified.userId) {
+      existingUser = await selectUser('_id', verified.userId);
+    }
+    if (!existingUser?.id && openid) {
+      existingUser = await selectUser('wechat_openid', openid);
+    }
 
     if (!existingUser?.id) {
       return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
@@ -71,7 +83,31 @@ export async function POST(request: NextRequest) {
     }
 
     if (Object.keys(updateData).length > 1) {
-      await db.from('users').update(updateData).eq('id', verified.userId);
+      const updatedById = await db
+        .from('users')
+        .update(updateData)
+        .eq('id', verified.userId)
+        .select('id');
+      const updatedRows = Array.isArray(updatedById?.data)
+        ? updatedById.data.length
+        : updatedById?.data
+          ? 1
+          : 0;
+      if (updatedRows === 0) {
+        const updatedByInternalId = await db
+          .from('users')
+          .update(updateData)
+          .eq('_id', verified.userId)
+          .select('id');
+        const updatedInternalRows = Array.isArray(updatedByInternalId?.data)
+          ? updatedByInternalId.data.length
+          : updatedByInternalId?.data
+            ? 1
+            : 0;
+        if (updatedInternalRows === 0 && openid) {
+          await db.from('users').update(updateData).eq('wechat_openid', openid);
+        }
+      }
     }
 
     const host = request.headers.get('host') || '';
@@ -114,4 +150,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: error?.message || 'Unexpected error' }, { status: 500 });
   }
 }
-

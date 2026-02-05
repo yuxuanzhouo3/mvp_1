@@ -27,15 +27,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
   const isInitializedRef = useRef(false);
   const userRef = useRef<User | null>(null);
-
-  const addLog = useCallback((msg: string) => {
-    const time = new Date().toLocaleTimeString();
-    setDebugLogs(prev => [...prev, `[${time}] ${msg}`]);
-    console.log(`[AuthDebug] ${msg}`);
-  }, []);
 
   const supabase = getSupabaseClient();
 
@@ -62,11 +55,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const isCN = isChinaDeployment();
         const cnUserData = localStorage.getItem('cn_user');
 
+
+
         if (isCN) {
-          addLog('CN Environment detected');
           if (typeof window !== 'undefined') {
             try {
-              addLog('Current URL: ' + window.location.href);
               const url = new URL(window.location.href);
               const params = url.searchParams;
               const token = params.get('token');
@@ -81,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 let finalOpenid = openid;
 
                 if (!finalToken && mpCode) {
-                  addLog('mpCode detected, calling /api/wxlogin/check...');
+                  console.log('[AuthProvider] mpCode detected, calling /api/wxlogin/check...');
                   const checkRes = await fetch('/api/wxlogin/check', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -90,7 +83,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     cache: 'no-store',
                   });
                   const checkJson = await checkRes.json();
-                  addLog(`/api/wxlogin/check response: ${checkRes.ok} ${checkJson?.success}`);
                   console.log('[AuthProvider] /api/wxlogin/check response:', checkRes.ok, checkJson?.success, checkJson?.errcode);
                   if (checkRes.ok && checkJson?.success && typeof checkJson?.token === 'string') {
                     finalToken = checkJson.token;
@@ -121,7 +113,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   if (mpCallbackRes.ok) {
                     try {
                       const mpCallbackData = await mpCallbackRes.json();
-                      addLog('mp-callback response data: ' + JSON.stringify(mpCallbackData));
                       console.log('[AuthProvider] mp-callback response data:', mpCallbackData);
                       const serverUser = mpCallbackData?.user;
                       if (serverUser?.id) {
@@ -138,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         userRef.current = cnUser;
                         setSession(null);
                         localStorage.setItem('cn_user', JSON.stringify(cnUser));
-                        addLog('User set successfully: ' + cnUser.email);
+
                         // 清理URL参数后提前结束初始化
                         ['token', 'openid', 'expiresIn', 'mpCode', 'mpNickName', 'mpAvatarUrl', 'mpProfileTs'].forEach((k) =>
                           params.delete(k)
@@ -606,28 +597,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={value}>
       {children}
-      {isChinaDeployment() && (
-        <div style={{
-          position: 'fixed',
-          bottom: '10px',
-          left: '10px',
-          right: '10px',
-          height: '200px',
-          backgroundColor: 'rgba(0,0,0,0.8)',
-          color: '#fff',
-          zIndex: 9999,
-          overflowY: 'auto',
-          padding: '10px',
-          fontSize: '12px',
-          borderRadius: '8px',
-          pointerEvents: 'none'
-        }}>
-          <h4 style={{ margin: '0 0 5px 0', borderBottom: '1px solid #666' }}>Auth Debug Log</h4>
-          {debugLogs.map((log, i) => (
-            <div key={i}>{log}</div>
-          ))}
-        </div>
-      )}
+
     </AuthContext.Provider>
   );
 }
