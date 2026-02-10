@@ -19,6 +19,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useLanguage } from '@/components/language-provider'
 import { useTranslations } from '@/lib/i18n'
+import { useToast } from '@/hooks/use-toast'
+import { isChinaDeployment } from '@/lib/config/deployment.config'
 
 interface ChatHeaderProps {
   chatId: string
@@ -35,15 +37,29 @@ export default function ChatHeader({ chatId, participant }: ChatHeaderProps) {
   const [isOnline, setIsOnline] = useState(participant.online || false)
   const { language } = useLanguage()
   const t = useTranslations(language)
+  const { toast } = useToast()
 
   const handleCall = () => {
-    // 实现语音通话功能
-    console.log('Initiating voice call with', participant.id)
+    if (isChinaDeployment()) {
+      // CN 环境：保留未来 CallKit 集成入口
+      console.log('Initiating voice call with', participant.id)
+      return
+    }
+    toast({
+      title: 'Coming Soon',
+      description: 'This feature is not yet available. Stay tuned!',
+    })
   }
 
   const handleVideoCall = () => {
-    // 实现视频通话功能
-    console.log('Initiating video call with', participant.id)
+    if (isChinaDeployment()) {
+      console.log('Initiating video call with', participant.id)
+      return
+    }
+    toast({
+      title: 'Coming Soon',
+      description: 'This feature is not yet available. Stay tuned!',
+    })
   }
 
   const handleViewProfile = () => {

@@ -37,7 +37,7 @@ export class IntlChatService implements IChatService {
   private currentUserId: string = '';
   private subscriptions: Map<string, () => void> = new Map();
 
-  private getClient() {
+  getClient() {
     return getSupabaseClient();
   }
 

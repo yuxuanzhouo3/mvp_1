@@ -248,8 +248,6 @@ export const en = {
       successDesc: 'Operation completed successfully.',
       generalError: 'An error occurred',
       generalErrorDesc: 'Something went wrong. Please try again.',
-      invalidPhone: 'Invalid phone number',
-      invalidPhoneDesc: 'Please enter a valid phone number.',
       invalidCode: 'Invalid code',
       invalidCodeDesc: 'The verification code you entered is invalid.',
       sessionError: 'Session error',
@@ -260,7 +258,6 @@ export const en = {
       noValidSessionDesc: 'Please request a new password reset.',
       updateFailed: 'Update failed',
       updateFailedDesc: 'Unable to update password. Please try again.',
-      phoneResetNotAvailable: 'Phone reset is not available in this mode',
     },
 
     // Success Messages
@@ -561,6 +558,16 @@ export const en = {
       LIKE_SUCCESS: 'Liked! Waiting for their response',
       SUPER_LIKE_SUCCESS: 'Super liked! They will see you first',
       PASS_SUCCESS: 'Passed',
+    },
+
+    // Force profile fill dialog
+    forceFill: {
+      dialogTitle: 'Please Complete Your Profile',
+      dialogDescription: 'You have not filled out your profile. Matching results may be inaccurate.',
+      goToSetup: 'Go to Profile Setup',
+      useDefaults: 'Match with Defaults',
+      maxSkipReached: 'You have reached the maximum skip limit ({max} times). Please complete your profile before matching.',
+      skipCountInfo: 'Match with defaults ({remaining} skip(s) remaining)',
     },
   },
 
@@ -1044,41 +1051,22 @@ export const en = {
     confirmRemove: 'Are you sure you want to remove this match from your history?',
   },
 
-  // Forgot Password with Phone
+  // Forgot Password
   forgotPassword: {
     title: 'Reset Password',
-    subtitle: "Choose your preferred reset method - Email or Phone",
+    subtitle: "Enter your email address and we'll send you a reset link",
     emailTab: 'Email',
-    phoneTab: 'Phone',
     emailTitle: 'Reset via Email',
     emailDescription: "We'll send a password reset link to your email address",
-    phoneTitle: 'Reset via Phone',
-    phoneDescription: 'We\'ll send a verification code to your phone number',
     emailPlaceholder: 'Enter your email address',
     sendResetEmail: 'Send Reset Email',
     sendingResetEmail: 'Sending...',
-    phonePlaceholder: 'Enter your phone number',
-    sendVerificationCode: 'Send Verification Code',
-    sendingVerification: 'Sending...',
-    enterCode: 'Enter 6-digit code',
-    enterOtp: 'Enter verification code sent to',
-    otpPlaceholder: '6-digit code',
-    verifyCode: 'Verify Code',
-    verifying: 'Verifying...',
-    verificationCodeSent: 'Verification code sent!',
-    verificationCodeSentDesc: 'Check your phone for the 6-digit code',
-    phoneResetNotAvailable: 'Phone reset is not available in this mode',
-    codeSent: 'Code sent',
-    codeSentDesc: 'Verification code sent to your phone',
-    invalidCode: 'Invalid code',
-    invalidCodeDesc: 'Please check your code and try again',
     verificationSuccess: 'Verification successful!',
     verificationSuccessDesc: 'Redirecting to password reset page...',
     checkEmail: 'Check your email',
     checkEmailDesc: 'Check your email for password reset instructions',
     importantNote: 'Important',
     importantNoteDesc: 'The link expires in 1 hour',
-    useDifferentPhone: 'Use different phone number',
     tryAgain: 'Try again',
     rememberPassword: 'Remember your password?',
     backToLogin: 'Back to Login',
@@ -1087,29 +1075,21 @@ export const en = {
     dontReceiveEmail: 'Don\'t receive the email?',
   },
 
-  // Update Password (OTP)
+  // Update Password
   updatePassword: {
     title: 'Update Password',
     subtitle: 'Enter your new password',
-    phoneNumber: 'Phone Number',
-    enterOtp: 'Enter verification code sent to',
-    otpPlaceholder: '6-digit code',
-    verifyOtp: 'Verify Code',
-    verifying: 'Verifying...',
     newPasswordPlaceholder: 'Enter new password',
     confirmPasswordPlaceholder: 'Confirm new password',
     updatePasswordButton: 'Update Password',
+    verifying: 'Verifying',
     updating: 'Updating...',
     passwordUpdateSuccess: 'Password updated successfully',
     redirectingToLogin: 'Redirecting to login...',
     verificationFailed: 'Verification failed',
-    invalidOtp: 'Invalid verification code',
     pleaseTryAgain: 'Please try again',
     passwordRequirements: 'Password must be at least 8 characters',
     passwordsNotMatch: 'Passwords do not match',
-    codeExpired: 'Verification code has expired',
-    resendCode: 'Resend Code',
-    sendingCode: 'Sending code...',
     codeResent: 'Code resent',
   },
 
@@ -1557,6 +1537,15 @@ export const en = {
     styleIntrovert: 'Introvert',
     styleExtrovert: 'Extrovert',
     styleAmbivert: 'Ambivert',
+
+    // Profile skip dialog
+    profileSkip: {
+      dialogTitle: 'Confirm Skip Profile',
+      dialogDescription: 'If you skip filling out your profile, matching results will be less accurate. The system will use default values for matching.',
+      dialogConfirm: 'Confirm Skip',
+      dialogCancel: 'Continue Filling',
+      skipCountWarning: 'You can skip {remaining} more time(s)',
+    },
   },
 
   // Dashboard Billing Page

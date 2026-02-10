@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { getServiceDbClientFromRequest } from '@/lib/db-client';
 import { AuthError, jsonAuthError, requireUser } from '@/lib/auth/requireUser';
 

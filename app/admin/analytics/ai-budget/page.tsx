@@ -661,7 +661,7 @@ export default function AIBudgetPage() {
   const [intlLoading, setIntlLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [showBoth, setShowBoth] = useState(false);
+  const [showBoth, setShowBoth] = useState(true);
 
   const loadStatsForRegion = useCallback(
     async (region: AiRegion) => {

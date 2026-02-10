@@ -19,6 +19,9 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
@@ -67,12 +70,68 @@ export default function LoginPage() {
     }
   }, [user, isLoading]);
 
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setTimeout(() => setCountdown((prev) => prev - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  const isCN = isChinaDeployment();
+
+  const sendLoginCode = async () => {
+    if (!email) {
+      toast({
+        title: t.common.error,
+        description: t.auth.validation.emailRequired,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: t.common.error,
+        description: t.auth.validation.emailInvalid,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSendingCode(true);
+    try {
+      const res = await fetch('/api/auth/cn-email-code/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, purpose: 'login' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || '发送验证码失败');
+      }
+
+      setCountdown(60);
+      toast({
+        title: t.common.success,
+        description: '验证码已发送，请检查邮箱',
+      });
+    } catch (error: any) {
+      toast({
+        title: t.common.error,
+        description: error?.message || '发送验证码失败',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
   const onEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     // Basic validation
-    if (!email || !password) {
+    if (isCN ? (!email || !verificationCode) : (!email || !password)) {
       toast({
         title: t.common.error,
         description: t.auth.validation.fillAllFields,
@@ -82,7 +141,7 @@ export default function LoginPage() {
       return;
     }
 
-    if (password.length < 6) {
+    if (!isCN && password.length < 6) {
       toast({
         title: t.common.error,
         description: t.auth.validation.passwordTooShort,
@@ -103,7 +162,31 @@ export default function LoginPage() {
     }
 
     try {
-      const { error } = await signIn(email, password);
+      const signInResult = isCN
+        ? await fetch('/api/auth/cn-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ email, verificationCode }),
+          }).then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) return { error: { message: data?.error || '登录失败' } };
+
+            const cnUser = {
+              id: data.user?.id,
+              email: data.user?.email,
+              user_metadata: {
+                display_name: data.user?.displayName,
+                avatar_url: data.user?.avatarUrl,
+              },
+            };
+            localStorage.setItem('cn_user', JSON.stringify(cnUser));
+            window.location.href = '/dashboard';
+            return { error: null };
+          })
+        : await signIn(email, password);
+
+      const { error } = signInResult;
 
       if (error) {
         toast({
@@ -229,28 +312,52 @@ export default function LoginPage() {
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-gray-500 group-focus-within:text-primary transition-colors" />
                   </div>
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    placeholder={t.auth.login.passwordPlaceholder}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
-                    required
-                    disabled={isLoading}
-                    autoComplete="current-password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors"
-                    onClick={() => setShowPassword(!showPassword)}
-                    tabIndex={-1}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
+                  {isCN ? (
+                    <Input
+                      type="text"
+                      placeholder="请输入邮箱验证码"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                      className="pl-10 pr-32 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
+                      required
+                      disabled={isLoading}
+                      autoComplete="one-time-code"
+                    />
+                  ) : (
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder={t.auth.login.passwordPlaceholder}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
+                      required
+                      disabled={isLoading}
+                      autoComplete="current-password"
+                    />
+                  )}
+                  {isCN ? (
+                    <button
+                      type="button"
+                      onClick={sendLoginCode}
+                      disabled={isSendingCode || countdown > 0 || isLoading}
+                      className="absolute inset-y-0 right-0 px-3 text-xs text-primary hover:text-primary/80 disabled:text-gray-400"
+                    >
+                      {countdown > 0 ? `${countdown}s` : (isSendingCode ? '发送中...' : '发送验证码')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors"
+                      onClick={() => setShowPassword(!showPassword)}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -398,4 +505,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

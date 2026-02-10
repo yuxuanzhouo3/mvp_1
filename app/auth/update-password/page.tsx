@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, Suspense, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -23,8 +23,8 @@ const updatePasswordSchema = z.object({
     .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'auth.errors.passwordRequirements'),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "auth.errors.passwordsNotMatch",
-  path: ["confirmPassword"],
+  message: 'auth.errors.passwordsNotMatch',
+  path: ['confirmPassword'],
 });
 
 type UpdatePasswordFormData = z.infer<typeof updatePasswordSchema>;
@@ -36,56 +36,65 @@ function UpdatePasswordContent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslations(language);
+  const isCN = isChinaDeployment();
 
-  // Use ref to track session validity across closures
-  const sessionFoundRef = useRef(false);
+  const cnEmail = useMemo(() => (searchParams?.get('email') || '').trim().toLowerCase(), [searchParams]);
+  const cnCode = useMemo(() => (searchParams?.get('code') || '').trim(), [searchParams]);
 
   const form = useForm<UpdatePasswordFormData>({
     resolver: zodResolver(updatePasswordSchema),
   });
 
   useEffect(() => {
+    if (isCN) {
+      if (cnEmail && cnCode) {
+        setIsValidSession(true);
+      } else {
+        toast({
+          title: t.auth.errors.noValidSession,
+          description: t.auth.errors.noValidSessionDesc,
+          variant: 'destructive',
+        });
+        router.push('/auth/forgot-password');
+      }
+      setIsCheckingSession(false);
+      return;
+    }
+
     const supabase = getSupabaseClient();
-    let timeoutId: NodeJS.Timeout;
-    let redirectTimeoutId: NodeJS.Timeout;
+    let timeoutId: NodeJS.Timeout | undefined;
+    let redirectTimeoutId: NodeJS.Timeout | undefined;
+    let sessionFound = false;
 
     const markSessionValid = () => {
-      sessionFoundRef.current = true;
+      sessionFound = true;
       setIsValidSession(true);
       setIsCheckingSession(false);
     };
 
-    // Listen for auth state changes - Supabase will automatically handle the recovery token
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       if (event === 'PASSWORD_RECOVERY') {
-        // User clicked the recovery link and Supabase has validated it
         markSessionValid();
       } else if (event === 'SIGNED_IN' && session) {
-        // User is signed in (could be from recovery or existing session)
         markSessionValid();
-      } else if (event === 'INITIAL_SESSION') {
-        // Check if there's already a valid session
-        if (session) {
-          markSessionValid();
-        }
+      } else if (event === 'INITIAL_SESSION' && session) {
+        markSessionValid();
       }
     });
 
-    // Check for recovery tokens in URL hash
     const initializeSession = async () => {
       const hash = window.location.hash;
       const hasRecoveryToken = hash && hash.includes('access_token') && hash.includes('type=recovery');
 
       if (hasRecoveryToken) {
-        // Wait for Supabase to process the recovery token
-        // The onAuthStateChange listener will handle the PASSWORD_RECOVERY event
         timeoutId = setTimeout(async () => {
-          if (!sessionFoundRef.current) {
-            // Fallback: check session directly
+          if (!sessionFound) {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
               markSessionValid();
@@ -101,14 +110,12 @@ function UpdatePasswordContent() {
           }
         }, 3000);
       } else {
-        // No recovery hash, check for existing session
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           markSessionValid();
         } else {
-          // No session and no recovery token - redirect after brief delay
           redirectTimeoutId = setTimeout(() => {
-            if (!sessionFoundRef.current) {
+            if (!sessionFound) {
               toast({
                 title: t.auth.errors.noValidSession,
                 description: t.auth.errors.noValidSessionDesc,
@@ -129,20 +136,44 @@ function UpdatePasswordContent() {
       if (timeoutId) clearTimeout(timeoutId);
       if (redirectTimeoutId) clearTimeout(redirectTimeoutId);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [cnCode, cnEmail, isCN, router, t, toast]);
 
   const onSubmit = async (data: UpdatePasswordFormData) => {
     setIsLoading(true);
     try {
-      const supabase = getSupabaseClient();
+      if (isCN) {
+        const response = await fetch('/api/auth/cn-reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: cnEmail,
+            verificationCode: cnCode,
+            password: data.password,
+          }),
+        });
 
-      const { error } = await supabase.auth.updateUser({
-        password: data.password
-      });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          toast({
+            title: t.auth.errors.updateFailed,
+            description: result?.error || t.auth.errors.updateFailedDesc,
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        setPasswordUpdated(true);
+        toast({
+          title: t.updatePassword.passwordUpdateSuccess,
+          description: t.auth.success.passwordUpdatedDesc,
+        });
+        return;
+      }
+
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.auth.updateUser({ password: data.password });
 
       if (error) {
-        console.error('Password update error:', error);
         toast({
           title: t.auth.errors.updateFailed,
           description: error.message || t.auth.errors.updateFailedDesc,
@@ -154,12 +185,9 @@ function UpdatePasswordContent() {
           title: t.updatePassword.passwordUpdateSuccess,
           description: t.auth.success.passwordUpdatedDesc,
         });
-
-        // Sign out the user after password update
         await supabase.auth.signOut();
       }
-    } catch (error) {
-      console.error('Unexpected error:', error);
+    } catch {
       toast({
         title: t.auth.errors.generalError,
         description: t.auth.errors.generalErrorDesc,
@@ -188,17 +216,13 @@ function UpdatePasswordContent() {
   }
 
   if (!isValidSession) {
-    return null; // Will redirect to forgot password
+    return null;
   }
 
   if (passwordUpdated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 dark:from-gray-900 dark:to-gray-950 relative overflow-hidden">
-        {/* Back to Home Button */}
-        <Link
-          href="/"
-          className="absolute top-6 left-6 z-20 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors duration-200"
-        >
+        <Link href="/" className="absolute top-6 left-6 z-20 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors duration-200">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
@@ -220,10 +244,7 @@ function UpdatePasswordContent() {
             </CardHeader>
             <CardContent className="text-center space-y-6">
               <Link href="/auth/login">
-                <Button
-                  variant="outline"
-                  className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-300"
-                >
+                <Button variant="outline" className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-300">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   {t.auth.login.signIn}
                 </Button>
@@ -237,11 +258,7 @@ function UpdatePasswordContent() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 dark:from-gray-900 dark:to-gray-950 relative overflow-hidden">
-      {/* Back to Home Button */}
-      <Link
-        href="/"
-        className="absolute top-6 left-6 z-20 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors duration-200"
-      >
+      <Link href="/" className="absolute top-6 left-6 z-20 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors duration-200">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
@@ -282,16 +299,8 @@ function UpdatePasswordContent() {
                     placeholder={t.updatePassword.newPasswordPlaceholder}
                     className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors">
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
                 {form.formState.errors.password && (
@@ -312,16 +321,8 @@ function UpdatePasswordContent() {
                     placeholder={t.updatePassword.confirmPasswordPlaceholder}
                     className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
+                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors">
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
                 {form.formState.errors.confirmPassword && (
@@ -331,11 +332,7 @@ function UpdatePasswordContent() {
                 )}
               </div>
 
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              >
+              <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -350,10 +347,7 @@ function UpdatePasswordContent() {
             <div className="text-center pt-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {t.forgotPassword.rememberPassword}{' '}
-                <Link
-                  href="/auth/login"
-                  className="text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline font-medium"
-                >
+                <Link href="/auth/login" className="text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline font-medium">
                   {t.auth.login.signIn}
                 </Link>
               </p>
@@ -376,4 +370,3 @@ export default function UpdatePasswordPage() {
     </Suspense>
   );
 }
-

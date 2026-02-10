@@ -131,6 +131,7 @@ export async function GET(request: NextRequest) {
       interests: interestsData?.map((i: any) => (i.interests as any)?.name).filter(Boolean) || [],
       credits: profileData?.credits ?? 0,
       is_profile_complete: profileData?.is_profile_complete || false,
+      profile_skip_count: profileData?.profile_skip_count ?? 0,
       created_at: userData?.created_at || new Date().toISOString(),
       updated_at: profileData?.updated_at || userData?.updated_at || new Date().toISOString()
     };

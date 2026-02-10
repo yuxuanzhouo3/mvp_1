@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,10 +22,14 @@ export default function RegisterPage() {
   const [emailSent, setEmailSent] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const { signUp, signInWithGoogle, signInWithWeChat } = useAuth();
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslations(language);
+  const isCN = isChinaDeployment();
 
   type RegisterFormData = {
     fullName: string;
@@ -69,6 +73,61 @@ export default function RegisterPage() {
     hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(password),
   };
 
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setTimeout(() => setCountdown((prev) => prev - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  const sendRegisterCode = async () => {
+    const email = form.getValues('email');
+    if (!email) {
+      toast({
+        title: t.common.error,
+        description: t.auth.validation.emailRequired,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        title: t.common.error,
+        description: t.auth.validation.emailInvalid,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSendingCode(true);
+    try {
+      const res = await fetch('/api/auth/cn-email-code/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, purpose: 'register' }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(result?.error || '发送验证码失败');
+      }
+
+      setCountdown(60);
+      toast({
+        title: t.common.success,
+        description: '验证码已发送，请检查邮箱',
+      });
+    } catch (error: any) {
+      toast({
+        title: t.common.error,
+        description: error?.message || '发送验证码失败',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
   const onSubmit = async (data: RegisterFormData) => {
     if (!agreedToTerms) {
       toast({
@@ -81,19 +140,50 @@ export default function RegisterPage() {
 
     setIsLoading(true);
     try {
-      const { error } = await signUp(data.email, data.password);
+      const registerResult = isCN
+        ? await fetch('/api/auth/cn-register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              email: data.email,
+              password: data.password,
+              displayName: data.fullName,
+              verificationCode,
+            }),
+          }).then(async (res) => {
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) return { error: { message: result?.error || '注册失败' } };
+
+            const cnUser = {
+              id: result.user?.id,
+              email: result.user?.email,
+              user_metadata: {
+                display_name: result.user?.displayName,
+                avatar_url: result.user?.avatarUrl,
+              },
+            };
+            localStorage.setItem('cn_user', JSON.stringify(cnUser));
+            window.location.href = '/dashboard';
+            return { error: null };
+          })
+        : await signUp(data.email, data.password);
+
+      const { error } = registerResult;
       if (error) {
         toast({
           title: t.common.error,
-          description: t.auth.register.registrationFailed,
+          description: error.message || t.auth.register.registrationFailed,
           variant: 'destructive',
         });
       } else {
-        setEmailSent(true);
-        toast({
-          title: t.common.success,
-          description: t.auth.register.checkEmail,
-        });
+        if (!isCN) {
+          setEmailSent(true);
+          toast({
+            title: t.common.success,
+            description: t.auth.register.checkEmail,
+          });
+        }
       }
     } catch (error) {
       console.error('Registration error:', error);
@@ -134,7 +224,7 @@ export default function RegisterPage() {
     }
   };
 
-  if (emailSent) {
+  if (emailSent && !isCN) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 dark:from-gray-900 dark:to-gray-950 relative overflow-hidden">
         <Link
@@ -257,6 +347,32 @@ export default function RegisterPage() {
                   </p>
                 )}
               </div>
+
+              {isCN && (
+                <div className="space-y-2">
+                  <div className="relative group">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock className="h-5 w-5 text-gray-500 group-focus-within:text-primary transition-colors" />
+                    </div>
+                    <Input
+                      type="text"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                      placeholder="请输入邮箱验证码"
+                      className="pl-10 pr-32 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
+                      autoComplete="one-time-code"
+                    />
+                    <button
+                      type="button"
+                      onClick={sendRegisterCode}
+                      disabled={isSendingCode || countdown > 0 || isLoading}
+                      className="absolute inset-y-0 right-0 px-3 text-xs text-primary hover:text-primary/80 disabled:text-gray-400"
+                    >
+                      {countdown > 0 ? `${countdown}s` : (isSendingCode ? '发送中...' : '发送验证码')}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <div className="relative group">

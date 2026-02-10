@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { isChinaDeployment, isChinaDeploymentFromRequest } from '@/lib/config/deployment.config';
 
 // 环信 REST API 配置
 const EASEMOB_API_BASE = process.env.EASEMOB_API_BASE || 'https://a1.easemob.com';
@@ -207,7 +207,7 @@ async function sendSystemMessage(
 
 export async function POST(request: NextRequest) {
   // 检查是否为 CN 环境
-  if (!isChinaDeployment()) {
+  if (!isChinaDeploymentFromRequest(request)) {
     return NextResponse.json(
       { error: 'Easemob IM is only available in CN region' },
       { status: 400 }

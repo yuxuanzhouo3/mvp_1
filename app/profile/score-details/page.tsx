@@ -347,6 +347,30 @@ export default function ScoreDetailsPage() {
             </div>
           </div>
 
+          {/* Skip Default Notice */}
+          {score.version === 'skip-default' && (
+            <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4 flex items-start gap-3">
+              <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  {language === 'zh' ? '当前为跳过资料填写的默认评分' : 'Default score from skipped profile setup'}
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  {language === 'zh'
+                    ? '您跳过了资料填写，系统为您设置了默认评分（60分）。完善资料后可重新计算获得更准确的评分。'
+                    : 'You skipped profile setup. The system assigned a default score (60). Complete your profile to get an accurate score.'}
+                </p>
+                <Button
+                  size="sm"
+                  className="mt-2 bg-amber-600 hover:bg-amber-700 text-white"
+                  onClick={() => router.push('/profile/edit')}
+                >
+                  {language === 'zh' ? '去完善资料' : 'Complete Profile'}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Score Overview */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {/* Main Score Card */}
@@ -373,6 +397,11 @@ export default function ScoreDetailsPage() {
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                 {t.marketValue.scoreBreakdown}
+                {score.version === 'skip-default' && (
+                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                    skip-default
+                  </span>
+                )}
                 <Button variant="ghost" size="icon" className="h-5 w-5 ml-2">
                   <Info className="h-4 w-4" />
                 </Button>
@@ -410,9 +439,16 @@ export default function ScoreDetailsPage() {
           {/* Factor Details */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm mb-6">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {t.marketValue.allFactors}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {t.marketValue.allFactors}
+                </h2>
+                {score.version === 'skip-default' && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                    skip-default
+                  </span>
+                )}
+              </div>
             </div>
             <div className="p-6">
               {weights && (

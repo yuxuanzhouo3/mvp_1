@@ -8,6 +8,7 @@ const nextConfig = {
     serverComponentsExternalPackages: ['@upstash/redis'],
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
   },
+  transpilePackages: ['easemob-chat-uikit', 'agora-rtc-sdk-ng'],
 
   // Image optimization
   images: {
@@ -57,6 +58,14 @@ const nextConfig = {
       '@/app': path.resolve(__dirname, 'app'),
     };
 
+    // agora-rtc-sdk-ng 仅在浏览器端使用，服务端构建时标记为外部依赖避免报错
+    if (isServer) {
+      config.externals = config.externals || [];
+      if (Array.isArray(config.externals)) {
+        config.externals.push('agora-rtc-sdk-ng');
+      }
+    }
+
     // Optimize bundle size in production
     if (!dev && !isServer) {
       config.optimization.splitChunks = {
@@ -69,6 +78,11 @@ const nextConfig = {
           },
         },
       };
+    }
+
+    // Avoid scope-hoisting issues in server bundles
+    if (!dev && isServer) {
+      config.optimization.concatenateModules = false;
     }
 
     return config;

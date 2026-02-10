@@ -15,8 +15,6 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInWithGoogle: () => Promise<{ error: any }>;
   signInWithWeChat: () => Promise<{ error: any }>;
-  signInWithPhone: (phone: string) => Promise<{ error: any }>;
-  verifyPhoneOTP: (phone: string, otp: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -484,30 +482,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const signInWithPhone = useCallback(async (phone: string) => {
-    console.log('🔐 SignInWithPhone called');
-
-    const { error } = await supabase.auth.signInWithOtp({
-      phone,
-    });
-
-    return { error };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const verifyPhoneOTP = useCallback(async (phone: string, otp: string) => {
-    console.log('🔐 VerifyPhoneOTP called');
-
-    const { error } = await supabase.auth.verifyOtp({
-      phone,
-      token: otp,
-      type: 'sms'
-    });
-
-    return { error };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const signUp = useCallback(async (email: string, password: string) => {
     console.log('🔐 SignUp called');
 
@@ -588,8 +562,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signInWithGoogle,
     signInWithWeChat,
-    signInWithPhone,
-    verifyPhoneOTP,
     signUp,
     signOut,
   };

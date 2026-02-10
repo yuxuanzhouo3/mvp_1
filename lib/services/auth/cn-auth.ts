@@ -182,7 +182,6 @@ export class CnAuthService implements IAuthService {
           email: data.email,
           password: data.password,
           displayName: data.displayName,
-          phone: data.phone,
         }),
         credentials: 'include', // 确保 cookie 能够被正确设置
       });

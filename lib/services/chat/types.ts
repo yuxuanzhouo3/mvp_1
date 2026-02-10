@@ -192,5 +192,10 @@ export interface IChatService {
    * 获取用户在线状态
    */
   getPresence(userIds: string[]): Promise<Record<string, boolean>>;
+
+  /**
+   * 获取底层 IM 客户端（可选，仅 CN 环境使用）
+   */
+  getClient?: () => any;
 }
 

@@ -865,7 +865,7 @@ export default function ChatRoomPage() {
               className="text-gray-500 hover:text-primary hover:bg-primary/10 rounded-xl"
               onClick={() => toast({
                 title: language === 'zh' ? '功能暂未开放' : 'Coming Soon',
-                description: language === 'zh' ? '语音通话功能正在开发中，敬请期待！' : 'Voice call feature is under development. Stay tuned!',
+                description: language === 'zh' ? '语音通话功能正在开发中，敬请期待！' : 'This feature is not yet available. Stay tuned!',
               })}
             >
               <Phone className="h-5 w-5" />
@@ -876,7 +876,7 @@ export default function ChatRoomPage() {
               className="text-gray-500 hover:text-primary hover:bg-primary/10 rounded-xl"
               onClick={() => toast({
                 title: language === 'zh' ? '功能暂未开放' : 'Coming Soon',
-                description: language === 'zh' ? '视频通话功能正在开发中，敬请期待！' : 'Video call feature is under development. Stay tuned!',
+                description: language === 'zh' ? '视频通话功能正在开发中，敬请期待！' : 'This feature is not yet available. Stay tuned!',
               })}
             >
               <Video className="h-5 w-5" />

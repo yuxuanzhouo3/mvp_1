@@ -10,6 +10,9 @@ import { useAuth } from '@/app/providers/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
+import { ProfileSkipDialog } from '@/components/profile/ProfileSkipDialog';
+import { VideoDemoButton } from '@/components/profile/VideoDemoButton';
+import { MAX_PROFILE_SKIP_COUNT } from '@/lib/constants/profile';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -19,7 +22,8 @@ import {
   Briefcase,
   Heart,
   Brain,
-  Camera
+  Camera,
+  SkipForward
 } from 'lucide-react';
 
 // Step Components
@@ -48,6 +52,9 @@ export default function ProfileSetupWizard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<CompleteProfileData>>({});
   const [stepValidation, setStepValidation] = useState<Record<number, boolean>>({});
+  const [skipCount, setSkipCount] = useState(0);
+  const [skipDialogOpen, setSkipDialogOpen] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false);
 
   const router = useRouter();
   const { user, session } = useAuth();
@@ -70,6 +77,35 @@ export default function ProfileSetupWizard() {
       router.push('/auth/login');
     }
   }, [user, router]);
+
+  // Fetch user's profile_skip_count on mount
+  useEffect(() => {
+    const fetchSkipCount = async () => {
+      try {
+        const authToken = getAuthToken();
+        const response = await fetch('/api/user/profile', {
+          headers: {
+            ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+          },
+          cache: 'no-store',
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const count = data.profile?.profile_skip_count ?? 0;
+          setSkipCount(count);
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile skip count:', error);
+        // 降级处理：默认为 0，允许跳过
+        setSkipCount(0);
+      }
+    };
+
+    if (user) {
+      fetchSkipCount();
+    }
+  }, [user]);
 
   // Load saved progress from localStorage
   useEffect(() => {
@@ -114,6 +150,47 @@ export default function ProfileSetupWizard() {
   const handlePrev = () => {
     if (currentStep > 1) {
       setCurrentStep(prev => prev - 1);
+    }
+  };
+
+  const handleConfirmSkip = async () => {
+    setIsSkipping(true);
+    try {
+      const authToken = getAuthToken();
+      const response = await fetch('/api/user/profile/skip', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+        },
+        cache: 'no-store',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to skip profile');
+      }
+
+      const result = await response.json();
+      setSkipCount(result.data?.profile_skip_count ?? skipCount + 1);
+      setSkipDialogOpen(false);
+
+      // Clear saved progress
+      localStorage.removeItem(`profile_setup_${user?.id}`);
+      localStorage.removeItem(`profile_setup_step_${user?.id}`);
+
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Profile skip error:', error);
+      toast({
+        title: t.profileSetup?.setupFailed || 'Error',
+        description: error instanceof Error ? error.message : 'Failed to skip profile setup',
+        variant: 'destructive',
+      });
+      // On API error, don't close the dialog
+    } finally {
+      setIsSkipping(false);
     }
   };
 
@@ -236,9 +313,12 @@ export default function ProfileSetupWizard() {
         {/* Header with Progress */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {t.profileSetup?.title || 'Complete Your Profile'}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {t.profileSetup?.title || 'Complete Your Profile'}
+              </h1>
+              <VideoDemoButton />
+            </div>
             <span className="text-sm text-gray-500 dark:text-gray-400">
               {currentStep} / {TOTAL_STEPS}
             </span>
@@ -401,14 +481,28 @@ export default function ProfileSetupWizard() {
         </div>
 
         {/* Skip for now option */}
-        <div className="text-center mt-4">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline"
-          >
-            {t.profileSetup?.skipForNow || 'Skip for now'}
-          </button>
-        </div>
+        {skipCount < MAX_PROFILE_SKIP_COUNT && (
+          <div className="text-center mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setSkipDialogOpen(true)}
+              disabled={isSkipping}
+              className="border-amber-500 text-amber-600 hover:bg-amber-50 hover:text-amber-700 dark:border-amber-400 dark:text-amber-400 dark:hover:bg-amber-950 dark:hover:text-amber-300"
+            >
+              <SkipForward className="w-4 h-4 mr-2" />
+              {t.profileSetup?.skipForNow || 'Skip for now'}
+            </Button>
+          </div>
+        )}
+
+        {/* Profile Skip Confirmation Dialog */}
+        <ProfileSkipDialog
+          open={skipDialogOpen}
+          onOpenChange={setSkipDialogOpen}
+          onConfirmSkip={handleConfirmSkip}
+          skipCount={skipCount}
+          maxSkipLimit={MAX_PROFILE_SKIP_COUNT}
+        />
       </div>
     </div>
   );

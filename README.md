@@ -96,8 +96,7 @@ mvp_1/
 ## 🌟 Key Features
 
 ### 🔐 Authentication
-- Multi-method authentication (Email, Google, Phone)
-- Two-factor authentication (2FA)
+- Multi-method authentication (Email, Google, WeChat)
 - Session management with NextAuth.js
 - Role-based access control
 

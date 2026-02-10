@@ -20,6 +20,8 @@ import {
   Settings,
   Tag,
   Package,
+  Video,
+  Smartphone,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -88,6 +90,16 @@ const featureManagementItems = [
     href: "/admin/analytics/ai-budget",
     label: "AI预算",
     icon: Cpu,
+  },
+  {
+    href: "/admin/analytics/devices",
+    label: "设备统计",
+    icon: Smartphone,
+  },
+  {
+    href: "/admin/video-demo",
+    label: "视频演示",
+    icon: Video,
   },
 ];
 

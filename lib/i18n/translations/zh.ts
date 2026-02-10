@@ -338,8 +338,6 @@ export const zh = {
       successDesc: '操作成功完成。',
       generalError: '发生错误',
       generalErrorDesc: '出现了一些问题，请重试。',
-      invalidPhone: '无效的手机号码',
-      invalidPhoneDesc: '请输入有效的手机号码。',
       invalidCode: '无效的验证码',
       invalidCodeDesc: '您输入的验证码无效。',
       sessionError: '会话错误',
@@ -350,7 +348,6 @@ export const zh = {
       noValidSessionDesc: '请请求新的密码重置。',
       updateFailed: '更新失败',
       updateFailedDesc: '无法更新密码，请重试。',
-      phoneResetNotAvailable: '此模式下不支持手机重置',
     },
 
     // 成功消息
@@ -676,6 +673,16 @@ export const zh = {
       LIKE_SUCCESS: '已喜欢，等待对方回应',
       SUPER_LIKE_SUCCESS: '已超级喜欢！对方会优先看到你',
       PASS_SUCCESS: '已跳过',
+    },
+
+    // 强制填写资料对话框
+    forceFill: {
+      dialogTitle: '请完善个人资料',
+      dialogDescription: '您尚未填写个人资料，匹配结果可能不准确。',
+      goToSetup: '去填写资料',
+      useDefaults: '使用默认值匹配',
+      maxSkipReached: '您已达到最大跳过次数（{max}次），请填写个人资料后再进行匹配。',
+      skipCountInfo: '使用默认值匹配（还可跳过 {remaining} 次）',
     },
   },
 
@@ -1160,41 +1167,22 @@ export const zh = {
     confirmRemove: '你确定要从历史中移除此匹配吗？',
   },
 
-  // Forgot Password with Phone
+  // Forgot Password
   forgotPassword: {
     title: '重置密码',
-    subtitle: '选择您的重置方式 - 邮箱或手机',
+    subtitle: '输入您的邮箱地址，我们将发送重置链接',
     emailTab: '邮箱',
-    phoneTab: '手机',
     emailTitle: '通过邮箱重置',
     emailDescription: '我们会向您发送密码重置链接',
-    phoneTitle: '通过手机重置',
-    phoneDescription: '我们会向您的手机号码发送验证码',
     emailPlaceholder: '请输入您的邮箱地址',
     sendResetEmail: '发送重置邮件',
     sendingResetEmail: '发送中...',
-    phonePlaceholder: '请输入您的手机号码',
-    sendVerificationCode: '发送验证码',
-    sendingVerification: '发送中...',
-    enterCode: '请输入6位验证码',
-    enterOtp: '请输入发送至以下号码的验证码',
-    otpPlaceholder: '6位验证码',
-    verifyCode: '验证验证码',
-    verifying: '验证中...',
-    verificationCodeSent: '验证码已发送!',
-    verificationCodeSentDesc: '请查看您的手机获取6位验证码',
-    phoneResetNotAvailable: '此模式下不支持手机重置',
-    codeSent: '验证码已发送',
-    codeSentDesc: '验证码已发送至您的手机',
-    invalidCode: '验证码无效',
-    invalidCodeDesc: '请检查您的验证码并重试',
     verificationSuccess: '验证成功!',
     verificationSuccessDesc: '正在跳转到密码重置页面...',
     checkEmail: '检查您的邮箱',
     checkEmailDesc: '检查您的邮箱以获取密码重置说明',
     importantNote: '重要提示',
     importantNoteDesc: '链接将在1小时后过期',
-    useDifferentPhone: '使用其他手机号码',
     tryAgain: '重试',
     rememberPassword: '记得您的密码？',
     backToLogin: '返回登录',
@@ -1203,29 +1191,21 @@ export const zh = {
     dontReceiveEmail: '没有收到邮件？',
   },
 
-  // Update Password (OTP)
+  // Update Password
   updatePassword: {
     title: '更新密码',
     subtitle: '请输入您的新密码',
-    phoneNumber: '手机号码',
-    enterOtp: '请输入发送至以下号码的验证码',
-    otpPlaceholder: '6位验证码',
-    verifyOtp: '验证验证码',
-    verifying: '验证中...',
     newPasswordPlaceholder: '请输入新密码',
     confirmPasswordPlaceholder: '请确认新密码',
     updatePasswordButton: '更新密码',
+    verifying: '验证中',
     updating: '更新中...',
     passwordUpdateSuccess: '密码更新成功',
     redirectingToLogin: '正在跳转到登录页面...',
     verificationFailed: '验证失败',
-    invalidOtp: '验证码无效',
     pleaseTryAgain: '请重试',
     passwordRequirements: '密码至少需要8个字符',
     passwordsNotMatch: '两次输入的密码不匹配',
-    codeExpired: '验证码已过期',
-    resendCode: '重新发送验证码',
-    sendingCode: '发送中...',
     codeResent: '验证码已重新发送',
   },
 
@@ -1735,6 +1715,15 @@ export const zh = {
     setupFailed: '设置失败',
     setupFailedDesc: '请稍后重试',
     profileRequired: '请完成你的资料以访问所有功能',
+
+    // 跳过资料填写对话框
+    profileSkip: {
+      dialogTitle: '确认跳过资料填写',
+      dialogDescription: '如果跳过个人资料填写，匹配结果将不准确。系统将使用默认值为您匹配。',
+      dialogConfirm: '确认跳过',
+      dialogCancel: '继续填写',
+      skipCountWarning: '您还可以跳过 {remaining} 次',
+    },
   },
 
   // Dashboard Billing Page

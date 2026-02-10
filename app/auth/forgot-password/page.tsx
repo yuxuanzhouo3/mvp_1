@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,25 +25,81 @@ type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslations(language);
+  const isCN = isChinaDeployment();
 
   const form = useForm<ForgotPasswordFormData>({
     resolver: zodResolver(forgotPasswordSchema),
   });
 
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const timer = setTimeout(() => setCountdown((prev) => prev - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
+  const sendResetCode = async () => {
+    const email = form.getValues('email');
+    if (!email) {
+      toast({
+        title: t.common.error,
+        description: t.auth.validation.emailRequired,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSendingCode(true);
+    try {
+      const res = await fetch('/api/auth/cn-email-code/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, purpose: 'reset_password' }),
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(result?.error || '发送验证码失败');
+      }
+
+      setCountdown(60);
+      toast({
+        title: t.common.success,
+        description: '验证码已发送，请检查邮箱',
+      });
+    } catch (error: any) {
+      toast({
+        title: t.common.error,
+        description: error?.message || '发送验证码失败',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
   const onSubmit = async (data: ForgotPasswordFormData) => {
     setIsLoading(true);
     try {
-      const supabase = getSupabaseClient();
+      if (isCN) {
+        if (!verificationCode.trim()) {
+          throw new Error('请输入邮箱验证码');
+        }
+        window.location.href = `/auth/update-password?email=${encodeURIComponent(data.email)}&code=${encodeURIComponent(verificationCode)}`;
+        return;
+      }
 
+      const supabase = getSupabaseClient();
       const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
         redirectTo: `${window.location.origin}/auth/update-password`
       });
 
       if (error) {
-        console.error('Password reset error:', error);
         toast({
           title: t.auth.errors.resetFailed,
           description: error.message || t.auth.errors.resetFailedDesc,
@@ -56,11 +112,10 @@ export default function ForgotPasswordPage() {
           description: t.auth.success.resetEmailSentDesc,
         });
       }
-    } catch (error) {
-      console.error('Unexpected error:', error);
+    } catch (error: any) {
       toast({
         title: t.auth.errors.generalError,
-        description: t.auth.errors.generalErrorDesc,
+        description: error?.message || t.auth.errors.generalErrorDesc,
         variant: 'destructive',
       });
     } finally {
@@ -68,14 +123,10 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  if (emailSent) {
+  if (emailSent && !isCN) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 dark:from-gray-900 dark:to-gray-950 relative overflow-hidden">
-        {/* Back to Home Button */}
-        <Link
-          href="/"
-          className="absolute top-6 left-6 z-20 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors duration-200"
-        >
+        <Link href="/" className="absolute top-6 left-6 z-20 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors duration-200">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
@@ -96,30 +147,14 @@ export default function ForgotPasswordPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center space-y-6">
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-                  <strong>{t.forgotPassword.importantNote}:</strong>
-                </p>
-                <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1 text-left">
-                  <li>• {t.auth.forgotPassword.checkSpam}</li>
-                  <li>• {t.forgotPassword.importantNoteDesc}</li>
-                  <li>• {t.auth.forgotPassword.clickLink}</li>
-                </ul>
-              </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 {t.auth.forgotPassword.dontReceiveEmail}{' '}
-                <button
-                  onClick={() => setEmailSent(false)}
-                  className="text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline"
-                >
+                <button onClick={() => setEmailSent(false)} className="text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline">
                   {t.forgotPassword.tryAgain}
                 </button>
               </p>
               <Link href="/auth/login">
-                <Button
-                  variant="outline"
-                  className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-300"
-                >
+                <Button variant="outline" className="w-full border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-300">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   {t.forgotPassword.backToLogin}
                 </Button>
@@ -133,11 +168,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 dark:from-gray-900 dark:to-gray-950 relative overflow-hidden">
-      {/* Back to Home Button */}
-      <Link
-        href="/"
-        className="absolute top-6 left-6 z-20 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors duration-200"
-      >
+      <Link href="/" className="absolute top-6 left-6 z-20 flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary transition-colors duration-200">
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
@@ -181,24 +212,40 @@ export default function ForgotPasswordPage() {
                   />
                 </div>
                 {form.formState.errors.email && (
-                  <p className="text-sm text-red-500">
-                    {form.formState.errors.email.message}
-                  </p>
+                  <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
                 )}
               </div>
 
-              <Button
-                type="submit"
-                className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                disabled={isLoading}
-              >
+              {isCN && (
+                <div className="space-y-2">
+                  <div className="relative group">
+                    <Input
+                      type="text"
+                      placeholder="请输入邮箱验证码"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                      className="pr-32 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={sendResetCode}
+                      disabled={isSendingCode || countdown > 0 || isLoading}
+                      className="absolute inset-y-0 right-0 px-3 text-xs text-primary hover:text-primary/80 disabled:text-gray-400"
+                    >
+                      {countdown > 0 ? `${countdown}s` : (isSendingCode ? '发送中...' : '发送验证码')}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none" disabled={isLoading}>
                 {isLoading ? (
                   <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     <span>{t.forgotPassword.sendingResetEmail}</span>
                   </div>
                 ) : (
-                  <span>{t.forgotPassword.sendResetEmail}</span>
+                  <span>{isCN ? '下一步' : t.forgotPassword.sendResetEmail}</span>
                 )}
               </Button>
             </form>
@@ -206,10 +253,7 @@ export default function ForgotPasswordPage() {
             <div className="text-center pt-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {t.forgotPassword.rememberPassword}{' '}
-                <Link
-                  href="/auth/login"
-                  className="text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline font-medium"
-                >
+                <Link href="/auth/login" className="text-primary hover:text-primary/80 transition-colors duration-200 underline-offset-4 hover:underline font-medium">
                   {t.forgotPassword.backToLogin}
                 </Link>
               </p>

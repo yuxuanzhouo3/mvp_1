@@ -31,7 +31,6 @@ export interface UserRecord {
   wechat_unionid?: string;
   wechat_nickname?: string;
   wechat_avatar?: string;
-  phone?: string;
   auth_providers?: string[];
   created_at?: string;
   updated_at?: string;
@@ -285,7 +284,7 @@ export async function getUserLoginMethods(userId: string): Promise<string[]> {
 
   const { data: user } = await db
     .from(USERS_TABLE)
-    .select('email, phone, auth_providers, wechat_openid')
+    .select('email, auth_providers, wechat_openid')
     .eq('id', userId)
     .single();
 
@@ -298,11 +297,6 @@ export async function getUserLoginMethods(userId: string): Promise<string[]> {
   // 检查邮箱
   if (user.email) {
     methods.push('email');
-  }
-
-  // 检查手机
-  if (user.phone) {
-    methods.push('phone');
   }
 
   // 检查微信

@@ -56,7 +56,6 @@ export class IntlAuthService implements IAuthService {
       options: {
         data: {
           display_name: data.displayName,
-          phone: data.phone,
         },
       },
     });
@@ -246,7 +245,6 @@ export class IntlAuthService implements IAuthService {
     return {
       id: user.id,
       email: user.email,
-      phone: user.phone,
       displayName: user.user_metadata?.display_name || user.user_metadata?.full_name,
       avatarUrl: user.user_metadata?.avatar_url,
       provider: user.app_metadata?.provider === 'google' ? 'google' : 'email',

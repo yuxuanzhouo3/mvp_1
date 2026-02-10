@@ -34,6 +34,8 @@ import type { AlgorithmType, MatchResult } from '@/lib/matching/types';
 import { RegionSwitch } from '@/components/region/RegionGuard';
 import { CNProfileCard } from '@/components/cn/CNProfileCard';
 import { INTLProfileCard } from '@/components/intl/INTLProfileCard';
+import { ForceProfileFillDialog } from '@/components/matching/ForceProfileFillDialog';
+import { MAX_PROFILE_SKIP_COUNT } from '@/lib/constants/profile';
 
 interface Recommendation {
   id?: string;
@@ -146,9 +148,45 @@ function MatchingPageContent() {
   const isCN = isChinaDeployment();
   const [algorithmNameOverrides, setAlgorithmNameOverrides] = useState<Partial<Record<AlgorithmType, string>>>({});
 
+  // Profile completeness state for force-fill dialog
+  const [isProfileComplete, setIsProfileComplete] = useState(true);
+  const [profileSkipCount, setProfileSkipCount] = useState(0);
+  const [forceDialogOpen, setForceDialogOpen] = useState(false);
+  const [pendingAlgorithm, setPendingAlgorithm] = useState<AlgorithmType | null>(null);
+
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Fetch user's is_profile_complete and profile_skip_count on mount
+  useEffect(() => {
+    const fetchProfileStatus = async () => {
+      try {
+        const token = session?.access_token;
+        const response = await fetch('/api/user/profile', {
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
+          cache: 'no-store',
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setIsProfileComplete(data.profile?.is_profile_complete ?? false);
+          setProfileSkipCount(data.profile?.profile_skip_count ?? 0);
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile status:', error);
+        // 降级处理：默认视为未完成，skip count 为 0
+        setIsProfileComplete(false);
+        setProfileSkipCount(0);
+      }
+    };
+
+    if (user) {
+      fetchProfileStatus();
+    }
+  }, [user, session?.access_token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -278,8 +316,60 @@ function MatchingPageContent() {
   }, [authLoading, user?.id, searchParams, fetchRecommendations]);
 
   const handleAlgorithmSelect = (algorithm: AlgorithmType) => {
+    // Check if profile is complete before proceeding with matching
+    if (!isProfileComplete) {
+      setPendingAlgorithm(algorithm);
+      setForceDialogOpen(true);
+      return;
+    }
     setSelectedAlgorithm(algorithm);
     fetchRecommendations(algorithm);
+  };
+
+  // Handler for "去填写资料" - navigate to profile setup
+  const handleGoToSetup = () => {
+    setForceDialogOpen(false);
+    router.push('/profile/setup');
+  };
+
+  // Handler for "使用默认值匹配" - call skip API then continue matching
+  const handleUseDefaults = async () => {
+    try {
+      const token = session?.access_token;
+      const response = await fetch('/api/user/profile/skip', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        cache: 'no-store',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to skip profile');
+      }
+
+      const result = await response.json();
+      setProfileSkipCount(result.data?.profile_skip_count ?? profileSkipCount + 1);
+      setForceDialogOpen(false);
+
+      // Continue with matching using the stored pending algorithm
+      if (pendingAlgorithm) {
+        setSelectedAlgorithm(pendingAlgorithm);
+        fetchRecommendations(pendingAlgorithm);
+        setPendingAlgorithm(null);
+      }
+    } catch (error) {
+      console.error('Profile skip error:', error);
+      toast({
+        title: t.common.error,
+        description: error instanceof Error ? error.message : 'Failed to skip profile',
+        variant: 'destructive',
+      });
+      // On skip API error, don't close the dialog
+    }
   };
 
   const handleRefresh = () => {
@@ -838,6 +928,16 @@ function MatchingPageContent() {
           </div>
         </div>
       )}
+
+      {/* Force Profile Fill Dialog */}
+      <ForceProfileFillDialog
+        open={forceDialogOpen}
+        onOpenChange={setForceDialogOpen}
+        onGoToSetup={handleGoToSetup}
+        onUseDefaults={handleUseDefaults}
+        skipCount={profileSkipCount}
+        maxSkipLimit={MAX_PROFILE_SKIP_COUNT}
+      />
     </div>
   );
 }

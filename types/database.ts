@@ -80,6 +80,9 @@ export interface UserProfile {
   // 资料完成状态
   is_profile_complete: boolean;
 
+  // 跳过资料填写计数
+  profile_skip_count: number;
+
   updated_at: string;
 }
 
@@ -89,7 +92,6 @@ export interface UserProfile {
 
 export interface UserVerification {
   user_id: string;
-  phone_verified: boolean;
   id_card_verified: boolean;
   education_verified: boolean;
   income_verified: boolean;

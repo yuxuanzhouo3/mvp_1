@@ -118,6 +118,15 @@ export function isChinaDeploymentFromRequest(request: Request): boolean {
     return false;
   }
 
+  const cookieHeader = request.headers.get('cookie') || '';
+  if (cookieHeader) {
+    const cookies = cookieHeader.split(';').map((c) => c.trim());
+    const hasCnSession = cookies.some(
+      (c) => c.startsWith('cn_session=') || c.startsWith('cn_session_cross=') || c.startsWith('cn_user=')
+    );
+    if (hasCnSession) return true;
+  }
+
   return false;
 }
 

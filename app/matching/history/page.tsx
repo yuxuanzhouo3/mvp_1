@@ -303,12 +303,6 @@ export default function MatchingHistoryPage() {
                     <span>{language === 'zh' ? '查看给你点赞的人' : 'See Who Likes You'}</span>
                   )}
                 </Button>
-
-                {!preview?.isPremiumOrHigher && (
-                  <Button variant="outline" className="w-full py-6 rounded-full text-lg" onClick={() => router.push('/payment/membership')}>
-                    {language === 'zh' ? '升级会员' : 'Upgrade Membership'}
-                  </Button>
-                )}
               </div>
             )}
           </div>

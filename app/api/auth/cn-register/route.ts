@@ -1,22 +1,12 @@
-/**
- * CN 环境邮箱注册 API
- * 直接写入 Cloudbase users 集合，不需要邮箱验证
- * 
- * 注册成功后自动设置认证 cookie，实现注册即登录
- */
-
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { createUserSession } from '@/lib/auth/session';
 import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
+import { verifyCnEmailVerificationCode } from '@/lib/auth/cn-email-code';
 
 export async function POST(request: NextRequest) {
-  const isCN = isChinaDeployment();
-
-  // 仅 CN 环境可用
-  if (!isCN) {
-    console.log('[CN Register] Rejected: Not CN environment');
+  if (!isChinaDeployment()) {
     return NextResponse.json(
       { error: 'This endpoint is only available in CN environment' },
       { status: 403 }
@@ -31,49 +21,57 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Too Many Requests' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } });
     }
 
-    const body = await request.json();
-    const { email, password, displayName, phone } = body;
-    
-    console.log(`[CN Register] Registration attempt for email: ${email}`);
+    const body = await request.json().catch(() => ({}));
+    const email = String(body?.email || '').trim().toLowerCase();
+    const password = String(body?.password || '');
+    const displayName = typeof body?.displayName === 'string' ? body.displayName : undefined;
+    const phone = typeof body?.phone === 'string' ? body.phone : null;
+    const verificationCode = String(body?.verificationCode || '').trim();
 
-    // 验证必填字段
-    if (!email || !password) {
-      console.log('[CN Register] Validation failed: missing email or password');
+    if (!email || !password || !verificationCode) {
       return NextResponse.json(
-        { error: '邮箱和密码为必填项' },
+        { error: '邮箱、密码和验证码为必填项' },
         { status: 400 }
       );
     }
 
-    const rlEmail = await rateLimit({ key: `rl:cn_register:email:${String(email).toLowerCase()}`, limit: 3, windowMs: 60_000 });
+    const rlEmail = await rateLimit({ key: `rl:cn_register:email:${email}`, limit: 3, windowMs: 60_000 });
     if (!rlEmail.allowed) {
       const retryAfterSeconds = Math.max(1, Math.ceil((rlEmail.resetAtMs - Date.now()) / 1000));
       return NextResponse.json({ error: 'Too Many Requests' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } });
     }
 
-    // 验证密码长度
     if (password.length < 6) {
-      console.log('[CN Register] Validation failed: password too short');
       return NextResponse.json(
         { error: '密码长度至少6位' },
         { status: 400 }
       );
     }
 
-    // 验证邮箱格式
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      console.log('[CN Register] Validation failed: invalid email format');
       return NextResponse.json(
         { error: '邮箱格式不正确' },
         { status: 400 }
       );
     }
 
-    // 动态导入 Cloudbase Node SDK
-    let cloudbase;
+    const verifyCodeResult = await verifyCnEmailVerificationCode({
+      email,
+      code: verificationCode,
+      purpose: 'register',
+    });
+    if (!verifyCodeResult.ok) {
+      return NextResponse.json(
+        { error: verifyCodeResult.error || '验证码校验失败' },
+        { status: 400 }
+      );
+    }
+
+    let cloudbase: any;
     try {
-      cloudbase = await import('@cloudbase/node-sdk');
+      const cloudbaseModule: any = await import('@cloudbase/node-sdk');
+      cloudbase = cloudbaseModule?.default || cloudbaseModule;
     } catch (importError) {
       console.error('[CN Register] Cloudbase SDK import error:', importError);
       return NextResponse.json(
@@ -83,10 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     const envId = process.env.CLOUDBASE_ENV_ID || process.env.NEXT_PUBLIC_CLOUDBASE_ENV_ID || '';
-    console.log(`[CN Register] Cloudbase env: ${envId ? envId.substring(0, 10) + '...' : 'NOT SET'}`);
-    
     if (!envId) {
-      console.error('[CN Register] Cloudbase ENV_ID not configured');
       return NextResponse.json(
         { error: '服务配置错误：Cloudbase ENV_ID 未设置' },
         { status: 500 }
@@ -102,52 +97,43 @@ export async function POST(request: NextRequest) {
     const db = app.database();
     const usersCollection = db.collection('users');
 
-    // 检查邮箱是否已存在
     const existingUser = await usersCollection.where({ email }).limit(1).get();
     if (existingUser.data && existingUser.data.length > 0) {
-      console.log(`[CN Register] Email already registered: ${email}`);
       return NextResponse.json(
-        { error: '该邮箱已被注册' },
+        { error: '该邮箱已注册' },
         { status: 400 }
       );
     }
 
-    // 生成唯一用户ID
-    const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    // 密码哈希加密
+    const userId = `user_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 创建用户记录
     await usersCollection.add({
       id: userId,
       email,
       password: hashedPassword,
-      display_name: displayName || email.split('@')[0],
-      phone: phone || null,
+      display_name: (displayName || email.split('@')[0]).trim(),
+      phone,
       avatar_url: null,
       provider: 'email',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       is_active: true,
-      email_verified: true, // CN环境直接标记为已验证
+      email_verified: true,
     });
 
-    console.log(`[CN Register] User created successfully: ${userId}, ${email}`);
     const sessionToken = await createUserSession(userId, { email });
 
-    // 创建响应并设置认证 cookie（注册即登录）
     const response = NextResponse.json({
       success: true,
       user: {
         id: userId,
         email,
-        displayName: displayName || email.split('@')[0],
+        displayName: (displayName || email.split('@')[0]).trim(),
         provider: 'email',
       },
     });
 
-    // 设置 cn_session cookie，实现注册即登录
     const forwardedProto = request.headers.get('x-forwarded-proto');
     const isSecureRequest = forwardedProto
       ? forwardedProto.split(',')[0].trim() === 'https'
@@ -155,12 +141,13 @@ export async function POST(request: NextRequest) {
     const host = request.headers.get('host') || '';
     const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
     const isSecureCookie = isSecureRequest || !isLocalhost;
+
     response.cookies.set('cn_session', sessionToken, {
       httpOnly: true,
       secure: isSecureCookie,
       sameSite: 'lax',
       path: '/',
-      maxAge: 7 * 24 * 60 * 60, // 7 天
+      maxAge: 7 * 24 * 60 * 60,
     });
 
     if (!isLocalhost) {
@@ -172,8 +159,6 @@ export async function POST(request: NextRequest) {
         maxAge: 7 * 24 * 60 * 60,
       });
     }
-
-    console.log(`[CN Register] Cookie set for user: ${userId}, secure: ${isSecureCookie}`);
 
     return response;
   } catch (error: any) {

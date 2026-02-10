@@ -49,6 +49,7 @@ interface EasemobConnection {
   // 在线状态
   subscribePresence(options: any): Promise<void>;
   publishPresence(options: any): Promise<void>;
+  getPresenceStatus?(options: { usernames: string[] }): Promise<any>;
   // 群组相关
   getGroupInfo(options: { groupId: string }): Promise<any>;
   getJoinedGroups(options: { pageNum: number; pageSize: number }): Promise<any>;
@@ -123,6 +124,76 @@ if (typeof window !== 'undefined') {
     }
     return originalInfo.apply(console, args);
   };
+}
+
+function normalizePresenceStatus(status: any): boolean | null {
+  if (typeof status === 'boolean') return status;
+  if (typeof status === 'number') return status > 0;
+  if (typeof status === 'string') {
+    const value = status.trim().toLowerCase();
+    const numericValue = Number(value);
+    if (!Number.isNaN(numericValue) && value !== '') {
+      return numericValue > 0;
+    }
+    if (['online', 'available', 'chat', 'busy', 'away', 'dnd', 'do_not_disturb'].includes(value)) {
+      return true;
+    }
+    if (['offline', 'invisible', 'logout', 'disconnected'].includes(value)) {
+      return false;
+    }
+  }
+  return null;
+}
+
+function extractPresenceEntries(payload: any): Array<{ userId: string; isOnline: boolean }> {
+  if (!payload) return [];
+
+  const candidates: any[] = Array.isArray(payload)
+    ? payload
+    : payload?.data?.result ||
+      payload?.result ||
+      payload?.data ||
+      payload?.presence ||
+      payload?.userStatus ||
+      [payload];
+
+  const entries: Array<{ userId: string; isOnline: boolean }> = [];
+
+  for (const item of candidates) {
+    if (!item) continue;
+    const userId = item.userId || item.uid || item.username || item.user || item.id;
+    let normalized: boolean | null = null;
+
+    const statusDetails = item.statusDetails || item.status_details;
+    if (Array.isArray(statusDetails)) {
+      const detailStatuses = statusDetails
+        .map((detail: any) => normalizePresenceStatus(detail?.status ?? detail?.state ?? detail?.online))
+        .filter((value: any): value is boolean => typeof value === 'boolean');
+      if (detailStatuses.length > 0) {
+        normalized = detailStatuses.some(Boolean);
+      }
+    }
+
+    if (normalized === null) {
+      const status = item.status ?? item.state ?? item.online ?? item.presence;
+      if (status && typeof status === 'object' && !Array.isArray(status)) {
+        const valueStatuses = Object.values(status)
+          .map((value: any) => normalizePresenceStatus(value?.status ?? value?.state ?? value?.online ?? value))
+          .filter((value: any): value is boolean => typeof value === 'boolean');
+        if (valueStatuses.length > 0) {
+          normalized = valueStatuses.some(Boolean);
+        }
+      } else {
+        normalized = normalizePresenceStatus(status);
+      }
+    }
+
+    if (userId && typeof normalized === 'boolean') {
+      entries.push({ userId, isOnline: normalized });
+    }
+  }
+
+  return entries;
 }
 
 /**
@@ -407,8 +478,12 @@ export class CnChatService implements IChatService {
       },
       // 在线状态
       onPresenceStatusChange: (msg: any) => {
+        const entries = extractPresenceEntries(msg);
+        if (entries.length === 0) return;
         this.eventHandlers.forEach((callbacks) => {
-          callbacks.onPresenceChanged?.(msg.userId, msg.status === 'online');
+          entries.forEach(({ userId, isOnline }) => {
+            callbacks.onPresenceChanged?.(userId, isOnline);
+          });
         });
       },
       // 错误处理
@@ -831,15 +906,29 @@ export class CnChatService implements IChatService {
       const connection = await getConnection();
       await connection.subscribePresence({
         usernames: userIds,
-        expiry: 7 * 24 * 3600, // 7 天
+        expiry: 7 * 24 * 3600, // 7 days
       });
 
-      // 环信通过事件回调返回在线状态
-      // 这里返回空对象，实际状态通过 onPresenceStatusChange 事件获取
-      return {};
+      const presenceMap: Record<string, boolean> = {};
+      const getPresenceStatus = (connection as EasemobConnection).getPresenceStatus;
+      if (typeof getPresenceStatus === 'function') {
+        const response = await getPresenceStatus.call(connection, { usernames: userIds });
+        const entries = extractPresenceEntries(
+          response?.data?.result || response?.result || response?.data || response
+        );
+        entries.forEach(({ userId, isOnline }) => {
+          presenceMap[userId] = isOnline;
+        });
+      }
+
+      return presenceMap;
     } catch (error) {
       return {};
     }
+  }
+
+  getClient(): EasemobConnection | null {
+    return easemobConnection;
   }
 
   // ==================== 群聊功能 ====================

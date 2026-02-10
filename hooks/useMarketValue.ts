@@ -395,7 +395,7 @@ export function useMarketValue({
   // 重新计算评分函数
   const recalculateScore = useCallback(async (): Promise<MarketValueScore | null> => {
     return recalculateMutation.mutateAsync();
-  }, [recalculateMutation]);
+  }, [recalculateMutation.mutateAsync]);
   
   // 当前评分（从缓存或数据库）
   const score = useMemo((): MarketValueScore | null => {

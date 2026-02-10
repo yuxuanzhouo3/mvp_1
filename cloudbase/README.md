@@ -128,6 +128,24 @@ CN 环境使用以下 Cloudbase 数据库集合：
 |--------|------|
 | releases | 安装包版本记录（与 Supabase 表名一致） |
 
+### 视频演示
+
+| 集合名 | 说明 |
+|--------|------|
+| video_demos | 视频演示记录，用于 Profile Setup 页面的使用引导视频 |
+
+**video_demos 集合文档结构：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| _id | string | Cloudbase 自动生成的主键（映射为 id） |
+| video_url | string | 视频文件 URL，必填 |
+| title | string | 视频标题，必填 |
+| description | string | 视频描述，默认空字符串 |
+| created_at | string (ISO 8601) | 创建时间 |
+| updated_at | string (ISO 8601) | 最后更新时间 |
+| is_active | boolean | 是否为当前激活的演示视频，默认 false |
+
 ## 部署配置
 
 ### 环境变量

@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { useAuth } from '@/app/providers/AuthProvider';
 import { useLanguage } from '@/components/language-provider';
 import { getChatService } from '@/lib/services/chat';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 import type { ChatRoomWithUser, ChatMessage, IChatService } from '@/lib/services/chat/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -40,6 +42,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AIAssistant } from '@/components/ai';
+import { useToast } from '@/hooks/use-toast';
+import type { CallKitRef } from 'easemob-chat-uikit';
+
+const EasemobCallKit = dynamic(() => import('@/components/easemob-callkit'), {
+  ssr: false,
+});
+
+type CallUiStatus = 'idle' | 'calling' | 'ringing' | 'connected' | 'disconnected';
 
 function tryParseCloudbaseFilePathFromUrl(input?: string | null): string | null {
   if (!input) return null;
@@ -56,10 +66,11 @@ function tryParseCloudbaseFilePathFromUrl(input?: string | null): string | null 
 }
 
 export default function CnChatPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const { language } = useLanguage();
+  const { toast } = useToast();
+  const isCnDeployment = isChinaDeployment();
 
   // 状态
   const [mounted, setMounted] = useState(false);
@@ -84,9 +95,16 @@ export default function CnChatPage() {
   const [pinnedRoomIds, setPinnedRoomIds] = useState<Set<string>>(new Set());
   const [showMenu, setShowMenu] = useState<string | null>(null);
   const [aiAssistantMessage, setAiAssistantMessage] = useState<{ id: string; content: string } | null>(null);
+  const [callConfigError, setCallConfigError] = useState<string | null>(null);
+  const [callKitReady, setCallKitReady] = useState(false);
+  const [callStatus, setCallStatus] = useState<CallUiStatus>('idle');
+  const [showCallDebugPanel, setShowCallDebugPanel] = useState(true);
+  const [lastCallErrorMessage, setLastCallErrorMessage] = useState('');
+  const [lastCallEndReason, setLastCallEndReason] = useState('');
 
   // Refs
   const chatServiceRef = useRef<IChatService | null>(null);
+  const callKitRef = useRef<CallKitRef>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -99,6 +117,7 @@ export default function CnChatPage() {
   const videoRefreshInFlightRef = useRef<Set<string>>(new Set());
 
   const prevUserIdRef = useRef<string | null>(null);
+  const prevCallUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const current = user?.id || null;
@@ -109,10 +128,68 @@ export default function CnChatPage() {
     }
   }, [user?.id]);
 
+  useEffect(() => {
+    const current = user?.id || null;
+    if (prevCallUserIdRef.current !== current) {
+      prevCallUserIdRef.current = current;
+      setCallConfigError(null);
+      setCallKitReady(false);
+      setCallStatus('idle');
+      setLastCallErrorMessage('');
+      setLastCallEndReason('');
+    }
+  }, [user?.id]);
+
   const handleViewProfile = useCallback(() => {
     if (!selectedRoom) return;
     setShowUserProfile(true);
   }, [selectedRoom]);
+
+  const applyPresenceToRooms = useCallback(
+    (roomList: ChatRoomWithUser[], presence: Record<string, boolean>) => {
+      if (!presence || Object.keys(presence).length === 0) return roomList;
+      return roomList.map((room) => {
+        const userId = room.otherUser?.id;
+        if (!userId || typeof presence[userId] !== 'boolean') return room;
+        if (room.otherUser?.isOnline === presence[userId]) return room;
+        return {
+          ...room,
+          otherUser: {
+            ...room.otherUser,
+            isOnline: presence[userId],
+          },
+        };
+      });
+    },
+    []
+  );
+
+  const updateRoomPresence = useCallback((userId: string, isOnline: boolean) => {
+    setRooms((prev) =>
+      prev.map((room) => {
+        if (room.otherUser?.id !== userId) return room;
+        if (room.otherUser?.isOnline === isOnline) return room;
+        return {
+          ...room,
+          otherUser: {
+            ...room.otherUser,
+            isOnline,
+          },
+        };
+      })
+    );
+    setSelectedRoom((prev) => {
+      if (!prev || prev.otherUser?.id !== userId) return prev;
+      if (prev.otherUser?.isOnline === isOnline) return prev;
+      return {
+        ...prev,
+        otherUser: {
+          ...prev.otherUser,
+          isOnline,
+        },
+      };
+    });
+  }, []);
 
   const refreshVideoUrl = useCallback(async (message: ChatMessage) => {
     if (!user?.id) return false;
@@ -170,8 +247,13 @@ export default function CnChatPage() {
       }
 
       // 加载会话列表
+      await service.updatePresence(true);
+
       const roomList = await service.getChatRooms(user.id);
-      setRooms(roomList);
+      const userIds = roomList.map((room) => room.otherUser?.id).filter(Boolean) as string[];
+      const presenceSnapshot = userIds.length > 0 ? await service.getPresence(userIds) : {};
+      const roomsWithPresence = applyPresenceToRooms(roomList, presenceSnapshot);
+      setRooms(roomsWithPresence);
       setLoadingRooms(false);
 
       // 订阅所有消息
@@ -179,14 +261,21 @@ export default function CnChatPage() {
         onMessageReceived: (msg) => {
           setMessages(prev => [...prev, msg]);
           // 刷新会话列表
-          service.getChatRooms(user.id).then(setRooms);
+          service.getChatRooms(user.id).then(async (latestRooms) => {
+            const latestUserIds = latestRooms.map((room) => room.otherUser?.id).filter(Boolean) as string[];
+            const latestPresence = latestUserIds.length > 0 ? await service.getPresence(latestUserIds) : {};
+            setRooms(applyPresenceToRooms(latestRooms, latestPresence));
+          });
+        },
+        onPresenceChanged: (userId, isOnline) => {
+          updateRoomPresence(userId, isOnline);
         },
       });
 
       // 检查URL参数是否有指定的会话
       const roomId = searchParams?.get('room');
       if (roomId) {
-        const room = roomList.find(r => r.id === roomId || r.otherUser?.id === roomId);
+        const room = roomsWithPresence.find(r => r.id === roomId || r.otherUser?.id === roomId);
         if (room) {
           handleSelectRoom(room);
         }
@@ -195,7 +284,26 @@ export default function CnChatPage() {
       console.error('Init chat service error:', error);
       setLoadingRooms(false);
     }
-  }, [user?.id, searchParams]);
+  }, [user?.id, searchParams, applyPresenceToRooms, updateRoomPresence]);
+
+  useEffect(() => {
+    if (!isCnDeployment) {
+      setCallConfigError('CallKit is only available in CN deployment');
+      return;
+    }
+
+    if (!user?.id) {
+      setCallConfigError(null);
+      return;
+    }
+
+    if (!callKitReady) {
+      setCallConfigError(language === 'zh' ? '通话初始化中' : 'Call initializing');
+      return;
+    }
+
+    setCallConfigError(null);
+  }, [isCnDeployment, user?.id, callKitReady, language]);
 
   useEffect(() => {
     const resolveUrls = async () => {
@@ -332,6 +440,150 @@ export default function CnChatPage() {
   };
 
   // 渲染消息内容
+  const startSingleCall = useCallback(
+    (callType: 'audio' | 'video') => {
+      if (!isCnDeployment) {
+        toast({
+          title: language === 'zh' ? '仅中国区可用' : 'CN only feature',
+          description: language === 'zh'
+            ? '语音/视频通话仅在中国区部署环境可用。'
+            : 'Voice/video call is only available in CN deployment.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!selectedRoom?.otherUser?.id || !user?.id) return;
+
+      const isTargetOnline = !!selectedRoom.otherUser?.isOnline;
+      if (!isTargetOnline) {
+        toast({
+          title: language === 'zh' ? '对方不在线' : 'User is offline',
+          description: language === 'zh'
+            ? '对方离线时无法发起通话'
+            : 'You can only start calls when the user is online.',
+        });
+        return;
+      }
+
+      if (!callKitReady) {
+        toast({
+          title: language === 'zh' ? '通话初始化中' : 'Call initializing',
+          description: callConfigError || (language === 'zh' ? '请稍后重试' : 'Please try again later.'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!callKitRef.current) {
+        toast({
+          title: language === 'zh' ? '通话组件未就绪' : 'Call component not ready',
+          description: language === 'zh' ? '请稍后重试' : 'Please try again later.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const runtimeStatus = callKitRef.current.getCallStatus?.() ?? callStatus;
+      if (runtimeStatus !== 'idle') {
+        toast({
+          title: language === 'zh' ? '通话进行中' : 'Call in progress',
+          description: language === 'zh' ? '当前通话未结束，请稍后再试。' : 'Current call is not finished yet. Please retry later.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setLastCallErrorMessage('');
+      setLastCallEndReason('');
+      setCallStatus('calling');
+
+      callKitRef.current.startSingleCall({
+        to: selectedRoom.otherUser.id,
+        callType,
+        msg:
+          callType === 'video'
+            ? (language === 'zh' ? '邀请你进行视频通话' : 'Invites you to a video call')
+            : (language === 'zh' ? '邀请你进行语音通话' : 'Invites you to a voice call'),
+      }).then((result) => {
+        if (!result) {
+          const latestStatus = callKitRef.current?.getCallStatus?.() ?? 'idle';
+          setCallStatus(latestStatus);
+        }
+      }).catch((error: any) => {
+        const latestStatus = callKitRef.current?.getCallStatus?.() ?? 'idle';
+        setCallStatus(latestStatus);
+        toast({
+          title: language === 'zh' ? '通话发起失败' : 'Failed to start call',
+          description: error?.message || (language === 'zh' ? '请稍后重试' : 'Please try again later.'),
+          variant: 'destructive',
+        });
+      });
+    },
+    [isCnDeployment, selectedRoom, user?.id, callKitReady, callConfigError, toast, language, callStatus]
+  );
+
+  const userInfoProvider = useCallback(
+    async (userIds: string[]) => {
+      return userIds.map((userId) => {
+        if (userId === user?.id) {
+          const nickname =
+            (user as any)?.user_metadata?.display_name ||
+            (user as any)?.user_metadata?.full_name ||
+            user?.email ||
+            userId;
+          const avatarUrl = (user as any)?.user_metadata?.avatar_url;
+          return { userId, nickname, avatarUrl };
+        }
+
+        const roomMatch =
+          rooms.find((room) => room.otherUser?.id === userId) ||
+          (selectedRoom?.otherUser?.id === userId ? selectedRoom : null);
+
+        if (roomMatch?.otherUser) {
+          return {
+            userId,
+            nickname: roomMatch.otherUser.username || userId,
+            avatarUrl: roomMatch.otherUser.avatarUrl,
+          };
+        }
+
+        return { userId, nickname: userId };
+      });
+    },
+    [rooms, selectedRoom, user]
+  );
+
+  const groupInfoProvider = useCallback(async (groupIds: string[]) => {
+    return groupIds.map((groupId) => ({
+      groupId,
+      groupName: groupId,
+    }));
+  }, []);
+
+  const handleCallStatusChanged = useCallback((status: CallUiStatus) => {
+    setCallStatus(status);
+  }, []);
+
+  const handleCallError = useCallback((error: any) => {
+    const rawMessage = typeof error?.message === 'string' ? error.message : '';
+    const normalized = rawMessage.toLowerCase();
+    const isCallStateBusy = normalized.includes('is in call') || normalized.includes('already in call');
+
+    toast({
+      title: language === 'zh' ? '通话失败' : 'Call failed',
+      description: isCallStateBusy
+        ? (language === 'zh' ? '当前账号通话状态未释放，请稍后再试。' : 'Call state is not idle yet. Please retry in a moment.')
+        : (rawMessage || (language === 'zh' ? '请稍后重试' : 'Please try again later.')),
+      variant: 'destructive',
+    });
+
+    setLastCallErrorMessage(rawMessage || (isCallStateBusy ? 'is in call' : 'unknown'));
+
+    const latestStatus = callKitRef.current?.getCallStatus?.() ?? 'idle';
+    setCallStatus(latestStatus);
+  }, [language, toast]);
+
   const renderMessageContent = (message: ChatMessage) => {
     switch (message.type) {
       case 'image':
@@ -456,10 +708,141 @@ export default function CnChatPage() {
   }, [mounted, user?.id, initChatService]);
 
   useEffect(() => {
+    return () => {
+      const updatePromise = chatServiceRef.current?.updatePresence(false);
+      updatePromise?.catch(() => undefined);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    const callKit = callKitRef.current;
+    return () => {
+      callKit?.exitCall?.();
+    };
+  }, []);
+
+  useEffect(() => {
     if (messages.length > 0) {
       scrollToBottom();
     }
   }, [messages.length]);
+
+  const isCallReady = callKitReady;
+  const callDebugEnvRaw = (process.env.NEXT_PUBLIC_ENABLE_CALL_DEBUG || '').trim().toLowerCase();
+  const isCallDebugEnabled = ['1', 'true', 'yes', 'on'].includes(callDebugEnvRaw);
+  const isCallComponentReady = !!callKitRef.current;
+  const runtimeCallStatus = callKitRef.current?.getCallStatus?.();
+  const effectiveCallStatus: CallUiStatus = runtimeCallStatus ?? callStatus;
+  const isInCall = effectiveCallStatus !== 'idle';
+  const isTargetOnline = !!selectedRoom?.otherUser?.isOnline;
+  const canStartCall = isCnDeployment && isCallReady && isTargetOnline && !isInCall;
+  const callAppKey = process.env.NEXT_PUBLIC_EASEMOB_APP_KEY;
+
+  const copyCallDebugInfo = useCallback(async () => {
+    const debugPayload = {
+      timestamp: new Date().toISOString(),
+      userId: user?.id || '',
+      selectedRoomId: selectedRoom?.id || '',
+      targetUserId: selectedRoom?.otherUser?.id || '',
+      targetOnline: isTargetOnline,
+      isCnDeployment,
+      callAppKeyConfigured: !!callAppKey,
+      callKitReady,
+      callConfigError,
+      callStatus,
+      runtimeCallStatus: runtimeCallStatus || null,
+      effectiveCallStatus,
+      isInCall,
+      callComponentReady: isCallComponentReady,
+      canStartCall,
+      lastCallErrorMessage,
+      lastCallEndReason,
+    };
+
+    const text = JSON.stringify(debugPayload, null, 2);
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+
+      toast({
+        title: language === 'zh' ? '已复制排障信息' : 'Debug info copied',
+        description: language === 'zh' ? '可直接粘贴到报错日志中。' : 'You can paste it into your bug log directly.',
+      });
+    } catch {
+      toast({
+        title: language === 'zh' ? '复制失败' : 'Copy failed',
+        description: language === 'zh' ? '请手动记录当前状态信息。' : 'Please capture the on-screen status manually.',
+        variant: 'destructive',
+      });
+    }
+  }, [
+    user?.id,
+    selectedRoom?.id,
+    selectedRoom?.otherUser?.id,
+    isTargetOnline,
+    isCnDeployment,
+    callAppKey,
+    callKitReady,
+    callConfigError,
+    callStatus,
+    runtimeCallStatus,
+    effectiveCallStatus,
+    isInCall,
+    isCallComponentReady,
+    canStartCall,
+    lastCallErrorMessage,
+    lastCallEndReason,
+    toast,
+    language,
+  ]);
+
+  const forceEndCall = useCallback(() => {
+    callKitRef.current?.exitCall?.('manual_debug_force_end');
+    setCallStatus('idle');
+    setLastCallEndReason('manual_debug_force_end');
+  }, []);
+
+  const refreshCallRuntimeStatus = useCallback(() => {
+    const latestStatus = callKitRef.current?.getCallStatus?.() ?? 'idle';
+    setCallStatus(latestStatus);
+    toast({
+      title: language === 'zh' ? '状态已刷新' : 'Status refreshed',
+      description: `${language === 'zh' ? '当前状态：' : 'Current status: '}${latestStatus}`,
+    });
+  }, [language, toast]);
+  const callComingSoonText = language === 'zh'
+    ? '功能尚未完善，尽情期待。'
+    : 'This feature is still in progress. Stay tuned.';
+  const handleSingleCallIconClick = useCallback(
+    (callType: 'audio' | 'video') => {
+      if (isCnDeployment) {
+        toast({
+          title: language === 'zh' ? '功能尚未完善' : 'Feature coming soon',
+          description: callComingSoonText,
+        });
+        return;
+      }
+
+      startSingleCall(callType);
+    },
+    [isCnDeployment, language, toast, callComingSoonText, startSingleCall]
+  );
+  const isCallButtonDisabled = !isCnDeployment;
+  const voiceCallTitle = isCnDeployment
+    ? callComingSoonText
+    : (language === 'zh' ? '仅中国区可用' : 'CN only feature');
+  const videoCallTitle = isCnDeployment
+    ? callComingSoonText
+    : (language === 'zh' ? '仅中国区可用' : 'CN only feature');
 
   if (!mounted) return null;
 
@@ -680,10 +1063,24 @@ export default function CnChatPage() {
 
               {/* 操作按钮 */}
               <div className="flex items-center space-x-1 shrink-0">
-                <Button variant="ghost" size="sm" className="text-gray-500 hover:text-primary">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-500 hover:text-primary"
+                  disabled={isCallButtonDisabled}
+                  onClick={() => handleSingleCallIconClick('audio')}
+                  title={voiceCallTitle}
+                >
                   <Phone className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="sm" className="text-gray-500 hover:text-primary">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-500 hover:text-primary"
+                  disabled={isCallButtonDisabled}
+                  onClick={() => handleSingleCallIconClick('video')}
+                  title={videoCallTitle}
+                >
                   <Video className="h-5 w-5" />
                 </Button>
                 <DropdownMenu>
@@ -725,6 +1122,77 @@ export default function CnChatPage() {
             </div>
 
             {/* 消息区域 */}
+            {isCnDeployment && isCallDebugEnabled && (
+              <div className="px-3 sm:px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-amber-50/60 dark:bg-amber-900/10">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-amber-700 dark:text-amber-200">
+                    {language === 'zh' ? '通话排障面板' : 'Call debug panel'}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs text-amber-700 dark:text-amber-200"
+                    onClick={() => setShowCallDebugPanel((prev) => !prev)}
+                  >
+                    {showCallDebugPanel
+                      ? (language === 'zh' ? '收起' : 'Collapse')
+                      : (language === 'zh' ? '展开' : 'Expand')}
+                  </Button>
+                </div>
+
+                {showCallDebugPanel && (
+                  <div className="mt-2 space-y-2">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-3 gap-y-1 text-[11px] text-amber-900 dark:text-amber-100">
+                      <div>{language === 'zh' ? '部署:' : 'Deploy:'} {isCnDeployment ? 'CN' : 'INTL'}</div>
+                      <div>{language === 'zh' ? 'CallKit就绪:' : 'CallKit ready:'} {String(callKitReady)}</div>
+                      <div>{language === 'zh' ? 'UI状态:' : 'UI status:'} {callStatus}</div>
+                      <div>{language === 'zh' ? '运行时状态:' : 'Runtime status:'} {runtimeCallStatus || 'null'}</div>
+                      <div>{language === 'zh' ? '有效状态:' : 'Effective status:'} {effectiveCallStatus}</div>
+                      <div>{language === 'zh' ? '通话中:' : 'In call:'} {String(isInCall)}</div>
+                      <div>{language === 'zh' ? '组件就绪:' : 'Component ready:'} {String(isCallComponentReady)}</div>
+                      <div>{language === 'zh' ? '可发起:' : 'Can start:'} {String(canStartCall)}</div>
+                      <div className="col-span-2 md:col-span-4 break-all">
+                        {language === 'zh' ? '配置错误:' : 'Config error:'} {callConfigError || '-'}
+                      </div>
+                      <div className="col-span-2 md:col-span-4 break-all">
+                        {language === 'zh' ? '最近错误:' : 'Last error:'} {lastCallErrorMessage || '-'}
+                      </div>
+                      <div className="col-span-2 md:col-span-4 break-all">
+                        {language === 'zh' ? '结束原因:' : 'End reason:'} {lastCallEndReason || '-'}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={refreshCallRuntimeStatus}
+                      >
+                        {language === 'zh' ? '刷新状态' : 'Refresh status'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={copyCallDebugInfo}
+                      >
+                        {language === 'zh' ? '复制排障信息' : 'Copy debug info'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
+                        onClick={forceEndCall}
+                      >
+                        {language === 'zh' ? '强制结束通话' : 'Force end call'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               {showSearchMessages && (
                 <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 pb-3">
@@ -1226,6 +1694,24 @@ export default function CnChatPage() {
           </div>
         )}
       </div>
+
+      {isCnDeployment && user?.id && callAppKey && (
+        <EasemobCallKit
+          appKey={callAppKey}
+          language={language === 'zh' ? 'zh' : 'en'}
+          userId={user.id}
+          callKitRef={callKitRef}
+          userInfoProvider={userInfoProvider}
+          groupInfoProvider={groupInfoProvider}
+          onCallStatusChanged={handleCallStatusChanged}
+          onEndCallWithReason={(reason) => {
+            setCallStatus('idle');
+            setLastCallEndReason(reason || 'unknown');
+          }}
+          onCallError={handleCallError}
+          onReady={setCallKitReady}
+        />
+      )}
     </div>
   );
 }

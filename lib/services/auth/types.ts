@@ -9,10 +9,9 @@
 export interface AuthUser {
   id: string;
   email?: string;
-  phone?: string;
   displayName?: string;
   avatarUrl?: string;
-  provider: 'email' | 'google' | 'wechat' | 'phone';
+  provider: 'email' | 'google' | 'wechat';
   metadata?: Record<string, any>;
 }
 
@@ -20,8 +19,6 @@ export interface AuthUser {
 export interface AuthCredentials {
   email?: string;
   password?: string;
-  phone?: string;
-  verificationCode?: string;
   // OAuth 相关
   provider?: 'google' | 'wechat';
   oauthCode?: string;
@@ -33,7 +30,6 @@ export interface RegisterData {
   email: string;
   password: string;
   displayName?: string;
-  phone?: string;
 }
 
 // 认证结果
@@ -78,16 +74,6 @@ export interface IAuthService {
    * 处理 OAuth 回调
    */
   handleOAuthCallback(provider: 'google' | 'wechat', code: string): Promise<AuthResult>;
-
-  /**
-   * 手机号登录（发送验证码）
-   */
-  sendPhoneVerificationCode?(phone: string): Promise<{ success: boolean; error?: string }>;
-
-  /**
-   * 手机号登录（验证码验证）
-   */
-  signInWithPhone?(phone: string, code: string): Promise<AuthResult>;
 
   /**
    * 退出登录
