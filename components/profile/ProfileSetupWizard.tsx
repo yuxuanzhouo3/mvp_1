@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,13 +63,13 @@ export default function ProfileSetupWizard() {
   const t = useTranslations(language);
 
   // 获取认证 token（支持 CN 和 INTL 环境）
-  const getAuthToken = (): string | null => {
+  const getAuthToken = useCallback((): string | null => {
     // INTL 环境：使用 Supabase session token
     if (session?.access_token) {
       return session.access_token;
     }
     return null;
-  };
+  }, [session?.access_token]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -105,7 +105,7 @@ export default function ProfileSetupWizard() {
     if (user) {
       fetchSkipCount();
     }
-  }, [user]);
+  }, [user, getAuthToken]);
 
   // Load saved progress from localStorage
   useEffect(() => {

@@ -29,7 +29,7 @@ export const dynamic = 'force-dynamic';
  * @param existingProfile - 现有的 profile 数据
  * @returns 需要填入的默认值对象（仅包含原本为 null 的字段）
  */
-export function getDefaultProfileValues(existingProfile: any): Record<string, any> {
+function getDefaultProfileValues(existingProfile: any): Record<string, any> {
   const defaults: Record<string, any> = {
     marital_status: 'single',
     relationship_history_count: 0,
