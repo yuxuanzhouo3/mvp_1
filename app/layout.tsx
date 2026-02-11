@@ -72,9 +72,11 @@ export default function RootLayout({
     : cookieStore.get('lang')?.value
   const headerLang = headerStore.get('x-lang')
   const acceptLanguage = headerStore.get('accept-language') || ''
+  const userAgent = headerStore.get('user-agent') || ''
   const region = resolveDeploymentRegion(headerStore);
   const host = (headerStore.get('x-forwarded-host') || headerStore.get('host') || '').toLowerCase();
   const isChinaRegion = region === 'CN' || host.includes('mornscience.top');
+  const isMiniProgram = isWechatMiniProgramUserAgent(userAgent);
   const themeClass = isChinaRegion ? 'theme-cn' : 'theme-intl-modern';
 
   const initialLanguage: Language = isAdminRoute
@@ -92,8 +94,8 @@ export default function RootLayout({
   return (
     <html lang={htmlLang} suppressHydrationWarning>
       <head>
-        {/* 微信 JSSDK - 用于小程序 WebView 中调用 wx.miniProgram API */}
-        {isChinaRegion && (
+        {/* 微信 JSSDK - 仅在微信小程序 WebView 中加载，避免无效 preload 警告 */}
+        {isChinaRegion && isMiniProgram && (
           <Script
             src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"
             strategy="beforeInteractive"
@@ -101,7 +103,7 @@ export default function RootLayout({
         )}
       </head>
       <body className={`${systemFontClass} ${themeClass}`}>
-        {isChinaRegion && <Script src="/wechat-android-bridge.js" strategy="beforeInteractive" />}
+        {isChinaRegion && isMiniProgram && <Script src="/wechat-android-bridge.js" strategy="beforeInteractive" />}
         <ErrorBoundary>
           <Providers initialLanguage={initialLanguage} languageScope={isAdminRoute ? 'admin' : 'app'}>
             <div className="bg-background">

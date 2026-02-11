@@ -22,7 +22,6 @@ export function GlobalHeader() {
   const settingsRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const downloadRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { user, signOut } = useAuth();
@@ -75,11 +74,6 @@ export function GlobalHeader() {
     // signOut already handles cache cleanup and redirect to root
   };
 
-  // Set mounted state
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   // Close settings dropdown when clicking outside
   useEffect(() => {
     // Only run on client side
@@ -109,11 +103,6 @@ export function GlobalHeader() {
     { code: 'en', name: 'English', flag: '🇺🇸' },
     { code: 'zh', name: '中文', flag: '🇨🇳' },
   ];
-
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return <div className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950" suppressHydrationWarning />;
-  }
 
   return (
     <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 fixed top-0 left-0 right-0 z-40">

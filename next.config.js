@@ -3,12 +3,19 @@ const nextConfig = {
   ...(process.platform === 'win32' && process.env.NEXT_STANDALONE !== '1'
     ? {}
     : { output: 'standalone' }),
+  // Workaround: SWC minifier may generate invalid duplicate identifiers
+  // in large third-party bundles (e.g. easemob-chat-uikit in vendors chunk).
+  swcMinify: false,
   // Performance optimizations
   experimental: {
     serverComponentsExternalPackages: ['@upstash/redis'],
     optimizePackageImports: ['@radix-ui/react-icons', 'lucide-react'],
   },
-  transpilePackages: ['easemob-chat-uikit', 'agora-rtc-sdk-ng'],
+  // NOTE:
+  // easemob-chat-uikit 在 Next/SWC 转译后会在产物里生成重复变量声明，
+  // 导致浏览器报 `Identifier 'e' has already been declared`。
+  // 该包使用其预编译产物即可，避免被 transpile。
+  transpilePackages: ['agora-rtc-sdk-ng'],
 
   // Image optimization
   images: {
