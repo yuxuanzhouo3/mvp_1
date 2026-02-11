@@ -9,98 +9,92 @@ import { useLanguage } from '@/components/language-provider'
 import { useTranslations } from '@/lib/i18n'
 import { isChinaDeployment } from '@/lib/config/deployment.config'
 import { getBrandName } from '@/lib/config/branding.config'
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 export default function HomePage() {
-  const [mounted, setMounted] = useState(false);
   const { language } = useLanguage();
   const t = useTranslations(language);
   const featuresRef = useRef<HTMLDivElement>(null);
   const stepsRef = useRef<HTMLDivElement>(null);
 
-  // Set mounted state
   useEffect(() => {
-    setMounted(true);
+    const container = featuresRef.current;
+    if (!container) return;
+
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
+    const connection = (navigator as any).connection;
+    const saveData = !!connection?.saveData;
+    const cores = typeof navigator.hardwareConcurrency === 'number' ? navigator.hardwareConcurrency : 8;
+    const lowEnd = saveData || cores <= 4;
+    if (reduceMotion) return;
+
+    let active = false;
+    let visible = document.visibilityState === 'visible';
+    let raf: number | null = null;
+    let scrollPos = 0;
+    let last = performance.now();
+    const pxPerFrame = lowEnd ? 0.35 : 1;
+    const frameIntervalMs = lowEnd ? 1000 / 30 : 1000 / 60;
+
+    const stop = () => {
+      if (raf !== null) {
+        cancelAnimationFrame(raf);
+        raf = null;
+      }
+    };
+
+    const tick = (now: number) => {
+      if (!active || !visible) {
+        stop();
+        return;
+      }
+
+      if (now - last >= frameIntervalMs) {
+        scrollPos += pxPerFrame;
+        const maxScroll = container.scrollWidth / 2;
+        if (maxScroll > 0) {
+          container.scrollLeft = scrollPos % maxScroll;
+        }
+        last = now;
+      }
+
+      raf = requestAnimationFrame(tick);
+    };
+
+    const start = () => {
+      if (raf !== null) return;
+      raf = requestAnimationFrame(tick);
+    };
+
+    const onVis = () => {
+      visible = document.visibilityState === 'visible';
+      if (active && visible) start();
+      else stop();
+    };
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        active = !!entries[0]?.isIntersecting;
+        if (active && visible) start();
+        else stop();
+      },
+      { threshold: 0.1 }
+    );
+
+    io.observe(container);
+    document.addEventListener('visibilitychange', onVis);
+    onVis();
+
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVis);
+      io.disconnect();
+    };
   }, []);
 
   useEffect(() => {
-    const container = featuresRef.current;
-    if (!mounted || !container) return;
-
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
-    const connection = (navigator as any).connection;
-    const saveData = !!connection?.saveData;
-    const cores = typeof navigator.hardwareConcurrency === 'number' ? navigator.hardwareConcurrency : 8;
-    const lowEnd = saveData || cores <= 4;
-    if (reduceMotion) return;
-
-    let active = false;
-    let visible = document.visibilityState === 'visible';
-    let raf: number | null = null;
-    let scrollPos = 0;
-    let last = performance.now();
-    const pxPerFrame = lowEnd ? 0.35 : 1;
-    const frameIntervalMs = lowEnd ? 1000 / 30 : 1000 / 60;
-
-    const stop = () => {
-      if (raf !== null) {
-        cancelAnimationFrame(raf);
-        raf = null;
-      }
-    };
-
-    const tick = (now: number) => {
-      if (!active || !visible) {
-        stop();
-        return;
-      }
-
-      if (now - last >= frameIntervalMs) {
-        scrollPos += pxPerFrame;
-        const maxScroll = container.scrollWidth / 2;
-        if (maxScroll > 0) {
-          container.scrollLeft = scrollPos % maxScroll;
-        }
-        last = now;
-      }
-
-      raf = requestAnimationFrame(tick);
-    };
-
-    const start = () => {
-      if (raf !== null) return;
-      raf = requestAnimationFrame(tick);
-    };
-
-    const onVis = () => {
-      visible = document.visibilityState === 'visible';
-      if (active && visible) start();
-      else stop();
-    };
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        active = !!entries[0]?.isIntersecting;
-        if (active && visible) start();
-        else stop();
-      },
-      { threshold: 0.1 }
-    );
-
-    io.observe(container);
-    document.addEventListener('visibilitychange', onVis);
-    onVis();
-
-    return () => {
-      stop();
-      document.removeEventListener('visibilitychange', onVis);
-      io.disconnect();
-    };
-  }, [mounted]);
-
-  useEffect(() => {
     const container = stepsRef.current;
-    if (!mounted || !container) return;
+    if (!container) return;
 
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false;
     const connection = (navigator as any).connection;
@@ -171,12 +165,7 @@ export default function HomePage() {
       document.removeEventListener('visibilitychange', onVis);
       io.disconnect();
     };
-  }, [mounted]);
-
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return <div className="min-h-screen bg-white dark:bg-gray-950" suppressHydrationWarning />;
-  }
+  }, []);
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950">
@@ -534,4 +523,3 @@ export default function HomePage() {
     </div>
   )
 }
-
