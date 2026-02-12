@@ -162,7 +162,7 @@ export function GlobalHeader() {
 
               {/* Download Dropdown - Only shown on mobile */}
               {showDownload && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 md:hidden">
+                <div className="fixed left-2 right-2 top-[calc(env(safe-area-inset-top)+3.5rem)] max-h-[calc(100dvh-env(safe-area-inset-top)-4.5rem)] overflow-y-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 md:hidden">
                   <div className="p-2">
                     {/* APP Section */}
                     <div className="mb-2">
@@ -170,11 +170,11 @@ export function GlobalHeader() {
                         {language === 'zh' ? 'APP应用' : 'APP'}
                       </div>
                       <button
-                        onClick={() => openDownload('windows')}
+                        onClick={() => openDownload('android')}
                         className="w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
-                        <span className="mr-2">🪟</span>
-                        Windows APP
+                        <span className="mr-2">📱</span>
+                        Android APP
                       </button>
                       <button
                         onClick={() => openDownload('macos', 'apple-silicon')}

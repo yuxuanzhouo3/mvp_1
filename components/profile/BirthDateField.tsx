@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 type BirthDateFieldProps = {
@@ -22,15 +21,25 @@ type DateParts = {
   day: number;
 };
 
-function parseDateParts(value: string): DateParts | null {
-  if (!value) return null;
-  const [y, m, d] = value.split('-').map((part) => Number(part));
-  if (!y || !m || !d) return null;
-  return { year: y, month: m, day: d };
-}
-
 function pad2(value: string | number): string {
   return String(value).padStart(2, '0');
+}
+
+function normalizeDateValue(value?: string | null): string {
+  if (!value) return '';
+  const trimmed = value.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!match) return '';
+  const [, year, month, day] = match;
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+function parseDateParts(value: string): DateParts | null {
+  const normalizedValue = normalizeDateValue(value);
+  if (!normalizedValue) return null;
+  const [y, m, d] = normalizedValue.split('-').map((part) => Number(part));
+  if (!y || !m || !d) return null;
+  return { year: y, month: m, day: d };
 }
 
 function getDaysInMonth(year: number, month: number): number {
@@ -48,19 +57,29 @@ export function BirthDateField({
   inputClassName,
   selectClassName,
 }: BirthDateFieldProps) {
+  const [preferNativeDateInput, setPreferNativeDateInput] = useState(false);
   const [year, setYear] = useState('');
   const [month, setMonth] = useState('');
   const [day, setDay] = useState('');
+  const nativeInputRef = useRef<HTMLInputElement | null>(null);
   const prevValueRef = useRef<string | null | undefined>(undefined);
+  const normalizedValue = useMemo(() => normalizeDateValue(value), [value]);
+  const normalizedMinDate = useMemo(() => normalizeDateValue(minDate), [minDate]);
+  const normalizedMaxDate = useMemo(() => normalizeDateValue(maxDate), [maxDate]);
 
-  const minParts = useMemo(() => parseDateParts(minDate), [minDate]);
-  const maxParts = useMemo(() => parseDateParts(maxDate), [maxDate]);
+  const minParts = useMemo(() => parseDateParts(normalizedMinDate), [normalizedMinDate]);
+  const maxParts = useMemo(() => parseDateParts(normalizedMaxDate), [normalizedMaxDate]);
 
   useEffect(() => {
-    if (prevValueRef.current === value) return;
-    prevValueRef.current = value;
-    if (value) {
-      const parsed = parseDateParts(value);
+    if (typeof navigator === 'undefined') return;
+    setPreferNativeDateInput(/android/i.test(navigator.userAgent));
+  }, []);
+
+  useEffect(() => {
+    if (prevValueRef.current === normalizedValue) return;
+    prevValueRef.current = normalizedValue;
+    if (normalizedValue) {
+      const parsed = parseDateParts(normalizedValue);
       if (parsed) {
         setYear(String(parsed.year));
         setMonth(String(parsed.month));
@@ -71,7 +90,7 @@ export function BirthDateField({
     setYear('');
     setMonth('');
     setDay('');
-  }, [value]);
+  }, [normalizedValue]);
 
   const yearNum = year ? Number(year) : null;
   const monthNum = month ? Number(month) : null;
@@ -153,13 +172,28 @@ export function BirthDateField({
 
   useEffect(() => {
     if (!onChange) return;
-    if (composedValue === (value || '')) return;
+    if (composedValue === normalizedValue) return;
     onChange(composedValue);
-  }, [composedValue, onChange, value]);
+  }, [composedValue, normalizedValue, onChange]);
+
+  const showMobileSelects = !preferNativeDateInput;
+  const tryOpenNativePicker = () => {
+    const inputElement = nativeInputRef.current as
+      | (HTMLInputElement & { showPicker?: () => void })
+      | null;
+    if (!inputElement || typeof inputElement.showPicker !== 'function') {
+      return;
+    }
+    try {
+      inputElement.showPicker();
+    } catch {
+      // ignore: showPicker may require trusted user gesture in some browsers
+    }
+  };
 
   return (
     <>
-      <div className="flex flex-1 gap-2 sm:hidden">
+      <div className={cn('flex flex-1 gap-2 sm:hidden', !showMobileSelects && 'hidden')}>
         <select
           id={id ? `${id}-year` : undefined}
           value={year}
@@ -215,15 +249,23 @@ export function BirthDateField({
           ))}
         </select>
       </div>
-      <Input
+      <input
+        ref={nativeInputRef}
         id={id}
         type="date"
-        value={value || ''}
-        onChange={(e) => onChange?.(e.target.value)}
-        min={minDate}
-        max={maxDate}
+        value={normalizedValue}
+        onChange={(e) => onChange?.(normalizeDateValue(e.target.value))}
+        onFocus={tryOpenNativePicker}
+        onClick={tryOpenNativePicker}
+        min={normalizedMinDate || undefined}
+        max={normalizedMaxDate || undefined}
         disabled={disabled}
-        className={cn('hidden flex-1 sm:block', error && 'border-red-500', inputClassName)}
+        className={cn(
+          'h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
+          showMobileSelects ? 'hidden sm:block' : 'block',
+          error && 'border-red-500',
+          inputClassName
+        )}
       />
     </>
   );

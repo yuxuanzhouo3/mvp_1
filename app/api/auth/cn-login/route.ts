@@ -1,8 +1,23 @@
+import bcrypt from 'bcryptjs';
 import { NextRequest, NextResponse } from 'next/server';
-import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { createUserSession } from '@/lib/auth/session';
-import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
 import { findCnUserByEmail, verifyCnEmailVerificationCode } from '@/lib/auth/cn-email-code';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
+import { getRequestIp, rateLimit } from '@/lib/security/rateLimit';
+
+type CnLoginMethod = 'password' | 'code';
+
+function resolveLoginMethod(input: {
+  loginMethodRaw: string;
+  password: string;
+  verificationCode: string;
+}): CnLoginMethod | null {
+  if (input.loginMethodRaw === 'password') return 'password';
+  if (input.loginMethodRaw === 'code') return 'code';
+  if (input.verificationCode) return 'code';
+  if (input.password) return 'password';
+  return null;
+}
 
 export async function POST(request: NextRequest) {
   if (!isChinaDeployment()) {
@@ -17,35 +32,48 @@ export async function POST(request: NextRequest) {
     const rlIp = await rateLimit({ key: `rl:cn_login:ip:${ip}`, limit: 10, windowMs: 60_000 });
     if (!rlIp.allowed) {
       const retryAfterSeconds = Math.max(1, Math.ceil((rlIp.resetAtMs - Date.now()) / 1000));
-      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } });
+      return NextResponse.json(
+        { error: 'Too Many Requests' },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } }
+      );
     }
 
     const body = await request.json().catch(() => ({}));
     const email = String(body?.email || '').trim().toLowerCase();
+    const password = String(body?.password || '');
     const verificationCode = String(body?.verificationCode || '').trim();
+    const loginMethodRaw = String(body?.loginMethod || '').trim().toLowerCase();
+    const loginMethod = resolveLoginMethod({
+      loginMethodRaw,
+      password,
+      verificationCode,
+    });
 
-    if (!email || !verificationCode) {
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    }
+
+    if (!loginMethod) {
       return NextResponse.json(
-        { error: '邮箱和验证码为必填项' },
+        { error: 'Password or verification code is required' },
         { status: 400 }
       );
+    }
+
+    if (loginMethod === 'password' && !password) {
+      return NextResponse.json({ error: 'Password is required' }, { status: 400 });
+    }
+
+    if (loginMethod === 'code' && !verificationCode) {
+      return NextResponse.json({ error: 'Verification code is required' }, { status: 400 });
     }
 
     const rlEmail = await rateLimit({ key: `rl:cn_login:email:${email}`, limit: 5, windowMs: 60_000 });
     if (!rlEmail.allowed) {
       const retryAfterSeconds = Math.max(1, Math.ceil((rlEmail.resetAtMs - Date.now()) / 1000));
-      return NextResponse.json({ error: 'Too Many Requests' }, { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } });
-    }
-
-    const verifyCodeResult = await verifyCnEmailVerificationCode({
-      email,
-      code: verificationCode,
-      purpose: 'login',
-    });
-    if (!verifyCodeResult.ok) {
       return NextResponse.json(
-        { error: verifyCodeResult.error || '验证码错误' },
-        { status: 401 }
+        { error: 'Too Many Requests' },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } }
       );
     }
 
@@ -64,7 +92,7 @@ export async function POST(request: NextRequest) {
     const envId = process.env.CLOUDBASE_ENV_ID || process.env.NEXT_PUBLIC_CLOUDBASE_ENV_ID || '';
     if (!envId) {
       return NextResponse.json(
-        { error: '服务配置错误：Cloudbase ENV_ID 未设置' },
+        { error: 'Cloudbase ENV_ID is not configured' },
         { status: 500 }
       );
     }
@@ -80,10 +108,34 @@ export async function POST(request: NextRequest) {
 
     const user = await findCnUserByEmail(email);
     if (!user) {
-      return NextResponse.json(
-        { error: '用户不存在' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid email or credentials' }, { status: 401 });
+    }
+
+    if (loginMethod === 'password') {
+      const storedPassword = typeof user?.password === 'string' ? user.password : '';
+      if (!storedPassword) {
+        return NextResponse.json(
+          { error: 'This account does not support password login. Please use verification code login.' },
+          { status: 401 }
+        );
+      }
+
+      const passwordMatched = await bcrypt.compare(password, storedPassword);
+      if (!passwordMatched) {
+        return NextResponse.json({ error: 'Invalid email or credentials' }, { status: 401 });
+      }
+    } else {
+      const verifyCodeResult = await verifyCnEmailVerificationCode({
+        email,
+        code: verificationCode,
+        purpose: 'login',
+      });
+      if (!verifyCodeResult.ok) {
+        return NextResponse.json(
+          { error: verifyCodeResult.error || 'Invalid verification code' },
+          { status: 401 }
+        );
+      }
     }
 
     await usersCollection.doc(user._id).update({
@@ -140,7 +192,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[CN Login] Error:', error);
     return NextResponse.json(
-      { error: error.message || '登录失败' },
+      { error: error.message || 'Login failed' },
       { status: 500 }
     );
   }

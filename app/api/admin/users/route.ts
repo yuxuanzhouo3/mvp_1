@@ -11,6 +11,7 @@ const INTL_APP_ORIGIN =
   process.env.INTL_APP_ORIGIN || "https://www.mornhub.lat";
 
 type UsersSource = "ALL" | "CN" | "INTL";
+type CreatedSort = "created_desc" | "created_asc";
 
 type NormalizedUser = {
   id: string;
@@ -30,6 +31,8 @@ type NormalizedUser = {
   last_active_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  login_methods?: string[];
+  is_wechat_login?: boolean;
   raw?: any;
 };
 
@@ -37,6 +40,12 @@ function parseUsersSource(value: string | null): UsersSource {
   const normalized = (value || "").toUpperCase();
   if (normalized === "CN" || normalized === "INTL") return normalized;
   return "ALL";
+}
+
+function parseCreatedSort(value: string | null): CreatedSort {
+  const normalized = (value || "").toLowerCase();
+  if (normalized === "created_asc") return "created_asc";
+  return "created_desc";
 }
 
 function toIsoOrNull(value: any): string | null {
@@ -64,6 +73,74 @@ function toStringOrNull(value: any): string | null {
 function toNumberOrNull(value: any): number | null {
   const n = typeof value === "number" ? value : value == null ? NaN : Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function toStringArray(value: any): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        const s = typeof item === "string" ? item : item == null ? "" : String(item);
+        return s.trim();
+      })
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!s) return [];
+    return s
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function normalizeLoginMethod(method: string): string {
+  const normalized = method.trim().toLowerCase();
+  if (!normalized) return "";
+  if (
+    normalized === "wechat" ||
+    normalized === "weixin" ||
+    normalized === "wx" ||
+    normalized.includes("wechat") ||
+    normalized.includes("weixin")
+  ) {
+    return "wechat";
+  }
+  if (
+    normalized === "email" ||
+    normalized === "mail" ||
+    normalized.includes("email")
+  ) {
+    return "email";
+  }
+  return normalized;
+}
+
+function buildLoginFlags(input: {
+  email: string | null;
+  authProviders: string[];
+  wechatOpenid: string | null;
+  wechatUnionid: string | null;
+}) {
+  const methods = new Set<string>();
+  const providers = input.authProviders
+    .map((item) => normalizeLoginMethod(item))
+    .filter(Boolean);
+
+  for (const provider of providers) methods.add(provider);
+  if (input.email) methods.add("email");
+
+  const isWechatLogin =
+    !!input.wechatOpenid || !!input.wechatUnionid || providers.includes("wechat");
+  if (isWechatLogin) methods.add("wechat");
+
+  return {
+    loginMethods: Array.from(methods),
+    isWechatLogin,
+  };
 }
 
 function calcAge(birthDate: any): number | null {
@@ -230,6 +307,18 @@ function normalizeCnUser(doc: any): NormalizedUser {
     toIsoOrNull(doc?.updatedAt) ||
     null;
 
+  const { loginMethods, isWechatLogin } = buildLoginFlags({
+    email,
+    authProviders: [
+      ...toStringArray(doc?.auth_providers),
+      ...toStringArray(profile?.auth_providers),
+    ],
+    wechatOpenid:
+      toStringOrNull(doc?.wechat_openid) || toStringOrNull(profile?.wechat_openid),
+    wechatUnionid:
+      toStringOrNull(doc?.wechat_unionid) || toStringOrNull(profile?.wechat_unionid),
+  });
+
   return {
     id,
     region: "CN",
@@ -248,17 +337,27 @@ function normalizeCnUser(doc: any): NormalizedUser {
     last_active_at: lastActiveAt,
     created_at: createdAt,
     updated_at: updatedAt,
+    login_methods: loginMethods,
+    is_wechat_login: isWechatLogin,
     raw: doc,
   };
 }
 
 function normalizeIntlUser(row: any): NormalizedUser {
   const birthDate = toIsoOrNull(row?.birth_date);
+  const email = toStringOrNull(row?.email);
+  const { loginMethods, isWechatLogin } = buildLoginFlags({
+    email,
+    authProviders: toStringArray(row?.auth_providers),
+    wechatOpenid: toStringOrNull(row?.wechat_openid),
+    wechatUnionid: toStringOrNull(row?.wechat_unionid),
+  });
+
   return {
     id: toStringOrNull(row?.id) || "",
     region: "INTL",
     username: toStringOrNull(row?.username) || toStringOrNull(row?.real_name) || null,
-    email: toStringOrNull(row?.email),
+    email,
     phone: toStringOrNull(row?.phone),
     gender: toStringOrNull(row?.gender),
     birth_date: birthDate,
@@ -272,6 +371,8 @@ function normalizeIntlUser(row: any): NormalizedUser {
     last_active_at: toIsoOrNull(row?.last_active_at),
     created_at: toIsoOrNull(row?.created_at),
     updated_at: toIsoOrNull(row?.updated_at),
+    login_methods: loginMethods,
+    is_wechat_login: isWechatLogin,
     raw: row,
   };
 }
@@ -282,7 +383,8 @@ async function proxyFetchSideUsers(
   source: "CN" | "INTL",
   page: number,
   pageSize: number,
-  q: string | null
+  q: string | null,
+  sort: CreatedSort
 ) {
   const currentOrigin = new URL(request.url).origin;
   if (currentOrigin === targetOrigin) {
@@ -301,6 +403,7 @@ async function proxyFetchSideUsers(
   targetUrl.searchParams.set("page", String(page));
   targetUrl.searchParams.set("pageSize", String(pageSize));
   if (q) targetUrl.searchParams.set("q", q);
+  targetUrl.searchParams.set("sort", sort);
 
   const headers = new Headers();
   headers.set("x-admin-proxy-hop", "1");
@@ -323,7 +426,12 @@ async function proxyFetchSideUsers(
   return res.json();
 }
 
-async function fetchCnUsers(skip: number, take: number, q: string | null) {
+async function fetchCnUsers(
+  skip: number,
+  take: number,
+  q: string | null,
+  sort: CreatedSort
+) {
   if (!hasCnDbConfig()) {
     return {
       ok: false as const,
@@ -367,9 +475,11 @@ async function fetchCnUsers(skip: number, take: number, q: string | null) {
 
   const target = Math.min(take, total - start);
 
+  const orderDirection = sort === "created_asc" ? "asc" : "desc";
+
   const buildQuery = (orderField: "createdAt" | "created_at", skip: number, take: number) => {
     const q = Object.keys(where).length > 0 ? usersCollection.where(where) : usersCollection;
-    return q.orderBy(orderField, "desc").skip(skip).limit(take).get();
+    return q.orderBy(orderField, orderDirection).skip(skip).limit(take).get();
   };
 
   let orderField: "createdAt" | "created_at" = "createdAt";
@@ -463,7 +573,12 @@ async function fetchCnUsers(skip: number, take: number, q: string | null) {
   return { ok: true as const, total, users: list };
 }
 
-async function fetchIntlUsers(skip: number, take: number, q: string | null) {
+async function fetchIntlUsers(
+  skip: number,
+  take: number,
+  q: string | null,
+  sort: CreatedSort
+) {
   if (!supabaseAdmin) {
     return {
       ok: false as const,
@@ -514,7 +629,7 @@ async function fetchIntlUsers(skip: number, take: number, q: string | null) {
     let listQuery = supabaseAdmin
       .from("v_user_full_profile")
       .select("*")
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: sort === "created_asc" })
       .range(offset, chunkTo);
 
     if (query) {
@@ -552,7 +667,8 @@ async function proxyFetchUsersFirstN(
   targetOrigin: string,
   source: "CN" | "INTL",
   take: number,
-  q: string | null
+  q: string | null,
+  sort: CreatedSort
 ) {
   const pageSize = 100;
   const collected: any[] = [];
@@ -566,7 +682,8 @@ async function proxyFetchUsersFirstN(
       source,
       page,
       pageSize,
-      q
+      q,
+      sort
     );
 
     if (page === 1) total = Number(remote?.total) || 0;
@@ -610,6 +727,7 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url);
     const source = parseUsersSource(url.searchParams.get("source"));
+    const sort = parseCreatedSort(url.searchParams.get("sort"));
     const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
     const pageSize = Math.min(100, Math.max(1, parseInt(url.searchParams.get("pageSize") || "20")));
     const q = (url.searchParams.get("q") || "").trim() || null;
@@ -620,7 +738,7 @@ export async function GET(request: NextRequest) {
 
     if (source === "CN") {
       if (hasCnDbConfig()) {
-        const result = await fetchCnUsers(from, pageSize, q);
+        const result = await fetchCnUsers(from, pageSize, q, sort);
         if (!result.ok) {
           if ((result as any).missing) {
             return NextResponse.json(
@@ -637,6 +755,7 @@ export async function GET(request: NextRequest) {
             total: result.total,
             page,
             pageSize,
+            sort,
           },
           { headers: { "cache-control": "no-store" } }
         );
@@ -649,7 +768,8 @@ export async function GET(request: NextRequest) {
           "CN",
           page,
           pageSize,
-          q
+          q,
+          sort
         );
         return NextResponse.json(remote, { headers: { "cache-control": "no-store" } });
       }
@@ -662,7 +782,7 @@ export async function GET(request: NextRequest) {
 
     if (source === "INTL") {
       if (hasIntlDbConfig()) {
-        const result = await fetchIntlUsers(from, pageSize, q);
+        const result = await fetchIntlUsers(from, pageSize, q, sort);
         if (!result.ok) {
           if ((result as any).missing) {
             return NextResponse.json(
@@ -679,6 +799,7 @@ export async function GET(request: NextRequest) {
             total: result.total,
             page,
             pageSize,
+            sort,
           },
           { headers: { "cache-control": "no-store" } }
         );
@@ -691,7 +812,8 @@ export async function GET(request: NextRequest) {
           "INTL",
           page,
           pageSize,
-          q
+          q,
+          sort
         );
         return NextResponse.json(remote, { headers: { "cache-control": "no-store" } });
       }
@@ -706,7 +828,7 @@ export async function GET(request: NextRequest) {
 
     const [cnSide, intlSide] = await Promise.all([
       (async () => {
-        if (hasCnDbConfig()) return fetchCnUsers(0, desired, q);
+        if (hasCnDbConfig()) return fetchCnUsers(0, desired, q, sort);
         if (!canProxy) {
           return {
             ok: false as const,
@@ -716,7 +838,14 @@ export async function GET(request: NextRequest) {
           };
         }
         try {
-          return await proxyFetchUsersFirstN(request, CN_APP_ORIGIN, "CN", desired, q);
+          return await proxyFetchUsersFirstN(
+            request,
+            CN_APP_ORIGIN,
+            "CN",
+            desired,
+            q,
+            sort
+          );
         } catch (e: any) {
           return {
             ok: false as const,
@@ -727,7 +856,7 @@ export async function GET(request: NextRequest) {
         }
       })(),
       (async () => {
-        if (hasIntlDbConfig()) return fetchIntlUsers(0, desired, q);
+        if (hasIntlDbConfig()) return fetchIntlUsers(0, desired, q, sort);
         if (!canProxy) {
           return {
             ok: false as const,
@@ -737,7 +866,14 @@ export async function GET(request: NextRequest) {
           };
         }
         try {
-          return await proxyFetchUsersFirstN(request, INTL_APP_ORIGIN, "INTL", desired, q);
+          return await proxyFetchUsersFirstN(
+            request,
+            INTL_APP_ORIGIN,
+            "INTL",
+            desired,
+            q,
+            sort
+          );
         } catch (e: any) {
           return {
             ok: false as const,
@@ -769,7 +905,11 @@ export async function GET(request: NextRequest) {
     };
 
     const merged = [...(cnSide.users || []), ...(intlSide.users || [])]
-      .sort((a, b) => ts(b.created_at) - ts(a.created_at));
+      .sort((a, b) =>
+        sort === "created_asc"
+          ? ts(a.created_at) - ts(b.created_at)
+          : ts(b.created_at) - ts(a.created_at)
+      );
     const deduped = dedupeUsers(merged);
     const users = deduped.slice(from, from + pageSize);
     const total = (cnSide.total || 0) + (intlSide.total || 0);
@@ -781,6 +921,7 @@ export async function GET(request: NextRequest) {
         total,
         page,
         pageSize,
+        sort,
         sources,
       },
       { headers: { "cache-control": "no-store" } }

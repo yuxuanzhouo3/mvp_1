@@ -26,9 +26,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, X, Eye, Copy } from "lucide-react";
+import { Search, X, Eye, Copy, ArrowUpDown } from "lucide-react";
 
 type RegionView = "all" | "cn" | "intl";
+type CreatedSort = "created_desc" | "created_asc";
 
 type NormalizedUser = {
   id: string;
@@ -48,6 +49,8 @@ type NormalizedUser = {
   last_active_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  login_methods?: string[];
+  is_wechat_login?: boolean;
   raw?: any;
 };
 
@@ -57,6 +60,7 @@ type UsersData = {
   total: number;
   page: number;
   pageSize: number;
+  sort?: CreatedSort;
   sources?: {
     cn: { ok: boolean; total: number; missing?: string[]; error?: string };
     intl: { ok: boolean; total: number; missing?: string[]; error?: string };
@@ -67,6 +71,13 @@ function safeText(value: any): string {
   if (value == null) return "-";
   const s = typeof value === "string" ? value : String(value);
   return s.trim() ? s : "-";
+}
+
+function getAccountText(user: NormalizedUser): string {
+  const email = safeText(user.email);
+  if (email !== "-") return email;
+  if (user.is_wechat_login) return "微信登录（无需邮箱）";
+  return "-";
 }
 
 function shortId(value: any) {
@@ -130,6 +141,7 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [view, setView] = useState<RegionView>("all");
+  const [sort, setSort] = useState<CreatedSort>("created_desc");
   const [q, setQ] = useState("");
   const [detail, setDetail] = useState<NormalizedUser | null>(null);
 
@@ -148,6 +160,7 @@ export default function AdminUsersPage() {
           "source",
           region === "cn" ? "CN" : region === "intl" ? "INTL" : "ALL"
         );
+        params.set("sort", sort);
         if (trimmedQ) params.set("q", trimmedQ);
 
         const response = await fetch(`/api/admin/users?${params.toString()}`, {
@@ -190,7 +203,7 @@ export default function AdminUsersPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, view, trimmedQ]);
+  }, [page, view, sort, trimmedQ]);
 
   const totalPages = data ? Math.ceil(data.total / data.pageSize) : 0;
   const cnCount = data?.region === "all" ? data.sources?.cn.total || 0 : undefined;
@@ -241,6 +254,23 @@ export default function AdminUsersPage() {
               <SelectItem value="intl">INTL 用户</SelectItem>
             </SelectContent>
           </Select>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="whitespace-nowrap"
+            onClick={() => {
+              setSort((prev) =>
+                prev === "created_desc" ? "created_asc" : "created_desc"
+              );
+              setPage(1);
+            }}
+          >
+            <ArrowUpDown className="h-4 w-4 mr-2" />
+            {sort === "created_desc"
+              ? "注册时间：最新优先"
+              : "注册时间：最早优先"}
+          </Button>
 
           <div className="relative w-full md:w-[320px]">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
@@ -347,7 +377,7 @@ export default function AdminUsersPage() {
                           <TableCell>
                             <div className="flex flex-col">
                               <span className="text-sm">
-                                {safeText(user.email) !== "-" ? safeText(user.email) : "-"}
+                                {getAccountText(user)}
                               </span>
                               <span className="text-xs text-slate-500">
                                 {safeText(user.phone)}
@@ -498,7 +528,7 @@ export default function AdminUsersPage() {
                 </div>
                 <div className="rounded-md border p-3">
                   <div className="text-xs text-slate-500">邮箱</div>
-                  <div className="mt-1 font-medium break-all">{safeText(detail.email)}</div>
+                  <div className="mt-1 font-medium break-all">{getAccountText(detail)}</div>
                 </div>
                 <div className="rounded-md border p-3">
                   <div className="text-xs text-slate-500">手机号</div>

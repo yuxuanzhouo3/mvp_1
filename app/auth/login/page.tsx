@@ -17,6 +17,7 @@ import { Mail, Lock, Eye, EyeOff, Sparkles, Shield } from 'lucide-react';
 
 type WeChatLoginSuccessHandler = (code: string, state?: string) => void | Promise<void>;
 type WeChatLoginErrorHandler = (error?: string | number) => void;
+type CnLoginMethod = 'password' | 'code';
 
 type WeChatBridgeWindow = Window & {
   handleWeChatLoginSuccess?: WeChatLoginSuccessHandler;
@@ -29,18 +30,18 @@ function toWeChatLoginErrorMessage(rawError?: string | number): string {
   switch (key) {
     case '-2':
     case 'user_cancel':
-      return '已取消微信授权';
+      return 'WeChat authorization canceled';
     case '-4':
     case 'auth_denied':
-      return '微信授权被拒绝';
+      return 'WeChat authorization denied';
     case '-3':
-      return '微信登录请求发送失败';
+      return 'Failed to start WeChat login';
     case 'start_login_failed':
-      return '无法拉起微信登录，请确认已安装微信并重试';
+      return 'Unable to open WeChat login. Please make sure WeChat is installed.';
     case 'unknown_error':
-      return '微信登录失败，请稍后重试';
+      return 'WeChat login failed. Please try again.';
     default:
-      return key ? `微信登录失败：${key}` : '微信登录失败，请稍后重试';
+      return key ? `WeChat login failed: ${key}` : 'WeChat login failed. Please try again.';
   }
 }
 
@@ -65,6 +66,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [cnLoginMethod, setCnLoginMethod] = useState<CnLoginMethod>('password');
   const hasRedirectedRef = useRef(false);
   const wechatLoginTimeoutRef = useRef<number | null>(null);
 
@@ -114,8 +116,6 @@ export default function LoginPage() {
   useEffect(() => {
     if (user && user.id && !hasRedirectedRef.current) {
       hasRedirectedRef.current = true;
-      // CN 环境：使用 window.location.href 进行硬刷新，确保中间件能读取 cookie
-      // INTL 环境：使用 router.push 进行客户端导航
       if (isChinaDeployment()) {
         window.location.href = '/dashboard';
       } else {
@@ -145,6 +145,14 @@ export default function LoginPage() {
   }, [countdown]);
 
   const isCN = isChinaDeployment();
+  const isCnCodeLogin = isCN && cnLoginMethod === 'code';
+  const isCnPasswordLogin = isCN && cnLoginMethod === 'password';
+  const cnPasswordLabel = '邮箱 + 密码';
+  const cnCodeLabel = '邮箱 + 验证码';
+  const cnCodePlaceholder =
+    language === 'zh' ? 'Enter email verification code' : 'Enter email verification code';
+  const cnSendCodeText = language === 'zh' ? 'Send code' : 'Send code';
+  const cnSendingCodeText = language === 'zh' ? 'Sending...' : 'Sending...';
 
   useEffect(() => {
     if (!isCN) return;
@@ -157,7 +165,7 @@ export default function LoginPage() {
     const handleNativeWeChatSuccess: WeChatLoginSuccessHandler = async (code, callbackState) => {
       try {
         if (!code) {
-          throw new Error('缺少微信授权码');
+          throw new Error('Missing WeChat authorization code');
         }
 
         const cachedState = sessionStorage.getItem('wechat_mobile_app_state');
@@ -280,18 +288,18 @@ export default function LoginPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error || '发送验证码失败');
+        throw new Error(data?.error || 'Failed to send verification code');
       }
 
       setCountdown(60);
       toast({
         title: t.common.success,
-        description: '验证码已发送，请检查邮箱',
+        description: 'Verification code sent. Please check your email.',
       });
     } catch (error: any) {
       toast({
         title: t.common.error,
-        description: error?.message || '发送验证码失败',
+        description: error?.message || 'Failed to send verification code',
         variant: 'destructive',
       });
     } finally {
@@ -304,7 +312,9 @@ export default function LoginPage() {
     setIsLoading(true);
 
     // Basic validation
-    if (isCN ? (!email || !verificationCode) : (!email || !password)) {
+    const missingCredentials =
+      !email || (isCN ? (isCnCodeLogin ? !verificationCode : !password) : !password);
+    if (missingCredentials) {
       toast({
         title: t.common.error,
         description: t.auth.validation.fillAllFields,
@@ -314,7 +324,7 @@ export default function LoginPage() {
       return;
     }
 
-    if (!isCN && password.length < 6) {
+    if ((!isCN || isCnPasswordLogin) && password.length < 6) {
       toast({
         title: t.common.error,
         description: t.auth.validation.passwordTooShort,
@@ -340,7 +350,11 @@ export default function LoginPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ email, verificationCode }),
+            body: JSON.stringify(
+              isCnCodeLogin
+                ? { email, verificationCode, loginMethod: 'code' }
+                : { email, password, loginMethod: 'password' }
+            ),
           }).then(async (res) => {
             const data = await res.json().catch(() => ({}));
             if (!res.ok) return { error: { message: data?.error || '登录失败' } };
@@ -380,12 +394,7 @@ export default function LoginPage() {
           title: t.common.success,
           description: t.auth.login.welcomeBack,
         });
-
-        // 登录成功后，user 状态变化会自动触发 useEffect 中的重定向逻辑
-        // CN 环境使用 window.location.href（确保中间件能读取 cookie）
-        // INTL 环境使用 router.push（客户端导航）
-        // 不需要在这里额外处理重定向
-        
+        // Redirect is handled by the auth-state effect above.
         setIsLoading(false);
       }
     } catch (error) {
@@ -462,6 +471,41 @@ export default function LoginPage() {
 
           <CardContent className="space-y-5 px-6 pb-6">
             <form onSubmit={onEmailSubmit} className="space-y-4">
+              {isCN && (
+                <div className="grid grid-cols-2 gap-2 rounded-lg border border-gray-200 dark:border-gray-700 p-1 bg-gray-50 dark:bg-gray-800/30">
+                  <button
+                    type="button"
+                    className={`rounded-md py-2 text-sm transition-colors ${
+                      isCnPasswordLogin
+                        ? 'bg-white dark:bg-gray-700 text-primary font-medium shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-primary'
+                    }`}
+                    onClick={() => {
+                      setCnLoginMethod('password');
+                      setVerificationCode('');
+                    }}
+                    disabled={isLoading}
+                  >
+                    {cnPasswordLabel}
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-md py-2 text-sm transition-colors ${
+                      isCnCodeLogin
+                        ? 'bg-white dark:bg-gray-700 text-primary font-medium shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-primary'
+                    }`}
+                    onClick={() => {
+                      setCnLoginMethod('code');
+                      setPassword('');
+                    }}
+                    disabled={isLoading}
+                  >
+                    {cnCodeLabel}
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -485,10 +529,10 @@ export default function LoginPage() {
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Lock className="h-5 w-5 text-gray-500 group-focus-within:text-primary transition-colors" />
                   </div>
-                  {isCN ? (
+                  {isCnCodeLogin ? (
                     <Input
                       type="text"
-                      placeholder="请输入邮箱验证码"
+                      placeholder={cnCodePlaceholder}
                       value={verificationCode}
                       onChange={(e) => setVerificationCode(e.target.value)}
                       className="pl-10 pr-32 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
@@ -508,14 +552,14 @@ export default function LoginPage() {
                       autoComplete="current-password"
                     />
                   )}
-                  {isCN ? (
+                  {isCnCodeLogin ? (
                     <button
                       type="button"
                       onClick={sendLoginCode}
                       disabled={isSendingCode || countdown > 0 || isLoading}
                       className="absolute inset-y-0 right-0 px-3 text-xs text-primary hover:text-primary/80 disabled:text-gray-400"
                     >
-                      {countdown > 0 ? `${countdown}s` : (isSendingCode ? '发送中...' : '发送验证码')}
+                      {countdown > 0 ? `${countdown}s` : (isSendingCode ? cnSendingCodeText : cnSendCodeText)}
                     </button>
                   ) : (
                     <button
