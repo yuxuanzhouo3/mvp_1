@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,46 @@ import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { getBrandName } from '@/lib/config/branding.config';
 import { Mail, Lock, Eye, EyeOff, Sparkles, Shield } from 'lucide-react';
 
+type WeChatLoginSuccessHandler = (code: string, state?: string) => void | Promise<void>;
+type WeChatLoginErrorHandler = (error?: string | number) => void;
+
+type WeChatBridgeWindow = Window & {
+  handleWeChatLoginSuccess?: WeChatLoginSuccessHandler;
+  handleWeChatLoginError?: WeChatLoginErrorHandler;
+};
+
+function toWeChatLoginErrorMessage(rawError?: string | number): string {
+  const key = typeof rawError === 'number' ? String(rawError) : (rawError || '').trim();
+
+  switch (key) {
+    case '-2':
+    case 'user_cancel':
+      return '已取消微信授权';
+    case '-4':
+    case 'auth_denied':
+      return '微信授权被拒绝';
+    case '-3':
+      return '微信登录请求发送失败';
+    case 'start_login_failed':
+      return '无法拉起微信登录，请确认已安装微信并重试';
+    case 'unknown_error':
+      return '微信登录失败，请稍后重试';
+    default:
+      return key ? `微信登录失败：${key}` : '微信登录失败，请稍后重试';
+  }
+}
+
+function pickSignedState(nativeState: string | undefined, cachedState: string | null): string | undefined {
+  const normalizedNativeState = (nativeState || '').trim();
+  if (normalizedNativeState.includes('.')) {
+    return normalizedNativeState;
+  }
+  if (cachedState) {
+    return cachedState;
+  }
+  return normalizedNativeState || undefined;
+}
+
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
@@ -26,12 +66,34 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const hasRedirectedRef = useRef(false);
+  const wechatLoginTimeoutRef = useRef<number | null>(null);
 
   const router = useRouter();
   const { signIn, signInWithGoogle, signInWithWeChat, user } = useAuth();
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslations(language);
+  const commonErrorTitle = t.common.error;
+
+  const clearWeChatLoginTimeout = useCallback(() => {
+    if (wechatLoginTimeoutRef.current !== null) {
+      window.clearTimeout(wechatLoginTimeoutRef.current);
+      wechatLoginTimeoutRef.current = null;
+    }
+  }, []);
+
+  const startWeChatLoginTimeout = useCallback(() => {
+    clearWeChatLoginTimeout();
+
+    wechatLoginTimeoutRef.current = window.setTimeout(() => {
+      setIsLoading(false);
+      toast({
+        title: commonErrorTitle,
+        description: '微信登录超时，请重试',
+        variant: 'destructive',
+      });
+    }, 30_000);
+  }, [clearWeChatLoginTimeout, commonErrorTitle, toast]);
 
   // Load saved email if "remember me" was checked previously
   useEffect(() => {
@@ -41,6 +103,12 @@ export default function LoginPage() {
       setRememberMe(true);
     }
   }, []);
+
+  useEffect(() => {
+    return () => {
+      clearWeChatLoginTimeout();
+    };
+  }, [clearWeChatLoginTimeout]);
 
   // Immediate redirect if user is already authenticated
   useEffect(() => {
@@ -77,6 +145,111 @@ export default function LoginPage() {
   }, [countdown]);
 
   const isCN = isChinaDeployment();
+
+  useEffect(() => {
+    if (!isCN) return;
+
+    const webWindow = window as WeChatBridgeWindow;
+    const previousSuccess = webWindow.handleWeChatLoginSuccess;
+    const previousError = webWindow.handleWeChatLoginError;
+    let disposed = false;
+
+    const handleNativeWeChatSuccess: WeChatLoginSuccessHandler = async (code, callbackState) => {
+      try {
+        if (!code) {
+          throw new Error('缺少微信授权码');
+        }
+
+        const cachedState = sessionStorage.getItem('wechat_mobile_app_state');
+        const requestState = pickSignedState(callbackState, cachedState);
+
+        const response = await fetch('/api/auth/wechat/callback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            code,
+            loginType: 'mobile_app',
+            state: requestState,
+          }),
+        });
+
+        const data = await response.json().catch(() => ({} as any));
+        if (!response.ok || !data?.success) {
+          throw new Error(data?.error || '微信登录失败');
+        }
+
+        if (data?.user?.id) {
+          const cnUser = {
+            id: data.user.id,
+            email: data.user.email || '',
+            user_metadata: {
+              display_name: data.user.displayName,
+              avatar_url: data.user.avatarUrl,
+            },
+          };
+          localStorage.setItem('cn_user', JSON.stringify(cnUser));
+        }
+
+        clearWeChatLoginTimeout();
+        sessionStorage.removeItem('wechat_mobile_app_state');
+
+        if (!disposed) {
+          setIsLoading(false);
+          window.location.href = '/dashboard';
+        }
+      } catch (error: any) {
+        clearWeChatLoginTimeout();
+        sessionStorage.removeItem('wechat_mobile_app_state');
+
+        if (!disposed) {
+          setIsLoading(false);
+          toast({
+            title: commonErrorTitle,
+            description: error?.message || '微信登录失败',
+            variant: 'destructive',
+          });
+        }
+      }
+    };
+
+    const handleNativeWeChatError: WeChatLoginErrorHandler = (rawError) => {
+      clearWeChatLoginTimeout();
+      sessionStorage.removeItem('wechat_mobile_app_state');
+
+      if (disposed) return;
+
+      setIsLoading(false);
+      toast({
+        title: commonErrorTitle,
+        description: toWeChatLoginErrorMessage(rawError),
+        variant: 'destructive',
+      });
+    };
+
+    webWindow.handleWeChatLoginSuccess = handleNativeWeChatSuccess;
+    webWindow.handleWeChatLoginError = handleNativeWeChatError;
+
+    return () => {
+      disposed = true;
+
+      if (webWindow.handleWeChatLoginSuccess === handleNativeWeChatSuccess) {
+        if (previousSuccess) {
+          webWindow.handleWeChatLoginSuccess = previousSuccess;
+        } else {
+          delete (webWindow as any).handleWeChatLoginSuccess;
+        }
+      }
+
+      if (webWindow.handleWeChatLoginError === handleNativeWeChatError) {
+        if (previousError) {
+          webWindow.handleWeChatLoginError = previousError;
+        } else {
+          delete (webWindow as any).handleWeChatLoginError;
+        }
+      }
+    };
+  }, [commonErrorTitle, isCN, clearWeChatLoginTimeout, toast]);
 
   const sendLoginCode = async () => {
     if (!email) {
@@ -451,8 +624,10 @@ export default function LoginPage() {
                 type="button"
                 onClick={async () => {
                   setIsLoading(true);
+                  startWeChatLoginTimeout();
                   const { error } = await signInWithWeChat();
                   if (error) {
+                    clearWeChatLoginTimeout();
                     toast({
                       title: t.common.error,
                       description: error.message,

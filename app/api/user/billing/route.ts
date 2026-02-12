@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getDbClient, getServiceDbClient, isChinaDeployment } from '@/lib/db-client';
+import { getDbClient, getServiceDbClient } from '@/lib/db-client';
 import { getUserPaymentHistory } from '@/lib/payment/payments';
 
 export const dynamic = 'force-dynamic';
@@ -60,19 +60,43 @@ export async function GET(request: NextRequest) {
       console.error('Failed to get transactions:', transactionError);
     }
 
-    return NextResponse.json({
-      balance: profile?.credits || 0,
-      records: payments.map(payment => ({
+    const records = payments.map((payment: any) => {
+      const paymentMethod = payment.payment_method || payment.method || null;
+      const createdAt = payment.created_at || payment.createdAt || null;
+      const metadata = payment.metadata || {};
+      const description =
+        payment.description ||
+        metadata?.description ||
+        `Payment ${payment.id}`;
+      const invoiceUrl =
+        payment.invoice_url ||
+        metadata?.invoice_url ||
+        `/api/user/billing/${payment.id}/invoice`;
+
+      return {
         id: payment.id,
         type: 'payment',
         amount: payment.amount,
         currency: payment.currency,
         status: payment.status,
-        paymentMethod: payment.payment_method,
-        description: payment.description,
-        createdAt: payment.created_at,
-        metadata: payment.metadata,
-      })),
+        description,
+        metadata,
+
+        // snake_case (legacy)
+        payment_method: paymentMethod,
+        created_at: createdAt,
+        invoice_url: invoiceUrl,
+
+        // camelCase (current)
+        paymentMethod,
+        createdAt,
+        invoiceUrl,
+      };
+    });
+
+    return NextResponse.json({
+      balance: profile?.credits || 0,
+      records,
       transactions: transactions || [],
       pagination: {
         limit,

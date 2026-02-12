@@ -304,20 +304,15 @@ export default function CreditRecharge() {
     setIsProcessing(true);
 
     try {
-      const apiUrl = isCN ? '/api/payments/create' : '/api/payments/create-intent';
+      const apiUrl = '/api/payments/create';
       const isMobileDevice =
         typeof window !== 'undefined' && /mobile|android|iphone|ipad/i.test(window.navigator.userAgent);
       const cnMethod =
         selectedPaymentMethod.id === 'alipay' && isMobileDevice ? 'alipay_wap' : selectedPaymentMethod.id;
-      const body = isCN
-        ? {
-            packageId: selectedPackage.id,
-            method: cnMethod,
-          }
-        : {
-            packageId: selectedPackage.id,
-            paymentMethod: selectedPaymentMethod.id,
-          };
+      const body = {
+        packageId: selectedPackage.id,
+        method: isCN ? cnMethod : selectedPaymentMethod.id,
+      };
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -366,7 +361,7 @@ export default function CreditRecharge() {
 
         if (selectedPaymentMethod.id === 'stripe') {
           if (typeof window !== 'undefined') {
-            window.location.href = data.checkoutUrl;
+            window.location.href = data.checkoutUrl || data.redirectUrl;
           }
         } else if (selectedPaymentMethod.id === 'paypal') {
           setPaymentData({

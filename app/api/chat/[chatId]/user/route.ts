@@ -23,14 +23,19 @@ async function authenticateUser(request: NextRequest): Promise<{ userId: string;
   }
 }
 
+function shouldAllowMockChatData(url: string | undefined): boolean {
+  const isMockSupabase = url === 'https://mock.supabase.co' || isPlaceholderSupabaseUrl(url);
+  const isDevOrTest = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+  return isDevOrTest && isMockSupabase;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { chatId: string } }
 ) {
   try {
-    // Check if we're in mock mode
     const url = getSupabaseUrl();
-    const isMockMode = url === 'https://mock.supabase.co' || isPlaceholderSupabaseUrl(url);
+    const isMockMode = shouldAllowMockChatData(url);
 
     if (isMockMode) {
       // Return mock user data

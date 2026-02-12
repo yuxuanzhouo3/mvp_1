@@ -62,6 +62,10 @@ export interface CreatePaymentRequest {
 export interface CreatePaymentResponse {
   success: boolean;
   paymentId?: string;
+  checkoutUrl?: string;
+  checkoutSessionId?: string;
+  approvalUrl?: string;
+  orderId?: string;
   redirectUrl?: string;      // 需要重定向的支付（Stripe, PayPal）
   qrCodeUrl?: string;        // 二维码支付（微信, 支付宝）
   qrCodeBase64?: string;     // Base64 二维码图片

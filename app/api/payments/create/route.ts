@@ -55,15 +55,19 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       packageId,
-      method,
+      method: requestedMethod,
+      paymentMethod,
       returnUrl,
       cancelUrl,
     } = body as {
       packageId: string;
-      method: PaymentMethod;
+      method?: PaymentMethod;
+      paymentMethod?: PaymentMethod;
       returnUrl?: string;
       cancelUrl?: string;
     };
+
+    const method = (requestedMethod || paymentMethod) as PaymentMethod;
 
     if (!packageId || !method) {
       return NextResponse.json(

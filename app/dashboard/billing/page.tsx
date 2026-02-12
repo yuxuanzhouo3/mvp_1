@@ -24,10 +24,13 @@ interface BillingRecord {
   amount: number;
   currency: string;
   status: 'completed' | 'pending' | 'failed';
-  payment_method: string;
+  payment_method?: string;
+  paymentMethod?: string;
   description: string;
-  created_at: string;
+  created_at?: string;
+  createdAt?: string;
   invoice_url?: string;
+  invoiceUrl?: string;
 }
 
 export default function BillingPage() {
@@ -58,7 +61,7 @@ export default function BillingPage() {
       const response = await fetch('/api/user/billing', { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
-        setBillingRecords(data.records);
+        setBillingRecords(Array.isArray(data.records) ? data.records : []);
         setCurrentBalance(data.balance || 0);
       }
     } catch (error) {
@@ -84,11 +87,24 @@ export default function BillingPage() {
 
       const response = await fetch(`/api/user/billing/${recordId}/invoice`, { cache: 'no-store' });
       if (response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        const fallbackType = response.headers.get('x-invoice-fallback') || '';
+
+        if (contentType.includes('application/json')) {
+          const payload = await response.json();
+          if (payload?.url && typeof payload.url === 'string') {
+            window.open(payload.url, '_blank', 'noopener,noreferrer');
+            return;
+          }
+        }
+
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `invoice-${recordId}.pdf`;
+        a.download = fallbackType === 'html'
+          ? `invoice-${recordId}.html`
+          : `invoice-${recordId}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -116,8 +132,16 @@ export default function BillingPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) {
+      return '-';
+    }
     const date = new Date(dateString);
+
+    if (Number.isNaN(date.getTime())) {
+      return '-';
+    }
+
     return date.toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US', {
       year: 'numeric',
       month: 'long',
@@ -206,7 +230,12 @@ export default function BillingPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {billingRecords.map((record) => (
+                {billingRecords.map((record) => {
+                  const paymentMethod = record.paymentMethod || record.payment_method || '-';
+                  const createdAt = record.createdAt || record.created_at;
+                  const invoiceUrl = record.invoiceUrl || record.invoice_url;
+
+                  return (
                   <div
                     key={record.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -226,8 +255,8 @@ export default function BillingPage() {
                         
                         <div className="text-sm text-gray-600 dark:text-gray-400">
                           <div className="flex items-center space-x-4">
-                            <span>{t.dashboardBilling.paymentMethod}: {record.payment_method}</span>
-                            <span>{t.dashboardBilling.time}: {formatDate(record.created_at)}</span>
+                            <span>{t.dashboardBilling.paymentMethod}: {paymentMethod}</span>
+                            <span>{t.dashboardBilling.time}: {formatDate(createdAt)}</span>
                           </div>
                         </div>
                       </div>
@@ -243,7 +272,7 @@ export default function BillingPage() {
                         </div>
                       </div>
                       
-                      {record.status === 'completed' && record.invoice_url && (
+                      {record.status === 'completed' && invoiceUrl && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -255,7 +284,8 @@ export default function BillingPage() {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

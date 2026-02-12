@@ -25,12 +25,7 @@ function base64UrlDecodeToString(input: string): string {
 }
 
 function getWeChatStateSecret(): string {
-  const secret =
-    process.env.WECHAT_OAUTH_STATE_SECRET ||
-    process.env.ADMIN_SESSION_SECRET ||
-    process.env.WECHAT_MOBILE_APP_SECRET ||
-    process.env.WECHAT_APP_SECRET ||
-    '';
+  const secret = process.env.WECHAT_OAUTH_STATE_SECRET || '';
   if (!secret) {
     throw new Error('WECHAT_OAUTH_STATE_SECRET is not configured');
   }
@@ -60,8 +55,8 @@ export function getWeChatOAuthCredentials(loginType: WeChatLoginType): WeChatOAu
       };
     case 'mobile_app':
       return {
-        appId: process.env.WECHAT_MOBILE_APP || process.env.WECHAT_APP_ID || '',
-        appSecret: process.env.WECHAT_MOBILE_APP_SECRET || process.env.WECHAT_APP_SECRET || '',
+        appId: process.env.WECHAT_MOBILE_APP || '',
+        appSecret: process.env.WECHAT_MOBILE_APP_SECRET || '',
       };
     case 'open':
     default:

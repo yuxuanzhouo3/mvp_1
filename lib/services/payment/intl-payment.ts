@@ -17,6 +17,7 @@ import type {
 } from './types';
 import Stripe from 'stripe';
 import { createPayPalOrder, capturePayPalOrder, isPayPalAvailable } from '@/lib/payment/paypal';
+import { getServiceDbClient } from '@/lib/db-client';
 
 // 积分套餐配置 (USD)
 const INTL_CREDIT_PACKAGES: CreditPackage[] = [
@@ -106,7 +107,16 @@ export class IntlPaymentService implements IPaymentService {
 
     try {
       // 生成支付记录 ID
-      const paymentId = `PAY_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const paymentRecord = await this.createPaymentRecord(request);
+      if (!paymentRecord) {
+        return {
+          success: false,
+          error: 'Failed to create payment record',
+          errorCode: 'PAYMENT_RECORD_ERROR',
+        };
+      }
+
+      const paymentId = paymentRecord.id;
 
       // 创建 Stripe Checkout Session
       const session = await this.stripe.checkout.sessions.create({
@@ -135,10 +145,20 @@ export class IntlPaymentService implements IPaymentService {
         },
       });
 
+      await this.updatePaymentRecord(paymentId, {
+        stripe_checkout_session_id: session.id,
+        metadata: {
+          ...(paymentRecord.metadata || {}),
+          stripe_checkout_session_id: session.id,
+        },
+      });
+
       return {
         success: true,
         paymentId,
         redirectUrl: session.url || undefined,
+        checkoutUrl: session.url || undefined,
+        checkoutSessionId: session.id,
       };
     } catch (error: any) {
       console.error('[Stripe] Create payment error:', error);
@@ -156,7 +176,16 @@ export class IntlPaymentService implements IPaymentService {
   private async createPayPalPayment(request: CreatePaymentRequest): Promise<CreatePaymentResponse> {
     try {
       // 生成支付记录 ID
-      const paymentId = `PAY_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+      const paymentRecord = await this.createPaymentRecord(request);
+      if (!paymentRecord) {
+        return {
+          success: false,
+          error: 'Failed to create payment record',
+          errorCode: 'PAYMENT_RECORD_ERROR',
+        };
+      }
+
+      const paymentId = paymentRecord.id;
 
       const result = await createPayPalOrder({
         paymentId,
@@ -167,10 +196,21 @@ export class IntlPaymentService implements IPaymentService {
         description: `Purchase ${request.credits} credits`,
       });
 
+      await this.updatePaymentRecord(paymentId, {
+        paypal_order_id: result.orderId,
+        metadata: {
+          ...(paymentRecord.metadata || {}),
+          paypal_order_id: result.orderId,
+          paypal_approval_url: result.approvalUrl,
+        },
+      });
+
       return {
         success: true,
         paymentId,
         redirectUrl: result.approvalUrl,
+        approvalUrl: result.approvalUrl,
+        orderId: result.orderId,
       };
     } catch (error: any) {
       console.error('[PayPal] Create payment error:', error);
@@ -319,18 +359,97 @@ export class IntlPaymentService implements IPaymentService {
     }
   }
 
-  async getPaymentById(_paymentId: string, _userId: string): Promise<PaymentRecord | null> {
-    // 实际实现需要调用数据库服务
-    return null;
+  async getPaymentById(paymentId: string, userId: string): Promise<PaymentRecord | null> {
+    try {
+      const db = await getServiceDbClient();
+      const { data, error } = await db
+        .from('payments')
+        .select('*')
+        .eq('id', paymentId)
+        .eq('user_id', userId)
+        .single();
+
+      if (error || !data) {
+        return null;
+      }
+
+      return {
+        id: data.id,
+        userId: data.user_id,
+        amount: data.amount,
+        currency: data.currency,
+        credits: data.credits,
+        method: data.payment_method || data.method,
+        status: data.status,
+        providerOrderId:
+          data.provider_order_id ||
+          data.paypal_order_id ||
+          data.stripe_payment_intent_id ||
+          data.stripe_checkout_session_id,
+        metadata: data.metadata,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        completedAt: data.completed_at,
+      };
+    } catch (error: any) {
+      console.error('[INTL Payment] Get payment by ID error:', error);
+      return null;
+    }
   }
 
-  async getPaymentHistory(_userId: string, _options?: {
+  async getPaymentHistory(userId: string, options?: {
     limit?: number;
     offset?: number;
     status?: PaymentStatus;
   }): Promise<PaymentRecord[]> {
-    // 实际实现需要调用数据库服务
-    return [];
+    try {
+      const db = await getServiceDbClient();
+      let query = db
+        .from('payments')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (options?.status) {
+        query = query.eq('status', options.status);
+      }
+
+      if (options?.limit) {
+        query = query.limit(options.limit);
+      }
+
+      if (options?.offset) {
+        query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
+      }
+
+      const { data, error } = await query;
+
+      if (error || !data) {
+        return [];
+      }
+
+      return data.map((item: any) => ({
+        id: item.id,
+        userId: item.user_id,
+        amount: item.amount,
+        currency: item.currency,
+        credits: item.credits,
+        method: item.payment_method || item.method,
+        status: item.status,
+        providerOrderId:
+          item.provider_order_id ||
+          item.paypal_order_id ||
+          item.stripe_payment_intent_id ||
+          item.stripe_checkout_session_id,
+        metadata: item.metadata,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+        completedAt: item.completed_at,
+      }));
+    } catch (error: any) {
+      console.error('[INTL Payment] Get payment history error:', error);
+      return [];
+    }
   }
 
   getAvailablePaymentMethods(): PaymentMethodConfig[] {
@@ -369,15 +488,265 @@ export class IntlPaymentService implements IPaymentService {
     return INTL_CREDIT_PACKAGES;
   }
 
-  async requestRefund(_paymentId: string, _reason?: string): Promise<{
+  async requestRefund(paymentId: string, reason?: string): Promise<{
     success: boolean;
     error?: string;
   }> {
-    // 退款逻辑需要根据支付方式分别实现
-    return {
-      success: false,
-      error: 'Refund functionality not implemented',
-    };
-  }
-}
+    try {
+      const db = await getServiceDbClient();
+      const { data: payment, error } = await db
+        .from('payments')
+        .select('*')
+        .eq('id', paymentId)
+        .single();
 
+      if (error || !payment) {
+        return {
+          success: false,
+          error: 'Payment not found',
+        };
+      }
+
+      if (payment.status !== 'completed') {
+        return {
+          success: false,
+          error: 'Only completed payments can be refunded',
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+      const paymentMethod: string = payment.payment_method || payment.method || '';
+      const metadata = payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {};
+      const provider = paymentMethod.includes('paypal') ? 'paypal' : 'stripe';
+
+      let refundProviderResult: { ok: boolean; id?: string; status?: string; error?: string };
+
+      if (provider === 'stripe') {
+        if (!this.stripe) {
+          return {
+            success: false,
+            error: 'Stripe is not configured',
+          };
+        }
+
+        const paymentIntentId =
+          payment.stripe_payment_intent_id ||
+          metadata?.stripe_payment_intent_id ||
+          undefined;
+
+        if (!paymentIntentId) {
+          return {
+            success: false,
+            error: 'Missing Stripe payment intent ID',
+          };
+        }
+
+        try {
+          const refund = await this.stripe.refunds.create({
+            payment_intent: paymentIntentId,
+            reason: 'requested_by_customer',
+            metadata: {
+              payment_id: payment.id,
+              refund_reason: reason || 'User requested refund',
+            },
+          });
+
+          refundProviderResult = {
+            ok: true,
+            id: refund.id,
+            status: refund.status || undefined,
+          };
+        } catch (stripeError: any) {
+          return {
+            success: false,
+            error: stripeError?.message || 'Stripe refund request failed',
+          };
+        }
+      } else {
+        const accessToken = await this.getPayPalAccessTokenSafe();
+        const captureId =
+          payment.paypal_capture_id ||
+          metadata?.paypal_capture_id ||
+          undefined;
+
+        if (!accessToken || !captureId) {
+          return {
+            success: false,
+            error: !accessToken
+              ? 'PayPal is not configured'
+              : 'Missing PayPal capture ID',
+          };
+        }
+
+        const apiBase = process.env.PAYPAL_MODE === 'live'
+          ? 'https://api-m.paypal.com'
+          : 'https://api-m.sandbox.paypal.com';
+
+        const response = await fetch(`${apiBase}/v2/payments/captures/${captureId}/refund`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'PayPal-Request-Id': `${payment.id}-refund-${Date.now()}`,
+          },
+          body: JSON.stringify({
+            note_to_payer: reason || 'User requested refund',
+          }),
+        });
+
+        if (!response.ok) {
+          const text = await response.text();
+          return {
+            success: false,
+            error: `PayPal refund request failed: ${text}`,
+          };
+        }
+
+        const payload = await response.json();
+        refundProviderResult = {
+          ok: true,
+          id: payload?.id,
+          status: payload?.status,
+        };
+      }
+
+      const providerStatus = String(refundProviderResult.status || '').toUpperCase();
+      const localRefundStatus = providerStatus === 'COMPLETED' ? 'refunded' : 'pending';
+      const nextPaymentStatus = localRefundStatus === 'refunded' ? 'refunded' : 'processing';
+
+      await db
+        .from('payments')
+        .update({
+          status: nextPaymentStatus,
+          metadata: {
+            ...metadata,
+            refund: {
+              status: localRefundStatus,
+              provider,
+              provider_refund_id: refundProviderResult.id,
+              provider_status: refundProviderResult.status,
+              refund_reason: reason,
+              requested_at: nowIso,
+              updated_at: nowIso,
+            },
+          },
+          updated_at: nowIso,
+        })
+        .eq('id', payment.id);
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('[INTL Payment] Refund error:', error);
+      return {
+        success: false,
+        error: error.message || 'Refund request failed',
+      };
+    }
+  }
+
+  private async getPayPalAccessTokenSafe(): Promise<string | null> {
+    try {
+      const clientId = process.env.PAYPAL_CLIENT_ID;
+      const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+
+      if (!clientId || !clientSecret) {
+        return null;
+      }
+
+      const apiBase = process.env.PAYPAL_MODE === 'live'
+        ? 'https://api-m.paypal.com'
+        : 'https://api-m.sandbox.paypal.com';
+
+      const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+      const response = await fetch(`${apiBase}/v1/oauth2/token`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'grant_type=client_credentials',
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const payload = await response.json();
+      return typeof payload?.access_token === 'string' ? payload.access_token : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async createPaymentRecord(request: CreatePaymentRequest): Promise<PaymentRecord | null> {
+    try {
+      const db = await getServiceDbClient();
+
+      const insertData = {
+        user_id: request.userId,
+        amount: request.amount,
+        currency: request.currency,
+        credits: request.credits,
+        payment_method: request.method,
+        status: 'pending' as PaymentStatus,
+        metadata: request.metadata || {},
+      };
+
+      const { data, error } = await db
+        .from('payments')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error || !data) {
+        console.error('[INTL Payment] Create payment record error:', error);
+        return null;
+      }
+
+      return {
+        id: data.id,
+        userId: data.user_id,
+        amount: data.amount,
+        currency: data.currency,
+        credits: data.credits,
+        method: data.payment_method || data.method,
+        status: data.status,
+        providerOrderId:
+          data.provider_order_id ||
+          data.paypal_order_id ||
+          data.stripe_payment_intent_id ||
+          data.stripe_checkout_session_id,
+        metadata: data.metadata,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+        completedAt: data.completed_at,
+      };
+    } catch (error: any) {
+      console.error('[INTL Payment] Create payment record error:', error);
+      return null;
+    }
+  }
+
+  private async updatePaymentRecord(paymentId: string, fields: Record<string, any>): Promise<void> {
+    try {
+      const db = await getServiceDbClient();
+      const payload = {
+        ...fields,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error } = await db
+        .from('payments')
+        .update(payload)
+        .eq('id', paymentId);
+
+      if (error) {
+        console.error('[INTL Payment] Update payment record error:', error);
+      }
+    } catch (error: any) {
+      console.error('[INTL Payment] Update payment record error:', error);
+    }
+  }
+
+}

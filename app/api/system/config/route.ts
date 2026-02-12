@@ -18,7 +18,7 @@ import { getBrandName } from '@/lib/config/branding.config';
 import { isWechatMiniProgramUserAgent } from '@/lib/utils/miniprogram-compat';
 import { getAIService } from '@/lib/ai';
 import { getPaymentService } from '@/lib/services/payment';
-import { getAuthService } from '@/lib/services/auth';
+import { getAuthServiceAsync } from '@/lib/services/auth';
 
 export async function GET(request: Request) {
   const isCN = isChinaDeployment();
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
   // 获取各服务的可用配置
   const aiService = getAIService();
   const paymentService = getPaymentService();
-  const authService = getAuthService();
+  const authService = await getAuthServiceAsync();
 
   return NextResponse.json({
     // 基础配置

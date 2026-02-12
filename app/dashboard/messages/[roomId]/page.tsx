@@ -15,6 +15,7 @@ import { chatClient, Message, MessageType } from '@/lib/realtime/chat-client';
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { getChatService } from '@/lib/services/chat';
+import { isFeatureEnabled } from '@/lib/config/feature-flags';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -76,6 +77,8 @@ export default function ChatRoomPage() {
   const { language } = useLanguage();
   const { toast } = useToast();
   const roomId = typeof params?.roomId === 'string' ? params.roomId : '';
+  const showVoiceCallButton = isFeatureEnabled('chat', 'voiceCall');
+  const showVideoCallButton = isFeatureEnabled('chat', 'videoCall');
 
   const [mounted, setMounted] = useState(false);
   const [chatUser, setChatUser] = useState<ChatUser | null>(null);
@@ -859,28 +862,32 @@ export default function ChatRoomPage() {
           </div>
 
           <div className="flex items-center space-x-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-500 hover:text-primary hover:bg-primary/10 rounded-xl"
-              onClick={() => toast({
-                title: language === 'zh' ? '功能暂未开放' : 'Coming Soon',
-                description: language === 'zh' ? '语音通话功能正在开发中，敬请期待！' : 'This feature is not yet available. Stay tuned!',
-              })}
-            >
-              <Phone className="h-5 w-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-500 hover:text-primary hover:bg-primary/10 rounded-xl"
-              onClick={() => toast({
-                title: language === 'zh' ? '功能暂未开放' : 'Coming Soon',
-                description: language === 'zh' ? '视频通话功能正在开发中，敬请期待！' : 'This feature is not yet available. Stay tuned!',
-              })}
-            >
-              <Video className="h-5 w-5" />
-            </Button>
+            {showVoiceCallButton && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-primary hover:bg-primary/10 rounded-xl"
+                onClick={() => toast({
+                  title: language === 'zh' ? '功能暂未开放' : 'Coming Soon',
+                  description: language === 'zh' ? '语音通话功能正在开发中，敬请期待！' : 'This feature is not yet available. Stay tuned!',
+                })}
+              >
+                <Phone className="h-5 w-5" />
+              </Button>
+            )}
+            {showVideoCallButton && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-primary hover:bg-primary/10 rounded-xl"
+                onClick={() => toast({
+                  title: language === 'zh' ? '功能暂未开放' : 'Coming Soon',
+                  description: language === 'zh' ? '视频通话功能正在开发中，敬请期待！' : 'This feature is not yet available. Stay tuned!',
+                })}
+              >
+                <Video className="h-5 w-5" />
+              </Button>
+            )}
             <div className="relative">
               <Button
                 variant="ghost"
