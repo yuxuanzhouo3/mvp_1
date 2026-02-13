@@ -105,15 +105,15 @@ export function GlobalHeader() {
   ];
 
   return (
-    <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 fixed top-0 left-0 right-0 z-40">
+    <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 fixed top-0 left-0 right-0 z-40 pt-[env(safe-area-inset-top)] md:pt-0">
       <div className="container mx-auto px-2 py-2 md:px-4 md:py-4">
-        <nav className="flex items-center justify-between">
-          <div className="flex items-center space-x-2 md:space-x-3">
-            <Link href="/" className="flex items-center space-x-2 md:space-x-3">
+        <nav className="flex items-center justify-between gap-1">
+          <div className="flex min-w-0 flex-1 items-center space-x-2 md:space-x-3">
+            <Link href="/" className="flex min-w-0 items-center space-x-2 md:space-x-3">
               <div className="w-8 h-8 md:w-10 md:h-10 bg-primary rounded-lg flex items-center justify-center">
                 <Heart className="h-4 w-4 md:h-6 md:w-6 text-white" />
               </div>
-              <span className="text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
+              <span className="max-w-[8.5rem] truncate text-base sm:max-w-none sm:text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
                 {getBrandName()}
               </span>
             </Link>
@@ -138,7 +138,7 @@ export function GlobalHeader() {
             })}
           </div>
 
-          <div className="flex items-center space-x-1 md:space-x-4">
+          <div className="ml-1 flex shrink-0 items-center space-x-0 sm:space-x-1 md:space-x-4">
             {/* Download Button - PC navigates to download page, mobile shows dropdown */}
             <div className="relative" ref={downloadRef}>
               <Button
@@ -153,11 +153,10 @@ export function GlobalHeader() {
                     setShowDownload(!showDownload);
                   }
                 }}
-                className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 md:px-3"
+                className="h-8 w-8 p-0 md:h-9 md:w-auto md:px-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 <Download className="h-4 w-4 md:h-5 md:w-5 md:mr-2" />
                 <span className="hidden md:inline">{language === 'zh' ? '下载' : 'Download'}</span>
-                <ChevronDown className={`h-3 w-3 md:h-4 md:w-4 ml-0.5 md:ml-1 transition-transform md:hidden ${showDownload ? 'rotate-180' : ''}`} />
               </Button>
 
               {/* Download Dropdown - Only shown on mobile */}
@@ -230,11 +229,11 @@ export function GlobalHeader() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowSettings(!showSettings)}
-                className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 px-2 md:px-3"
+                className="h-8 w-8 p-0 md:h-9 md:w-auto md:px-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 <Settings className="h-4 w-4 md:h-5 md:w-5 md:mr-2" />
                 <span className="hidden md:inline">{t.header.settings}</span>
-                <ChevronDown className={`h-3 w-3 md:h-4 md:w-4 ml-0.5 md:ml-1 transition-transform ${showSettings ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`hidden md:block h-4 w-4 ml-1 transition-transform ${showSettings ? 'rotate-180' : ''}`} />
               </Button>
 
               {/* Settings Dropdown */}
@@ -309,12 +308,19 @@ export function GlobalHeader() {
             {!user ? (
               <>
                 <Link href="/auth/login">
-                  <Button variant="ghost" size="sm" className="text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 text-xs md:text-sm px-2 md:px-3">
+                  <Button
+                    size="sm"
+                    className="btn-primary h-8 whitespace-nowrap text-[11px] sm:text-xs md:text-sm px-1 sm:px-2 md:px-3"
+                  >
                     {t.header.signIn}
                   </Button>
                 </Link>
                 <Link href="/auth/register">
-                  <Button size="sm" className="btn-primary text-xs md:text-sm px-2 md:px-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 whitespace-nowrap text-[11px] sm:text-xs md:text-sm px-1 sm:px-2 md:px-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  >
                     {t.header.getStarted}
                   </Button>
                 </Link>
