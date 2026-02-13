@@ -15,6 +15,11 @@ import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { getBrandName } from '@/lib/config/branding.config';
+import { isAppContainer } from '@/lib/app/app-container';
+import {
+  canUseNativeGoogleSignIn,
+  signInWithNativeGoogleForSupabase,
+} from '@/lib/auth/native-google';
 import { Mail, Lock, User, CheckCircle, Sparkles, Shield, Check, X } from 'lucide-react';
 
 export default function RegisterPage() {
@@ -200,6 +205,27 @@ export default function RegisterPage() {
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
     try {
+      if (!isChinaDeployment()) {
+        const inAppContainer = isAppContainer();
+
+        if (canUseNativeGoogleSignIn()) {
+          await signInWithNativeGoogleForSupabase();
+          toast({
+            title: t.common.success,
+            description: t.auth.login.redirecting,
+          });
+          return;
+        }
+
+        if (inAppContainer) {
+          throw new Error(
+            language === 'zh'
+              ? '应用内 Google 登录暂不可用，请稍后重试或升级到最新版本。'
+              : 'Google sign-in is currently unavailable inside the app. Please try again later or update the app.'
+          );
+        }
+      }
+
       const { error } = await signInWithGoogle();
       if (error) {
         toast({
@@ -214,9 +240,11 @@ export default function RegisterPage() {
         });
       }
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : t.auth.errors.googleSignInUnexpected;
       toast({
         title: t.common.error,
-        description: t.auth.errors.googleSignInUnexpected,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {

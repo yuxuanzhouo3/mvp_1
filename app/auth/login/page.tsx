@@ -13,6 +13,11 @@ import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { getBrandName } from '@/lib/config/branding.config';
+import { isAppContainer } from '@/lib/app/app-container';
+import {
+  canUseNativeGoogleSignIn,
+  signInWithNativeGoogleForSupabase,
+} from '@/lib/auth/native-google';
 import { Mail, Lock, Eye, EyeOff, Sparkles, Shield } from 'lucide-react';
 
 type WeChatLoginSuccessHandler = (code: string, state?: string) => void | Promise<void>;
@@ -410,6 +415,27 @@ export default function LoginPage() {
   const onGoogleSignIn = async () => {
     setIsLoading(true);
     try {
+      if (!isChinaDeployment()) {
+        const inAppContainer = isAppContainer();
+
+        if (canUseNativeGoogleSignIn()) {
+          await signInWithNativeGoogleForSupabase();
+          toast({
+            title: t.common.success,
+            description: t.auth.login.redirecting,
+          });
+          return;
+        }
+
+        if (inAppContainer) {
+          throw new Error(
+            language === 'zh'
+              ? '应用内 Google 登录暂不可用，请稍后重试或升级到最新版本。'
+              : 'Google sign-in is currently unavailable inside the app. Please try again later or update the app.'
+          );
+        }
+      }
+
       const { error } = await signInWithGoogle();
       if (error) {
         toast({
@@ -424,9 +450,11 @@ export default function LoginPage() {
         });
       }
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : t.auth.errors.unexpectedError;
       toast({
         title: t.common.error,
-        description: t.auth.errors.unexpectedError,
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
