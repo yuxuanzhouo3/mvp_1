@@ -14,11 +14,12 @@ export function VideoDemoButton() {
   const [videoData, setVideoData] = useState<VideoDemoData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const buttonLabel = "Demo Video";
 
   useEffect(() => {
     async function fetchVideoDemo() {
       try {
-        const res = await fetch("/api/video-demo");
+        const res = await fetch("/api/video-demo", { cache: "no-store" });
         if (!res.ok) {
           setVideoData(null);
           return;
@@ -49,12 +50,15 @@ export function VideoDemoButton() {
   return (
     <>
       <Button
-        variant="ghost"
-        size="icon"
+        variant="outline"
+        size="sm"
+        className="gap-1.5"
         onClick={() => setIsModalOpen(true)}
-        aria-label={videoData.title}
+        aria-label={`${buttonLabel}: ${videoData.title}`}
+        title={videoData.title}
       >
-        <Play className="h-5 w-5" />
+        <Play className="h-4 w-4" />
+        <span className="hidden sm:inline">{buttonLabel}</span>
       </Button>
       <VideoPlayerModal
         isOpen={isModalOpen}

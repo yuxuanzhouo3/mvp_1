@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from '@/app/providers/AuthProvider'
 import { ThemeProvider } from '@/context/ThemeProvider'
 import { LanguageProvider } from '@/components/language-provider'
+import { DeviceTracker } from '@/components/analytics/DeviceTracker'
 import { useState } from 'react'
 import type { Language } from '@/lib/i18n'
 import { enablePassiveEventListeners } from '@/lib/utils/passive-events'
@@ -35,6 +36,7 @@ export function Providers({
       <LanguageProvider initialLanguage={initialLanguage} scope={languageScope}>
         <ThemeProvider>
           <AuthProvider>
+            {languageScope !== 'admin' ? <DeviceTracker /> : null}
             {children}
           </AuthProvider>
         </ThemeProvider>

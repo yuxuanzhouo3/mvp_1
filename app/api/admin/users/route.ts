@@ -705,17 +705,115 @@ function ts(value: any): number {
   return Number.isFinite(t) ? t : 0;
 }
 
+function pickPreferredValue<T>(
+  preferred: T | null | undefined,
+  fallback: T | null | undefined
+): T | null | undefined {
+  if (typeof preferred === "string") {
+    return preferred.trim() ? preferred : fallback;
+  }
+  if (preferred !== null && preferred !== undefined) return preferred;
+  return fallback;
+}
+
+function userCompletenessScore(user: NormalizedUser): number {
+  let score = 0;
+  if (toStringOrNull(user?.email)) score += 64;
+  if (toStringOrNull(user?.phone)) score += 32;
+  if (toStringOrNull(user?.username)) score += 16;
+  if (toStringOrNull(user?.account_status)) score += 8;
+  if (Array.isArray(user?.login_methods) && user.login_methods.length > 0) score += 4;
+  if (toStringOrNull(user?.created_at)) score += 2;
+  if (toStringOrNull(user?.updated_at)) score += 1;
+  return score;
+}
+
+function mergeUserRecords(
+  preferred: NormalizedUser,
+  fallback: NormalizedUser
+): NormalizedUser {
+  const preferredRaw =
+    preferred?.raw && typeof preferred.raw === "object" ? preferred.raw : null;
+  const fallbackRaw =
+    fallback?.raw && typeof fallback.raw === "object" ? fallback.raw : null;
+
+  const loginMethods = Array.from(
+    new Set([
+      ...(Array.isArray(preferred.login_methods) ? preferred.login_methods : []),
+      ...(Array.isArray(fallback.login_methods) ? fallback.login_methods : []),
+    ])
+  );
+
+  return {
+    ...fallback,
+    ...preferred,
+    id: toStringOrNull(preferred.id) || toStringOrNull(fallback.id) || "",
+    region: preferred.region,
+    username: pickPreferredValue(preferred.username, fallback.username),
+    email: pickPreferredValue(preferred.email, fallback.email),
+    phone: pickPreferredValue(preferred.phone, fallback.phone),
+    gender: pickPreferredValue(preferred.gender, fallback.gender),
+    birth_date: pickPreferredValue(preferred.birth_date, fallback.birth_date),
+    age: pickPreferredValue(preferred.age, fallback.age),
+    city_name: pickPreferredValue(preferred.city_name, fallback.city_name),
+    education_level: pickPreferredValue(
+      preferred.education_level,
+      fallback.education_level
+    ),
+    occupation: pickPreferredValue(preferred.occupation, fallback.occupation),
+    mbti: pickPreferredValue(preferred.mbti, fallback.mbti),
+    account_status: pickPreferredValue(
+      preferred.account_status,
+      fallback.account_status
+    ),
+    verification_level: pickPreferredValue(
+      preferred.verification_level,
+      fallback.verification_level
+    ),
+    last_active_at: pickPreferredValue(
+      preferred.last_active_at,
+      fallback.last_active_at
+    ),
+    created_at: pickPreferredValue(preferred.created_at, fallback.created_at),
+    updated_at: pickPreferredValue(preferred.updated_at, fallback.updated_at),
+    login_methods: loginMethods,
+    is_wechat_login: !!(preferred.is_wechat_login || fallback.is_wechat_login),
+    raw:
+      preferredRaw && fallbackRaw
+        ? { ...fallbackRaw, ...preferredRaw }
+        : preferred.raw ?? fallback.raw,
+  };
+}
+
 function dedupeUsers(users: NormalizedUser[]): NormalizedUser[] {
-  const seen = new Set<string>();
+  const keyToIndex = new Map<string, number>();
   const deduped: NormalizedUser[] = [];
+
   for (const u of users) {
     const id = (u?.id || "").trim();
     if (!id) continue;
     const key = `${u.region}:${id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(u);
+    const existingIndex = keyToIndex.get(key);
+
+    if (existingIndex === undefined) {
+      keyToIndex.set(key, deduped.length);
+      deduped.push(u);
+      continue;
+    }
+
+    const existing = deduped[existingIndex];
+    const candidateScore = userCompletenessScore(u);
+    const existingScore = userCompletenessScore(existing);
+    const candidateWins =
+      candidateScore > existingScore ||
+      (candidateScore === existingScore &&
+        ts(u.updated_at || u.created_at) > ts(existing.updated_at || existing.created_at));
+
+    const preferred = candidateWins ? u : existing;
+    const fallback = candidateWins ? existing : u;
+    deduped[existingIndex] = mergeUserRecords(preferred, fallback);
   }
+
   return deduped;
 }
 

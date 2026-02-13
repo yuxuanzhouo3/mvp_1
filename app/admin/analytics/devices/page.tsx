@@ -157,6 +157,11 @@ function DistributionList({
   );
 }
 
+function getDistributionCount(items: DistributionItem[], name: string): number {
+  const target = (items || []).find((item) => item.name === name);
+  return target?.count || 0;
+}
+
 function SidePanel({
   title,
   icon,
@@ -171,6 +176,18 @@ function SidePanel({
   const recentDaily = useMemo(
     () => (stats.daily || []).slice(-7).reverse(),
     [stats.daily]
+  );
+  const webCount = useMemo(
+    () => getDistributionCount(stats.platforms, "Web"),
+    [stats.platforms]
+  );
+  const appCount = useMemo(
+    () => getDistributionCount(stats.platforms, "App"),
+    [stats.platforms]
+  );
+  const miniProgramCount = useMemo(
+    () => getDistributionCount(stats.platforms, "Mini Program"),
+    [stats.platforms]
   );
 
   return (
@@ -204,6 +221,27 @@ function SidePanel({
             <CardContent className="pt-6">
               <div className="text-xs text-slate-500">最新记录时间</div>
               <div className="text-sm font-medium">{formatDateTime(stats.lastSeenAt)}</div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-xs text-slate-500">Web</div>
+              <div className="text-2xl font-semibold">{webCount}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-xs text-slate-500">App</div>
+              <div className="text-2xl font-semibold">{appCount}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-4">
+              <div className="text-xs text-slate-500">Mini Program</div>
+              <div className="text-2xl font-semibold">{miniProgramCount}</div>
             </CardContent>
           </Card>
         </div>

@@ -12,6 +12,7 @@ import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 import { ProfileSkipDialog } from '@/components/profile/ProfileSkipDialog';
 import { VideoDemoButton } from '@/components/profile/VideoDemoButton';
+import { VideoDemoPanel } from '@/components/profile/VideoDemoPanel';
 import { MAX_PROFILE_SKIP_COUNT } from '@/lib/constants/profile';
 import { 
   ChevronLeft, 
@@ -309,19 +310,23 @@ export default function ProfileSetupWizard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,48rem)_minmax(0,22rem)] gap-6 items-start">
+          <div className="min-w-0">
         {/* Header with Progress */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {t.profileSetup?.title || 'Complete Your Profile'}
+            </h1>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {t.profileSetup?.title || 'Complete Your Profile'}
-              </h1>
-              <VideoDemoButton />
+              <div className="lg:hidden">
+                <VideoDemoButton />
+              </div>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                {currentStep} / {TOTAL_STEPS}
+              </span>
             </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {currentStep} / {TOTAL_STEPS}
-            </span>
           </div>
           
           {/* Progress Bar */}
@@ -503,6 +508,11 @@ export default function ProfileSetupWizard() {
           skipCount={skipCount}
           maxSkipLimit={MAX_PROFILE_SKIP_COUNT}
         />
+          </div>
+          <aside className="hidden lg:block lg:sticky lg:top-24">
+            <VideoDemoPanel />
+          </aside>
+        </div>
       </div>
     </div>
   );

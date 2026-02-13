@@ -10,7 +10,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getServiceDbClient } from '@/lib/db-client';
+import { getServiceDbClientFromRequest } from '@/lib/db-client';
 import { getDeploymentRegionFromRequest } from '@/lib/config/request-region';
 import { resolveVideoUrls } from '@/lib/video-demo/admin-utils';
 
@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   try {
     const region = getDeploymentRegionFromRequest(request);
-    const db = await getServiceDbClient();
+    const db = await getServiceDbClientFromRequest(request);
 
     const { data, error } = await db
       .from('video_demos')

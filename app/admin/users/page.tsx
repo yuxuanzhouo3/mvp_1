@@ -67,6 +67,8 @@ type UsersData = {
   };
 };
 
+const UNFILLED_PROFILE_TEXT = "用户未填写";
+
 function safeText(value: any): string {
   if (value == null) return "-";
   const s = typeof value === "string" ? value : String(value);
@@ -347,6 +349,12 @@ export default function AdminUsersPage() {
                         .map((x) => (typeof x === "string" ? x.trim() : ""))
                         .filter(Boolean)
                         .join(" / ");
+                      const genderAgeText = [
+                        user.gender ? safeText(user.gender) : "",
+                        typeof age === "number" ? `${age}岁` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" / ");
 
                       return (
                         <TableRow
@@ -387,11 +395,10 @@ export default function AdminUsersPage() {
                           <TableCell>
                             <div className="flex flex-col">
                               <span className="text-sm">
-                                {user.gender ? safeText(user.gender) : "-"}
-                                {typeof age === "number" ? `，${age}岁` : ""}
+                                {genderAgeText || UNFILLED_PROFILE_TEXT}
                               </span>
                               <span className="text-xs text-slate-500">
-                                {profileLine || "-"}
+                                {profileLine || UNFILLED_PROFILE_TEXT}
                               </span>
                             </div>
                           </TableCell>

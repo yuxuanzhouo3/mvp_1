@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 type BirthDateFieldProps = {
@@ -15,35 +15,37 @@ type BirthDateFieldProps = {
   selectClassName?: string;
 };
 
-type DateParts = {
-  year: number;
-  month: number;
-  day: number;
-};
-
 function pad2(value: string | number): string {
   return String(value).padStart(2, '0');
 }
 
-function normalizeDateValue(value?: string | null): string {
-  if (!value) return '';
+function parseDateParts(value?: string | null): { year: number; month: number; day: number } | null {
+  if (!value) return null;
   const trimmed = value.trim();
   const match = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (!match) return '';
+  if (!match) return null;
   const [, year, month, day] = match;
-  return `${year}-${pad2(month)}-${pad2(day)}`;
-}
-
-function parseDateParts(value: string): DateParts | null {
-  const normalizedValue = normalizeDateValue(value);
-  if (!normalizedValue) return null;
-  const [y, m, d] = normalizedValue.split('-').map((part) => Number(part));
-  if (!y || !m || !d) return null;
+  const y = Number(year);
+  const m = Number(month);
+  const d = Number(day);
+  if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return null;
+  if (m < 1 || m > 12) return null;
+  if (d < 1 || d > 31) return null;
   return { year: y, month: m, day: d };
 }
 
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
+}
+
+function isCompleteDate(year: string, month: string, day: string): boolean {
+  return Boolean(year && month && day);
+}
+
+function compareDate(a: { year: number; month: number; day: number }, b: { year: number; month: number; day: number }): number {
+  if (a.year !== b.year) return a.year - b.year;
+  if (a.month !== b.month) return a.month - b.month;
+  return a.day - b.day;
 }
 
 export function BirthDateField({
@@ -57,216 +59,204 @@ export function BirthDateField({
   inputClassName,
   selectClassName,
 }: BirthDateFieldProps) {
-  const [preferNativeDateInput, setPreferNativeDateInput] = useState(false);
-  const [year, setYear] = useState('');
-  const [month, setMonth] = useState('');
-  const [day, setDay] = useState('');
-  const nativeInputRef = useRef<HTMLInputElement | null>(null);
-  const prevValueRef = useRef<string | null | undefined>(undefined);
-  const normalizedValue = useMemo(() => normalizeDateValue(value), [value]);
-  const normalizedMinDate = useMemo(() => normalizeDateValue(minDate), [minDate]);
-  const normalizedMaxDate = useMemo(() => normalizeDateValue(maxDate), [maxDate]);
+  const minParts = parseDateParts(minDate);
+  const maxParts = parseDateParts(maxDate);
+  const valueParts = parseDateParts(value);
 
-  const minParts = useMemo(() => parseDateParts(normalizedMinDate), [normalizedMinDate]);
-  const maxParts = useMemo(() => parseDateParts(normalizedMaxDate), [normalizedMaxDate]);
+  const [year, setYear] = useState<string>(valueParts ? String(valueParts.year) : '');
+  const [month, setMonth] = useState<string>(valueParts ? String(valueParts.month) : '');
+  const [day, setDay] = useState<string>(valueParts ? String(valueParts.day) : '');
 
   useEffect(() => {
-    if (typeof navigator === 'undefined') return;
-    setPreferNativeDateInput(/android/i.test(navigator.userAgent));
-  }, []);
+    const next = parseDateParts(value);
+    const nextYear = next ? String(next.year) : '';
+    const nextMonth = next ? String(next.month) : '';
+    const nextDay = next ? String(next.day) : '';
 
-  useEffect(() => {
-    if (prevValueRef.current === normalizedValue) return;
-    prevValueRef.current = normalizedValue;
-    if (normalizedValue) {
-      const parsed = parseDateParts(normalizedValue);
-      if (parsed) {
-        setYear(String(parsed.year));
-        setMonth(String(parsed.month));
-        setDay(String(parsed.day));
-        return;
-      }
-    }
-    setYear('');
-    setMonth('');
-    setDay('');
-  }, [normalizedValue]);
-
-  const yearNum = year ? Number(year) : null;
-  const monthNum = month ? Number(month) : null;
-  const dayNum = day ? Number(day) : null;
+    if (nextYear !== year) setYear(nextYear);
+    if (nextMonth !== month) setMonth(nextMonth);
+    if (nextDay !== day) setDay(nextDay);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
 
   const yearOptions = useMemo(() => {
-    if (!minParts || !maxParts) return [];
-    const options: number[] = [];
-    for (let y = maxParts.year; y >= minParts.year; y -= 1) {
-      options.push(y);
+    const minYear = minParts?.year ?? 1900;
+    const maxYear = maxParts?.year ?? new Date().getFullYear();
+    const years: number[] = [];
+    for (let y = maxYear; y >= minYear; y--) {
+      years.push(y);
     }
-    return options;
-  }, [minParts, maxParts]);
-
-  const monthBounds = useMemo(() => {
-    if (!minParts || !maxParts || !yearNum) {
-      return { min: 1, max: 12 };
+    const selectedYear = Number(year);
+    if (selectedYear && !years.includes(selectedYear)) {
+      years.unshift(selectedYear);
     }
-    let min = 1;
-    let max = 12;
-    if (yearNum === minParts.year) min = minParts.month;
-    if (yearNum === maxParts.year) max = maxParts.month;
-    return { min, max };
-  }, [minParts, maxParts, yearNum]);
+    return years;
+  }, [maxParts?.year, minParts?.year, year]);
 
   const monthOptions = useMemo(() => {
-    const options: number[] = [];
-    for (let m = monthBounds.min; m <= monthBounds.max; m += 1) {
-      options.push(m);
-    }
-    return options;
-  }, [monthBounds]);
+    const selectedYear = Number(year);
+    if (!selectedYear) return [];
 
-  const dayBounds = useMemo(() => {
-    if (!minParts || !maxParts || !yearNum || !monthNum) {
-      return { min: 1, max: 31 };
+    let minMonth = 1;
+    let maxMonth = 12;
+    if (minParts && selectedYear === minParts.year) {
+      minMonth = minParts.month;
     }
-    let min = 1;
-    let max = getDaysInMonth(yearNum, monthNum);
-    if (yearNum === minParts.year && monthNum === minParts.month) {
-      min = Math.max(min, minParts.day);
+    if (maxParts && selectedYear === maxParts.year) {
+      maxMonth = maxParts.month;
     }
-    if (yearNum === maxParts.year && monthNum === maxParts.month) {
-      max = Math.min(max, maxParts.day);
+
+    const months: number[] = [];
+    for (let m = minMonth; m <= maxMonth; m++) {
+      months.push(m);
     }
-    return { min, max };
-  }, [minParts, maxParts, yearNum, monthNum]);
+    return months;
+  }, [maxParts, minParts, year]);
 
   const dayOptions = useMemo(() => {
-    const options: number[] = [];
-    for (let d = dayBounds.min; d <= dayBounds.max; d += 1) {
-      options.push(d);
+    const selectedYear = Number(year);
+    const selectedMonth = Number(month);
+    if (!selectedYear || !selectedMonth) return [];
+
+    const maxDayInMonth = getDaysInMonth(selectedYear, selectedMonth);
+    let minDay = 1;
+    let maxDay = maxDayInMonth;
+
+    if (minParts && selectedYear === minParts.year && selectedMonth === minParts.month) {
+      minDay = minParts.day;
     }
-    return options;
-  }, [dayBounds]);
+    if (maxParts && selectedYear === maxParts.year && selectedMonth === maxParts.month) {
+      maxDay = Math.min(maxDay, maxParts.day);
+    }
+
+    const days: number[] = [];
+    for (let d = minDay; d <= maxDay; d++) {
+      days.push(d);
+    }
+    return days;
+  }, [maxParts, minParts, month, year]);
 
   useEffect(() => {
-    if (!yearNum) {
-      if (month) setMonth('');
-      if (day) setDay('');
+    const externalParts = parseDateParts(value);
+    const externalValue = externalParts
+      ? `${externalParts.year}-${pad2(externalParts.month)}-${pad2(externalParts.day)}`
+      : '';
+
+    if (!isCompleteDate(year, month, day)) {
+      if (externalValue !== '') onChange?.('');
       return;
     }
-    if (monthNum && (monthNum < monthBounds.min || monthNum > monthBounds.max)) {
-      setMonth(String(monthBounds.min));
+
+    const y = Number(year);
+    const m = Number(month);
+    const d = Number(day);
+
+    if (!y || !m || !d) {
+      if (externalValue !== '') onChange?.('');
+      return;
     }
-  }, [yearNum, monthNum, monthBounds, month, day]);
+
+    const maxDay = getDaysInMonth(y, m);
+    if (d > maxDay) {
+      setDay(String(maxDay));
+      return;
+    }
+
+    const current = { year: y, month: m, day: d };
+    if (minParts && compareDate(current, minParts) < 0) {
+      if (externalValue !== '') onChange?.('');
+      return;
+    }
+    if (maxParts && compareDate(current, maxParts) > 0) {
+      if (externalValue !== '') onChange?.('');
+      return;
+    }
+
+    const nextValue = `${y}-${pad2(m)}-${pad2(d)}`;
+    if (nextValue !== externalValue) {
+      onChange?.(nextValue);
+    }
+  }, [day, maxParts, minParts, month, onChange, value, year]);
+
+  const sharedSelectClassName =
+    'h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background ' +
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ' +
+    'disabled:cursor-not-allowed disabled:opacity-50';
+
+  const selectedMonth = Number(month);
+  const selectedYear = Number(year);
+  const selectedDay = Number(day);
 
   useEffect(() => {
-    if (!yearNum || !monthNum) {
-      if (day) setDay('');
-      return;
+    if (!selectedMonth || !selectedYear || !selectedDay) return;
+    if (!dayOptions.includes(selectedDay)) {
+      setDay('');
     }
-    if (dayNum && (dayNum < dayBounds.min || dayNum > dayBounds.max)) {
-      setDay(String(dayBounds.min));
-    }
-  }, [yearNum, monthNum, dayNum, dayBounds, day]);
-
-  const composedValue = year && month && day ? `${year}-${pad2(month)}-${pad2(day)}` : '';
+  }, [dayOptions, selectedDay, selectedMonth, selectedYear]);
 
   useEffect(() => {
-    if (!onChange) return;
-    if (composedValue === normalizedValue) return;
-    onChange(composedValue);
-  }, [composedValue, normalizedValue, onChange]);
+    if (!selectedMonth) return;
+    if (!monthOptions.includes(selectedMonth)) {
+      setMonth('');
+      setDay('');
+    }
+  }, [monthOptions, selectedMonth]);
 
-  const showMobileSelects = !preferNativeDateInput;
-  const tryOpenNativePicker = () => {
-    const inputElement = nativeInputRef.current as
-      | (HTMLInputElement & { showPicker?: () => void })
-      | null;
-    if (!inputElement || typeof inputElement.showPicker !== 'function') {
-      return;
-    }
-    try {
-      inputElement.showPicker();
-    } catch {
-      // ignore: showPicker may require trusted user gesture in some browsers
-    }
-  };
+  const monthId = id ? `${id}-month` : undefined;
+  const dayId = id ? `${id}-day` : undefined;
 
   return (
-    <>
-      <div className={cn('flex flex-1 gap-2 sm:hidden', !showMobileSelects && 'hidden')}>
-        <select
-          id={id ? `${id}-year` : undefined}
-          value={year}
-          onChange={(e) => setYear(e.target.value)}
-          disabled={disabled}
-          className={cn(
-            'h-10 w-full rounded-md border border-input bg-background px-3 text-sm',
-            error && 'border-red-500',
-            selectClassName
-          )}
-        >
-          <option value="">Year</option>
-          {yearOptions.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-        <select
-          id={id ? `${id}-month` : undefined}
-          value={month}
-          onChange={(e) => setMonth(e.target.value)}
-          disabled={disabled || !year}
-          className={cn(
-            'h-10 w-full rounded-md border border-input bg-background px-3 text-sm',
-            error && 'border-red-500',
-            selectClassName
-          )}
-        >
-          <option value="">Month</option>
-          {monthOptions.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <select
-          id={id ? `${id}-day` : undefined}
-          value={day}
-          onChange={(e) => setDay(e.target.value)}
-          disabled={disabled || !year || !month}
-          className={cn(
-            'h-10 w-full rounded-md border border-input bg-background px-3 text-sm',
-            error && 'border-red-500',
-            selectClassName
-          )}
-        >
-          <option value="">Day</option>
-          {dayOptions.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
-      </div>
-      <input
-        ref={nativeInputRef}
+    <div className={cn('grid w-full grid-cols-3 gap-2', inputClassName)}>
+      <select
         id={id}
-        type="date"
-        value={normalizedValue}
-        onChange={(e) => onChange?.(normalizeDateValue(e.target.value))}
-        onFocus={tryOpenNativePicker}
-        onClick={tryOpenNativePicker}
-        min={normalizedMinDate || undefined}
-        max={normalizedMaxDate || undefined}
+        value={year}
+        onChange={(e) => {
+          const nextYear = e.target.value;
+          setYear(nextYear);
+          setMonth('');
+          setDay('');
+        }}
         disabled={disabled}
-        className={cn(
-          'h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-          showMobileSelects ? 'hidden sm:block' : 'block',
-          error && 'border-red-500',
-          inputClassName
-        )}
-      />
-    </>
+        className={cn(sharedSelectClassName, error && 'border-red-500', selectClassName)}
+      >
+        <option value="">{'YYYY'}</option>
+        {yearOptions.map((optionYear) => (
+          <option key={optionYear} value={optionYear}>
+            {optionYear}
+          </option>
+        ))}
+      </select>
+      <select
+        id={monthId}
+        value={month}
+        onChange={(e) => {
+          setMonth(e.target.value);
+          setDay('');
+        }}
+        disabled={disabled || !year}
+        className={cn(sharedSelectClassName, error && 'border-red-500', selectClassName)}
+      >
+        <option value="">{'MM'}</option>
+        {monthOptions.map((optionMonth) => (
+          <option key={optionMonth} value={optionMonth}>
+            {optionMonth}
+          </option>
+        ))}
+      </select>
+      <select
+        id={dayId}
+        value={day}
+        onChange={(e) => setDay(e.target.value)}
+        disabled={disabled || !year || !month}
+        className={cn(sharedSelectClassName, error && 'border-red-500', selectClassName)}
+      >
+        <option value="">{'DD'}</option>
+        {dayOptions.map((optionDay) => (
+          <option key={optionDay} value={optionDay}>
+            {optionDay}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import cloudbase from "@cloudbase/node-sdk";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  normalizeTerminalLabel,
+  parseUserAgentSignals,
+} from "@/lib/observability/device-signals";
 import { verifyAdminSessionToken } from "@/utils/session";
 
 export const dynamic = "force-dynamic";
@@ -194,57 +198,6 @@ function toIsoTime(value: unknown): string | null {
   return null;
 }
 
-function parseUserAgent(uaRaw: string | null): {
-  deviceType: string;
-  os: string;
-  browser: string;
-  platform: string;
-} {
-  const ua = (uaRaw || "").toLowerCase();
-
-  const deviceType = /ipad|tablet/.test(ua)
-    ? "Tablet"
-    : /iphone|android|mobile|phone/.test(ua)
-      ? "Mobile"
-      : /macintosh|windows|linux|x11/.test(ua)
-        ? "Desktop"
-        : "Unknown";
-
-  const os = /android/.test(ua)
-    ? "Android"
-    : /iphone|ipad|ios/.test(ua)
-      ? "iOS"
-      : /windows/.test(ua)
-        ? "Windows"
-        : /macintosh|mac os x/.test(ua)
-          ? "macOS"
-          : /linux/.test(ua)
-            ? "Linux"
-            : "Unknown";
-
-  const browser = /micromessenger/.test(ua)
-    ? "WeChat"
-    : /edg\//.test(ua)
-      ? "Edge"
-      : /opr\//.test(ua)
-        ? "Opera"
-        : /firefox\//.test(ua)
-          ? "Firefox"
-          : /chrome\//.test(ua) && !/edg\//.test(ua)
-            ? "Chrome"
-            : /safari\//.test(ua) && !/chrome\//.test(ua)
-              ? "Safari"
-              : "Unknown";
-
-  const platform = /android|iphone|ipad|ios/.test(ua)
-    ? "Mobile App/Web"
-    : os === "Unknown"
-      ? "Unknown"
-      : "Web";
-
-  return { deviceType, os, browser, platform };
-}
-
 function parseRecord(raw: any, defaultRegion: RegionTag): ParsedDeviceRecord | null {
   const data = safeParseJson(raw?.data) || {};
   const metadata = safeParseJson(raw?.metadata) || {};
@@ -257,7 +210,7 @@ function parseRecord(raw: any, defaultRegion: RegionTag): ParsedDeviceRecord | n
   } as Record<string, any>;
 
   const regionRaw = normalizeLabel(
-    pickFirst(merged, ["region", "source", "data.region", "metadata.region"]),
+    pickFirst(merged, ["region", "source", "data.region", "metadata.region", "payload.region"]),
     defaultRegion
   ).toUpperCase();
   const region: RegionTag = regionRaw === "INTL" ? "INTL" : "CN";
@@ -271,6 +224,8 @@ function parseRecord(raw: any, defaultRegion: RegionTag): ParsedDeviceRecord | n
       "data.userId",
       "metadata.user_id",
       "metadata.userId",
+      "payload.user_id",
+      "payload.userId",
     ]),
     ""
   );
@@ -286,6 +241,8 @@ function parseRecord(raw: any, defaultRegion: RegionTag): ParsedDeviceRecord | n
         "ts",
         "data.timestamp",
         "data.ts",
+        "payload.timestamp",
+        "payload.ts",
       ])
     ) || new Date().toISOString();
 
@@ -298,19 +255,42 @@ function parseRecord(raw: any, defaultRegion: RegionTag): ParsedDeviceRecord | n
     "data.ua",
     "metadata.user_agent",
     "metadata.userAgent",
+    "payload.user_agent",
+    "payload.userAgent",
+    "payload.ua",
   ]);
   const ua = typeof uaRaw === "string" ? uaRaw : null;
-  const uaParsed = parseUserAgent(ua);
+  const uaParsed = parseUserAgentSignals(ua);
+
+  const category = normalizeLabel(
+    pickFirst(merged, ["category", "data.category", "metadata.category", "payload.category"]),
+    "Unknown"
+  );
+
+  const message = normalizeLabel(
+    pickFirst(merged, ["message", "data.message", "metadata.message", "payload.message"]),
+    ""
+  );
 
   const deviceType = normalizeLabel(
     pickFirst(merged, [
       "device_type",
       "deviceType",
+      "client_device_type",
+      "clientDeviceType",
       "device.type",
       "data.device_type",
       "data.deviceType",
+      "data.client_device_type",
+      "data.clientDeviceType",
       "metadata.device_type",
       "metadata.deviceType",
+      "metadata.client_device_type",
+      "metadata.clientDeviceType",
+      "payload.device_type",
+      "payload.deviceType",
+      "payload.client_device_type",
+      "payload.clientDeviceType",
     ]) || uaParsed.deviceType
   );
 
@@ -324,6 +304,9 @@ function parseRecord(raw: any, defaultRegion: RegionTag): ParsedDeviceRecord | n
       "data.operating_system",
       "metadata.os",
       "metadata.os_name",
+      "payload.os",
+      "payload.os_name",
+      "payload.operating_system",
     ]) || uaParsed.os
   );
 
@@ -335,18 +318,65 @@ function parseRecord(raw: any, defaultRegion: RegionTag): ParsedDeviceRecord | n
       "data.browser_name",
       "metadata.browser",
       "metadata.browser_name",
+      "payload.browser",
+      "payload.browser_name",
     ]) || uaParsed.browser
   );
 
   const platform = normalizeLabel(
-    pickFirst(merged, [
-      "platform",
-      "client_platform",
-      "data.platform",
-      "data.client_platform",
-      "metadata.platform",
-      "metadata.client_platform",
-    ]) || uaParsed.platform
+    normalizeTerminalLabel(
+      pickFirst(merged, [
+        "platform",
+        "client_platform",
+        "clientPlatform",
+        "client_type",
+        "clientType",
+        "terminal",
+        "entry",
+        "entry_type",
+        "entryType",
+        "channel",
+        "login_type",
+        "loginType",
+        "data.platform",
+        "data.client_platform",
+        "data.clientPlatform",
+        "data.client_type",
+        "data.clientType",
+        "data.terminal",
+        "data.entry",
+        "data.entry_type",
+        "data.entryType",
+        "data.channel",
+        "data.login_type",
+        "data.loginType",
+        "metadata.platform",
+        "metadata.client_platform",
+        "metadata.clientPlatform",
+        "metadata.client_type",
+        "metadata.clientType",
+        "metadata.terminal",
+        "metadata.entry",
+        "metadata.entry_type",
+        "metadata.entryType",
+        "metadata.channel",
+        "metadata.login_type",
+        "metadata.loginType",
+        "payload.platform",
+        "payload.client_platform",
+        "payload.clientPlatform",
+        "payload.client_type",
+        "payload.clientType",
+        "payload.terminal",
+        "payload.entry",
+        "payload.entry_type",
+        "payload.entryType",
+        "payload.channel",
+        "payload.login_type",
+        "payload.loginType",
+      ]) || `${category} ${message}`,
+      ua
+    )
   );
 
   const appVersion = normalizeLabel(
@@ -354,22 +384,33 @@ function parseRecord(raw: any, defaultRegion: RegionTag): ParsedDeviceRecord | n
       "app_version",
       "appVersion",
       "client_version",
+      "clientVersion",
+      "version",
+      "build_version",
+      "buildVersion",
       "data.app_version",
       "data.appVersion",
+      "data.client_version",
+      "data.clientVersion",
+      "data.version",
+      "data.build_version",
+      "data.buildVersion",
       "metadata.app_version",
       "metadata.appVersion",
+      "metadata.client_version",
+      "metadata.clientVersion",
+      "metadata.version",
+      "metadata.build_version",
+      "metadata.buildVersion",
+      "payload.app_version",
+      "payload.appVersion",
+      "payload.client_version",
+      "payload.clientVersion",
+      "payload.version",
+      "payload.build_version",
+      "payload.buildVersion",
     ]),
     "Unknown"
-  );
-
-  const category = normalizeLabel(
-    pickFirst(merged, ["category", "data.category", "metadata.category"]),
-    "Unknown"
-  );
-
-  const message = normalizeLabel(
-    pickFirst(merged, ["message", "data.message", "metadata.message"]),
-    ""
   );
 
   const hasDeviceSignal =

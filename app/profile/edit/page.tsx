@@ -291,10 +291,29 @@ export default function ProfileEditPage() {
   };
 
   // Calculate age from birth date
+  const parseBirthDate = (birthDateStr: string): Date | null => {
+    const match = birthDateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (!match) return null;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (!year || !month || !day) return null;
+    const parsed = new Date(year, month - 1, day);
+    if (
+      parsed.getFullYear() !== year ||
+      parsed.getMonth() !== month - 1 ||
+      parsed.getDate() !== day
+    ) {
+      return null;
+    }
+    return parsed;
+  };
+
   const calculateAge = (birthDateStr: string): number => {
     if (!birthDateStr) return 0;
     const today = new Date();
-    const birth = new Date(birthDateStr);
+    const birth = parseBirthDate(birthDateStr);
+    if (!birth) return 0;
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
@@ -378,12 +397,19 @@ export default function ProfileEditPage() {
   };
 
   // Calculate max/min date for birth date input
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const maxDate = new Date();
   maxDate.setFullYear(maxDate.getFullYear() - 18);
-  const maxDateStr = maxDate.toISOString().split('T')[0];
+  const maxDateStr = formatDateLocal(maxDate);
   const minDate = new Date();
   minDate.setFullYear(minDate.getFullYear() - 100);
-  const minDateStr = minDate.toISOString().split('T')[0];
+  const minDateStr = formatDateLocal(minDate);
 
   const birthDate = form.watch('birth_date');
   const age = birthDate ? calculateAge(birthDate) : 0;
@@ -501,7 +527,7 @@ export default function ProfileEditPage() {
                   <Calendar className="h-4 w-4" />
                   {t.profileSetup?.birthDate || 'Birth Date'}
                 </Label>
-                <div className="flex gap-4 items-center mt-1">
+                <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-center">
                   <Controller
                     control={form.control}
                     name="birth_date"
