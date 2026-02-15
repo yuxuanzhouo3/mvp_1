@@ -22,6 +22,10 @@ import { useTranslations } from '@/lib/i18n';
 export default function SupportPage() {
   const { language } = useLanguage();
   const t = useTranslations(language);
+  const supportContactEmail =
+    process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN'
+      ? 'mornscience@sina.cn'
+      : 'mornscience@gmail.com';
 
   return (
     <div className="max-w-6xl mx-auto py-12 px-4">
@@ -115,12 +119,12 @@ export default function SupportPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-lg font-medium mb-2">support@personalink.ai</p>
+                <p className="text-lg font-medium mb-2">{supportContactEmail}</p>
                 <p className="text-sm text-muted-foreground mb-4">
                   {t.support.emailSupportDetail}
                 </p>
                 <Button asChild>
-                  <Link href="mailto:support@personalink.ai">
+                  <Link href={`mailto:${supportContactEmail}`}>
                     {t.support.sendEmail}
                   </Link>
                 </Button>
@@ -311,44 +315,44 @@ export default function SupportPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-950/30 dark:border dark:border-green-900/50">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <span className="font-medium">{t.support.website}</span>
                   </div>
-                  <span className="text-sm text-green-600">{t.support.operational}</span>
+                  <span className="text-sm text-green-600 dark:text-green-300">{t.support.operational}</span>
                 </div>
                 
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-950/30 dark:border dark:border-green-900/50">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <span className="font-medium">{t.support.matchingEngine}</span>
                   </div>
-                  <span className="text-sm text-green-600">{t.support.operational}</span>
+                  <span className="text-sm text-green-600 dark:text-green-300">{t.support.operational}</span>
                 </div>
                 
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-950/30 dark:border dark:border-green-900/50">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <span className="font-medium">{t.support.chatSystem}</span>
                   </div>
-                  <span className="text-sm text-green-600">{t.support.operational}</span>
+                  <span className="text-sm text-green-600 dark:text-green-300">{t.support.operational}</span>
                 </div>
                 
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-950/30 dark:border dark:border-green-900/50">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                     <span className="font-medium">{t.support.paymentProcessing}</span>
                   </div>
-                  <span className="text-sm text-green-600">{t.support.operational}</span>
+                  <span className="text-sm text-green-600 dark:text-green-300">{t.support.operational}</span>
                 </div>
               </div>
               
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
+              <div className="mt-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-950/30 dark:border dark:border-blue-900/50">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
                   <strong>{t.support.lastUpdated}:</strong> {new Date().toLocaleString()}
                 </p>
-                <p className="text-sm text-blue-800 mt-1">
+                <p className="text-sm text-blue-800 dark:text-blue-200 mt-1">
                   {t.support.allSystemsNormal}
                 </p>
               </div>

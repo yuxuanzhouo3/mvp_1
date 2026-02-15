@@ -201,6 +201,40 @@
 }
 
 @layer utilities {
+  /* Dark mode readability fallback for legacy utility classes without explicit dark variants */
+  .dark :where(div, section, article, aside, main, header, footer, nav, ul, ol, li, thead, tbody, tr, th, td)[class~="bg-white"]:not([class*="dark:bg-"]) {
+    background-color: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+  }
+
+  .dark :where(div, section, article, aside, main, header, footer, nav, ul, ol, li)[class~="bg-gray-50"]:not([class*="dark:bg-"]) {
+    background-color: hsl(var(--muted));
+  }
+
+  .dark :where([class*="border-gray-200"], [class*="border-slate-200"]):not([class*="dark:border-"]) {
+    border-color: hsl(var(--border));
+  }
+
+  .dark :where([class*="text-gray-900"], [class*="text-slate-900"]):not([class*="dark:text-"]) {
+    color: hsl(var(--foreground));
+  }
+
+  .dark :where([class*="text-gray-800"], [class*="text-slate-800"]):not([class*="dark:text-"]) {
+    color: hsl(var(--foreground) / 0.92);
+  }
+
+  .dark :where([class*="text-gray-700"], [class*="text-slate-700"]):not([class*="dark:text-"]) {
+    color: hsl(var(--foreground) / 0.86);
+  }
+
+  .dark :where([class*="text-gray-600"], [class*="text-slate-600"]):not([class*="dark:text-"]) {
+    color: hsl(var(--foreground) / 0.78);
+  }
+
+  .dark :where([class*="text-gray-500"], [class*="text-slate-500"]):not([class*="dark:text-"]) {
+    color: hsl(var(--muted-foreground));
+  }
+
   /* Animation Keyframes */
   @keyframes fadeIn {
     from {

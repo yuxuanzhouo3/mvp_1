@@ -6,6 +6,7 @@ import { Mail, Phone, MapPin, Clock } from 'lucide-react';
 import { useLanguage } from '@/components/language-provider';
 import { useTranslations } from '@/lib/i18n';
 import { useState, useEffect } from 'react';
+import { isChinaDeployment } from '@/lib/config/deployment.config';
 
 export default function ContactPage() {
   const [mounted, setMounted] = useState(false);
@@ -21,6 +22,10 @@ export default function ContactPage() {
   if (!mounted) {
     return <div className="min-h-screen bg-white dark:bg-gray-950" suppressHydrationWarning />;
   }
+
+  const contactEmail = isChinaDeployment()
+    ? 'mornscience@sina.cn'
+    : 'mornscience@gmail.com';
 
   return (
     <div className="max-w-6xl mx-auto py-8 sm:py-12 px-4">
@@ -52,7 +57,7 @@ export default function ContactPage() {
             <ContactCard
               icon={Mail}
               title={t.contact.emailSupport.title}
-              details={t.contact.emailSupport.details}
+              details={contactEmail}
               description={t.contact.emailSupport.description}
             />
             <ContactCard
