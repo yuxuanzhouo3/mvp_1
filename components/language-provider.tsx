@@ -77,9 +77,7 @@ export function LanguageProvider({
     const resolved: Language =
       saved && (saved === "zh" || saved === "en")
         ? saved
-        : scope === "admin"
-          ? "zh"
-          : initialLanguage || (isChinaDeployment() ? "zh" : "en");
+        : initialLanguage || (isChinaDeployment() ? "zh" : "en");
 
     setLanguageState(resolved);
     localStorage.setItem(storageKey, resolved);

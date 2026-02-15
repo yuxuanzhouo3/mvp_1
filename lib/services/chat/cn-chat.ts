@@ -427,8 +427,86 @@ export class CnChatService implements IChatService {
     }
   }
 
+  private isConnectionOpened(connection: EasemobConnection | null): boolean {
+    if (!connection) return false;
+
+    try {
+      const opened: unknown = (connection as any).isOpened?.();
+      if (typeof opened === 'boolean') return opened;
+      if (typeof opened === 'number') return opened > 0;
+      if (typeof opened === 'string') {
+        const normalized = opened.trim().toLowerCase();
+        if (['true', '1', 'yes', 'open', 'opened', 'connected', 'online'].includes(normalized)) return true;
+        if (['false', '0', 'no', 'closed', 'disconnected', 'offline'].includes(normalized)) return false;
+      }
+    } catch {
+      return false;
+    }
+
+    return false;
+  }
+
+  private isRecoverableConnectionError(error: any): boolean {
+    const code = Number(error?.type ?? error?.code ?? error?.errorCode ?? error?.status ?? NaN);
+    if (!Number.isNaN(code) && code === 39) return true;
+
+    const message = String(error?.message || error || '').toLowerCase();
+    if (!message) return false;
+
+    return (
+      message.includes('failed 39') ||
+      message.includes('code 39') ||
+      message.includes('not login') ||
+      message.includes('not logged') ||
+      message.includes('not open') ||
+      message.includes('disconnected') ||
+      message.includes('connection closed')
+    );
+  }
+
+  private async ensureConnectionReady(forceReinitialize: boolean = false): Promise<EasemobConnection> {
+    if (!this.currentUserId) {
+      throw new Error('Chat service is not initialized');
+    }
+
+    if (forceReinitialize) {
+      this.isInitialized = false;
+    }
+
+    if (!this.isInitialized) {
+      const initResult = await this.initialize(this.currentUserId);
+      if (!initResult.success) {
+        throw new Error(initResult.error || 'Chat service initialization failed');
+      }
+    }
+
+    let connection = await getConnection();
+    if (this.isConnectionOpened(connection)) {
+      return connection;
+    }
+
+    this.isInitialized = false;
+    const retryInitResult = await this.initialize(this.currentUserId);
+    if (!retryInitResult.success) {
+      throw new Error(retryInitResult.error || 'Chat service reconnection failed');
+    }
+
+    connection = await getConnection();
+    if (!this.isConnectionOpened(connection)) {
+      throw new Error('Chat connection is not opened');
+    }
+
+    return connection;
+  }
+
   private setupEventHandlers(connection: EasemobConnection): void {
     connection.addEventHandler('global', {
+      onConnected: () => {
+        this.isInitialized = true;
+      },
+      onDisconnected: () => {
+        this.isInitialized = false;
+      },
       // 收到文本消息
       onTextMessage: (msg: any) => {
         this.handleIncomingMessage(msg);
@@ -488,6 +566,9 @@ export class CnChatService implements IChatService {
       },
       // 错误处理
       onError: (error: any) => {
+        if (this.isRecoverableConnectionError(error)) {
+          this.isInitialized = false;
+        }
         this.eventHandlers.forEach((callbacks) => {
           callbacks.onError?.(new Error(error.message || 'Chat error'));
         });
@@ -505,9 +586,16 @@ export class CnChatService implements IChatService {
   }
 
   async disconnect(): Promise<void> {
-    const connection = await getConnection();
-    connection.close();
-    this.eventHandlers.clear();
+    try {
+      const connection = await getConnection();
+      connection.close();
+    } catch {
+      // Ignore disconnect errors
+    } finally {
+      this.isInitialized = false;
+      this.currentUserId = '';
+      this.eventHandlers.clear();
+    }
   }
 
   async getChatRooms(userId: string): Promise<ChatRoomWithUser[]> {
@@ -673,6 +761,8 @@ export class CnChatService implements IChatService {
   async sendMessage(request: SendMessageRequest): Promise<SendMessageResponse> {
     try {
       // 先扣减积分
+      const sdk = await getEasemobSDK();
+      let connection = await this.ensureConnectionReady();
       const creditsResponse = await fetch('/api/credits', {
         method: 'POST',
         headers: {
@@ -690,9 +780,6 @@ export class CnChatService implements IChatService {
           error: creditsData.error || '积分不足',
         } as any;
       }
-
-      const sdk = await getEasemobSDK();
-      const connection = await getConnection();
 
       let msg: any;
       
@@ -758,7 +845,17 @@ export class CnChatService implements IChatService {
           });
       }
 
-      const result = await connection.send(msg);
+      let result: any;
+      try {
+        result = await connection.send(msg);
+      } catch (sendError: any) {
+        if (!this.isRecoverableConnectionError(sendError)) {
+          throw sendError;
+        }
+
+        connection = await this.ensureConnectionReady(true);
+        result = await connection.send(msg);
+      }
 
       return {
         success: true,

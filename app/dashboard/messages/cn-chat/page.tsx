@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AIAssistant } from '@/components/ai';
 import { useToast } from '@/hooks/use-toast';
+import { useTencentASR } from '@/hooks/useTencentASR';
 import type { CallKitRef } from 'easemob-chat-uikit';
 
 const EasemobCallKit = dynamic(() => import('@/components/easemob-callkit'), {
@@ -65,6 +66,28 @@ function tryParseCloudbaseFilePathFromUrl(input?: string | null): string | null 
   }
 }
 
+function normalizeVoiceText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function mergeVoiceInput(baseText: string, nextText: string): string {
+  const base = baseText.trim();
+  const next = normalizeVoiceText(nextText);
+  if (!next) return base;
+  if (!base) return next;
+  if (base.endsWith(next)) return base;
+
+  const maxOverlap = Math.min(base.length, next.length);
+  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
+    if (base.slice(-overlap) === next.slice(0, overlap)) {
+      return `${base}${next.slice(overlap)}`;
+    }
+  }
+
+  const hasCjk = /[\u4e00-\u9fff]/.test(base + next);
+  return hasCjk ? `${base}${next}` : `${base} ${next}`;
+}
+
 export default function CnChatPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -72,7 +95,7 @@ export default function CnChatPage() {
   const { toast } = useToast();
   const isCnDeployment = isChinaDeployment();
 
-  // 状态
+  // State
   const [mounted, setMounted] = useState(false);
   const [rooms, setRooms] = useState<ChatRoomWithUser[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoomWithUser | null>(null);
@@ -87,6 +110,8 @@ export default function CnChatPage() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isRealtimeVoiceInputActive, setIsRealtimeVoiceInputActive] = useState(false);
+  const [interimVoiceText, setInterimVoiceText] = useState('');
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [showMobileList, setShowMobileList] = useState(true);
   const [showUserProfile, setShowUserProfile] = useState(false);
@@ -98,9 +123,6 @@ export default function CnChatPage() {
   const [callConfigError, setCallConfigError] = useState<string | null>(null);
   const [callKitReady, setCallKitReady] = useState(false);
   const [callStatus, setCallStatus] = useState<CallUiStatus>('idle');
-  const [showCallDebugPanel, setShowCallDebugPanel] = useState(true);
-  const [lastCallErrorMessage, setLastCallErrorMessage] = useState('');
-  const [lastCallEndReason, setLastCallEndReason] = useState('');
 
   // Refs
   const chatServiceRef = useRef<IChatService | null>(null);
@@ -115,6 +137,8 @@ export default function CnChatPage() {
   const recordingDurationRef = useRef<number>(0);
   const audioElementsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
   const videoRefreshInFlightRef = useRef<Set<string>>(new Set());
+  const inputValueRef = useRef('');
+  const voiceCommittedInputRef = useRef('');
 
   const prevUserIdRef = useRef<string | null>(null);
   const prevCallUserIdRef = useRef<string | null>(null);
@@ -135,10 +159,19 @@ export default function CnChatPage() {
       setCallConfigError(null);
       setCallKitReady(false);
       setCallStatus('idle');
-      setLastCallErrorMessage('');
-      setLastCallEndReason('');
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    inputValueRef.current = inputValue;
+  }, [inputValue]);
+
+  useEffect(() => {
+    if (!isRealtimeVoiceInputActive) {
+      voiceCommittedInputRef.current = inputValue;
+      if (interimVoiceText) setInterimVoiceText('');
+    }
+  }, [inputValue, isRealtimeVoiceInputActive, interimVoiceText]);
 
   const handleViewProfile = useCallback(() => {
     if (!selectedRoom) return;
@@ -232,7 +265,7 @@ export default function CnChatPage() {
     }
   }, [user?.id]);
 
-  // 初始化聊天服务
+  // Init chat service
   const initChatService = useCallback(async () => {
     if (!user?.id) return;
 
@@ -256,7 +289,7 @@ export default function CnChatPage() {
       setRooms(roomsWithPresence);
       setLoadingRooms(false);
 
-      // 订阅所有消息
+      // Subscribe all messages
       service.subscribeAll(user.id, {
         onMessageReceived: (msg) => {
           setMessages(prev => [...prev, msg]);
@@ -298,7 +331,7 @@ export default function CnChatPage() {
     }
 
     if (!callKitReady) {
-      setCallConfigError(language === 'zh' ? '通话初始化中' : 'Call initializing');
+      setCallConfigError(language === 'zh' ? 'Call initializing' : 'Call initializing');
       return;
     }
 
@@ -350,14 +383,168 @@ export default function CnChatPage() {
     }
   };
 
-  // 发送消息
+  const {
+    isActive: tencentASRActive,
+    start: startTencentASR,
+    stop: stopTencentASR,
+  } = useTencentASR({
+    onTranscript: useCallback((text: string, isFinal: boolean) => {
+      const normalized = normalizeVoiceText(text);
+      if (!normalized) return;
+
+      if (isFinal) {
+        const merged = mergeVoiceInput(voiceCommittedInputRef.current, normalized);
+        voiceCommittedInputRef.current = merged;
+        setInterimVoiceText('');
+        setInputValue(merged);
+      } else {
+        setInterimVoiceText(normalized);
+        setInputValue(mergeVoiceInput(voiceCommittedInputRef.current, normalized));
+      }
+    }, []),
+    onError: useCallback((error: string) => {
+      setInterimVoiceText('');
+      setInputValue(voiceCommittedInputRef.current);
+      setIsRealtimeVoiceInputActive(false);
+      toast({
+        title: language === 'zh' ? '实时语音识别失败' : 'Realtime speech recognition failed',
+        description: error,
+        variant: 'destructive',
+      });
+    }, [language, toast]),
+    language: language === 'zh' ? 'zh-CN' : 'en-US',
+  });
+
+  const stopRealtimeVoiceInput = useCallback(() => {
+    stopTencentASR();
+    setIsRealtimeVoiceInputActive(false);
+
+    const finalInput = mergeVoiceInput(voiceCommittedInputRef.current, interimVoiceText);
+    voiceCommittedInputRef.current = finalInput;
+    setInterimVoiceText('');
+    setInputValue(finalInput);
+  }, [interimVoiceText, stopTencentASR]);
+
+  const startRealtimeVoiceInput = useCallback(() => {
+    if (!isCnDeployment) {
+      toast({
+        title: language === 'zh' ? 'CN only feature' : 'CN only feature',
+        description: language === 'zh'
+          ? 'Realtime speech-to-text is only available in CN deployment.'
+          : 'Realtime speech-to-text is only available in CN deployment.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname;
+      const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+      if (!window.isSecureContext && !isLocalhost) {
+        toast({
+          title: language === 'zh' ? 'Insecure context' : 'Insecure context',
+          description: language === 'zh'
+            ? 'Realtime voice input requires HTTPS or localhost.'
+            : 'Realtime voice input requires HTTPS or localhost.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    voiceCommittedInputRef.current = inputValueRef.current;
+    setInterimVoiceText('');
+    setIsRealtimeVoiceInputActive(true);
+    void startTencentASR();
+  }, [isCnDeployment, language, startTencentASR, toast]);
+
+  // Start voice recording and send as audio message
+  const startVoiceMessageRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const duration = recordingDurationRef.current;
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
+
+        if (audioChunksRef.current.length > 0 && selectedRoom && user?.id) {
+          try {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            const roomId = selectedRoom.otherUser?.id || selectedRoom.id;
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'voice.webm');
+            formData.append('chatId', roomId);
+            formData.append('duration', String(duration));
+
+            const response = await fetch('/api/chat/upload-audio', {
+              method: 'POST',
+              body: formData,
+            });
+
+            const result = await response.json();
+            if (result.success) {
+              const service = chatServiceRef.current;
+              if (service) {
+                const sendResult = await service.sendMessage({
+                  roomId,
+                  content: '[voice]',
+                  type: 'audio',
+                  metadata: { audioUrl: result.audio_url, duration },
+                });
+                if (sendResult.success && sendResult.message) {
+                  setMessages((prev) => [...prev, sendResult.message!]);
+                  setTimeout(() => scrollToBottom(), 100);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Audio upload error:', error);
+          }
+        }
+        setRecordingDuration(0);
+      };
+
+      mediaRecorder.start(100);
+      setIsRecording(true);
+
+      recordingDurationRef.current = 0;
+      recordingTimerRef.current = setInterval(() => {
+        recordingDurationRef.current += 1;
+        setRecordingDuration(recordingDurationRef.current);
+        if (recordingDurationRef.current >= 60) mediaRecorderRef.current?.stop();
+      }, 1000);
+    } catch (err) {
+      console.error('Microphone access denied:', err);
+    }
+  }, [selectedRoom, user?.id]);
+
   const handleSend = async () => {
-    const content = inputValue.trim();
+    const content = (
+      isRealtimeVoiceInputActive
+        ? mergeVoiceInput(voiceCommittedInputRef.current, interimVoiceText)
+        : inputValue
+    ).trim();
     if (!content || isSending || !selectedRoom) return;
 
     try {
       setIsSending(true);
+      if (isRealtimeVoiceInputActive) {
+        stopRealtimeVoiceInput();
+      }
       setInputValue('');
+      voiceCommittedInputRef.current = '';
+      setInterimVoiceText('');
 
       const service = chatServiceRef.current;
       if (service) {
@@ -371,16 +558,38 @@ export default function CnChatPage() {
         if (result.success && result.message) {
           setMessages(prev => [...prev, result.message!]);
           setTimeout(() => scrollToBottom(), 100);
+        } else if (!result.success) {
+          setInputValue(content);
+          voiceCommittedInputRef.current = content;
+          toast({
+            title: language === 'zh' ? 'Failed to send' : 'Failed to send',
+            description:
+              result.error ||
+              (language === 'zh'
+                ? '无法发送聊天消息，请检查连接后重试'
+                : 'Unable to send message. Please check your connection and try again.'),
+            variant: 'destructive',
+          });
         }
       }
     } catch (error) {
+      setInputValue(content);
+      voiceCommittedInputRef.current = content;
       console.error('Send message error:', error);
+      toast({
+        title: language === 'zh' ? 'Failed to send' : 'Failed to send',
+        description:
+          language === 'zh'
+            ? 'Unable to send message. Please try again.'
+            : 'Unable to send message. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSending(false);
     }
   };
 
-  // 滚动到底部
+  // Scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -391,7 +600,7 @@ export default function CnChatPage() {
     inputRef.current?.focus();
   };
 
-  // 格式化时间
+  // Format time
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString(language === 'zh' ? 'zh-CN' : 'en-US', {
@@ -400,7 +609,7 @@ export default function CnChatPage() {
     });
   };
 
-  // 格式化会话时间
+  // Format room time
   const formatRoomTime = (dateString: string | undefined) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -413,7 +622,7 @@ export default function CnChatPage() {
         minute: '2-digit',
       });
     } else if (diffDays === 1) {
-      return language === 'zh' ? '昨天' : 'Yesterday';
+      return language === 'zh' ? 'Yesterday' : 'Yesterday';
     } else if (diffDays < 7) {
       return date.toLocaleDateString(language === 'zh' ? 'zh-CN' : 'en-US', { weekday: 'short' });
     } else {
@@ -444,9 +653,9 @@ export default function CnChatPage() {
     (callType: 'audio' | 'video') => {
       if (!isCnDeployment) {
         toast({
-          title: language === 'zh' ? '仅中国区可用' : 'CN only feature',
+          title: language === 'zh' ? 'CN only feature' : 'CN only feature',
           description: language === 'zh'
-            ? '语音/视频通话仅在中国区部署环境可用。'
+            ? 'Voice/video call is only available in CN deployment.'
             : 'Voice/video call is only available in CN deployment.',
           variant: 'destructive',
         });
@@ -458,9 +667,9 @@ export default function CnChatPage() {
       const isTargetOnline = !!selectedRoom.otherUser?.isOnline;
       if (!isTargetOnline) {
         toast({
-          title: language === 'zh' ? '对方不在线' : 'User is offline',
+          title: language === 'zh' ? 'User is offline' : 'User is offline',
           description: language === 'zh'
-            ? '对方离线时无法发起通话'
+            ? 'You can only start calls when the user is online.'
             : 'You can only start calls when the user is online.',
         });
         return;
@@ -468,8 +677,8 @@ export default function CnChatPage() {
 
       if (!callKitReady) {
         toast({
-          title: language === 'zh' ? '通话初始化中' : 'Call initializing',
-          description: callConfigError || (language === 'zh' ? '请稍后重试' : 'Please try again later.'),
+          title: language === 'zh' ? 'Call initializing' : 'Call initializing',
+          description: callConfigError || (language === 'zh' ? 'Please try again later.' : 'Please try again later.'),
           variant: 'destructive',
         });
         return;
@@ -477,8 +686,8 @@ export default function CnChatPage() {
 
       if (!callKitRef.current) {
         toast({
-          title: language === 'zh' ? '通话组件未就绪' : 'Call component not ready',
-          description: language === 'zh' ? '请稍后重试' : 'Please try again later.',
+          title: language === 'zh' ? 'Call component not ready' : 'Call component not ready',
+          description: language === 'zh' ? 'Please try again later.' : 'Please try again later.',
           variant: 'destructive',
         });
         return;
@@ -487,15 +696,13 @@ export default function CnChatPage() {
       const runtimeStatus = callKitRef.current.getCallStatus?.() ?? callStatus;
       if (runtimeStatus !== 'idle') {
         toast({
-          title: language === 'zh' ? '通话进行中' : 'Call in progress',
-          description: language === 'zh' ? '当前通话未结束，请稍后再试。' : 'Current call is not finished yet. Please retry later.',
+          title: language === 'zh' ? 'Call in progress' : 'Call in progress',
+          description: language === 'zh' ? 'Current call is not finished yet. Please retry later.' : 'Current call is not finished yet. Please retry later.',
           variant: 'destructive',
         });
         return;
       }
 
-      setLastCallErrorMessage('');
-      setLastCallEndReason('');
       setCallStatus('calling');
 
       callKitRef.current.startSingleCall({
@@ -514,8 +721,8 @@ export default function CnChatPage() {
         const latestStatus = callKitRef.current?.getCallStatus?.() ?? 'idle';
         setCallStatus(latestStatus);
         toast({
-          title: language === 'zh' ? '通话发起失败' : 'Failed to start call',
-          description: error?.message || (language === 'zh' ? '请稍后重试' : 'Please try again later.'),
+          title: language === 'zh' ? 'Failed to start call' : 'Failed to start call',
+          description: error?.message || (language === 'zh' ? 'Please try again later.' : 'Please try again later.'),
           variant: 'destructive',
         });
       });
@@ -573,16 +780,18 @@ export default function CnChatPage() {
     toast({
       title: language === 'zh' ? '通话失败' : 'Call failed',
       description: isCallStateBusy
-        ? (language === 'zh' ? '当前账号通话状态未释放，请稍后再试。' : 'Call state is not idle yet. Please retry in a moment.')
-        : (rawMessage || (language === 'zh' ? '请稍后重试' : 'Please try again later.')),
+        ? (language === 'zh' ? 'Call state is not idle yet. Please retry in a moment.' : 'Call state is not idle yet. Please retry in a moment.')
+        : (rawMessage || (language === 'zh' ? 'Please try again later.' : 'Please try again later.')),
       variant: 'destructive',
     });
-
-    setLastCallErrorMessage(rawMessage || (isCallStateBusy ? 'is in call' : 'unknown'));
 
     const latestStatus = callKitRef.current?.getCallStatus?.() ?? 'idle';
     setCallStatus(latestStatus);
   }, [language, toast]);
+
+  const handleEndCallWithReason = useCallback((_reason: string) => {
+    setCallStatus('idle');
+  }, []);
 
   const renderMessageContent = (message: ChatMessage) => {
     switch (message.type) {
@@ -591,7 +800,7 @@ export default function CnChatPage() {
         if (!imgUrl) {
           return <p className="text-sm text-gray-400">[图片加载失败]</p>;
         }
-        // 环信的 HTTP URL 需要认证，无法直接加载（旧消息）
+        // Easemob HTTP URLs may require auth and can fail to load directly.
         if (imgUrl.startsWith('http://') && imgUrl.includes('easemob.com')) {
           return <p className="text-sm text-gray-400">[旧图片无法显示]</p>;
         }
@@ -642,7 +851,7 @@ export default function CnChatPage() {
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
             </div>
-            <span className="text-xs">{message.metadata?.duration || 0}″</span>
+            <span className="text-xs">{message.metadata?.duration || 0}s</span>
           </div>
         );
 
@@ -688,7 +897,7 @@ export default function CnChatPage() {
     room.otherUser?.username?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // 排序会话：置顶的在前面
+  // Sort rooms: pinned ones first
   const sortedRooms = [...filteredRooms].sort((a, b) => {
     const aIsPinned = pinnedRoomIds.has(a.id);
     const bIsPinned = pinnedRoomIds.has(b.id);
@@ -722,127 +931,48 @@ export default function CnChatPage() {
   }, []);
 
   useEffect(() => {
+    setIsRealtimeVoiceInputActive(tencentASRActive);
+  }, [tencentASRActive]);
+
+  useEffect(() => {
+    if (!selectedRoom && isRealtimeVoiceInputActive) {
+      stopRealtimeVoiceInput();
+    }
+  }, [isRealtimeVoiceInputActive, selectedRoom, stopRealtimeVoiceInput]);
+
+  useEffect(() => {
+    if (!user?.id && isRealtimeVoiceInputActive) {
+      stopRealtimeVoiceInput();
+    }
+  }, [isRealtimeVoiceInputActive, stopRealtimeVoiceInput, user?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+      stopTencentASR();
+    };
+  }, [stopTencentASR]);
+
+  useEffect(() => {
     if (messages.length > 0) {
       scrollToBottom();
     }
   }, [messages.length]);
 
-  const isCallReady = callKitReady;
-  const callDebugEnvRaw = (process.env.NEXT_PUBLIC_ENABLE_CALL_DEBUG || '').trim().toLowerCase();
-  const isCallDebugEnabled = ['1', 'true', 'yes', 'on'].includes(callDebugEnvRaw);
-  const isCallComponentReady = !!callKitRef.current;
-  const runtimeCallStatus = callKitRef.current?.getCallStatus?.();
-  const effectiveCallStatus: CallUiStatus = runtimeCallStatus ?? callStatus;
-  const isInCall = effectiveCallStatus !== 'idle';
-  const isTargetOnline = !!selectedRoom?.otherUser?.isOnline;
-  const canStartCall = isCnDeployment && isCallReady && isTargetOnline && !isInCall;
   const callAppKey = process.env.NEXT_PUBLIC_EASEMOB_APP_KEY;
 
-  const copyCallDebugInfo = useCallback(async () => {
-    const debugPayload = {
-      timestamp: new Date().toISOString(),
-      userId: user?.id || '',
-      selectedRoomId: selectedRoom?.id || '',
-      targetUserId: selectedRoom?.otherUser?.id || '',
-      targetOnline: isTargetOnline,
-      isCnDeployment,
-      callAppKeyConfigured: !!callAppKey,
-      callKitReady,
-      callConfigError,
-      callStatus,
-      runtimeCallStatus: runtimeCallStatus || null,
-      effectiveCallStatus,
-      isInCall,
-      callComponentReady: isCallComponentReady,
-      canStartCall,
-      lastCallErrorMessage,
-      lastCallEndReason,
-    };
-
-    const text = JSON.stringify(debugPayload, null, 2);
-
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-      }
-
-      toast({
-        title: language === 'zh' ? '已复制排障信息' : 'Debug info copied',
-        description: language === 'zh' ? '可直接粘贴到报错日志中。' : 'You can paste it into your bug log directly.',
-      });
-    } catch {
-      toast({
-        title: language === 'zh' ? '复制失败' : 'Copy failed',
-        description: language === 'zh' ? '请手动记录当前状态信息。' : 'Please capture the on-screen status manually.',
-        variant: 'destructive',
-      });
-    }
-  }, [
-    user?.id,
-    selectedRoom?.id,
-    selectedRoom?.otherUser?.id,
-    isTargetOnline,
-    isCnDeployment,
-    callAppKey,
-    callKitReady,
-    callConfigError,
-    callStatus,
-    runtimeCallStatus,
-    effectiveCallStatus,
-    isInCall,
-    isCallComponentReady,
-    canStartCall,
-    lastCallErrorMessage,
-    lastCallEndReason,
-    toast,
-    language,
-  ]);
-
-  const forceEndCall = useCallback(() => {
-    callKitRef.current?.exitCall?.('manual_debug_force_end');
-    setCallStatus('idle');
-    setLastCallEndReason('manual_debug_force_end');
-  }, []);
-
-  const refreshCallRuntimeStatus = useCallback(() => {
-    const latestStatus = callKitRef.current?.getCallStatus?.() ?? 'idle';
-    setCallStatus(latestStatus);
+  const callComingSoonText = '该功能尚未上线，敬请期待。';
+  const handleSingleCallIconClick = useCallback(() => {
     toast({
-      title: language === 'zh' ? '状态已刷新' : 'Status refreshed',
-      description: `${language === 'zh' ? '当前状态：' : 'Current status: '}${latestStatus}`,
+      title: callComingSoonText,
     });
-  }, [language, toast]);
-  const callComingSoonText = language === 'zh'
-    ? '功能尚未完善，尽情期待。'
-    : 'This feature is still in progress. Stay tuned.';
-  const handleSingleCallIconClick = useCallback(
-    (callType: 'audio' | 'video') => {
-      if (isCnDeployment) {
-        toast({
-          title: language === 'zh' ? '功能尚未完善' : 'Feature coming soon',
-          description: callComingSoonText,
-        });
-        return;
-      }
-
-      startSingleCall(callType);
-    },
-    [isCnDeployment, language, toast, callComingSoonText, startSingleCall]
-  );
-  const isCallButtonDisabled = !isCnDeployment;
-  const voiceCallTitle = isCnDeployment
-    ? callComingSoonText
-    : (language === 'zh' ? '仅中国区可用' : 'CN only feature');
-  const videoCallTitle = isCnDeployment
-    ? callComingSoonText
-    : (language === 'zh' ? '仅中国区可用' : 'CN only feature');
+  }, [toast, callComingSoonText]);
+  const isCallButtonDisabled = false;
+  const voiceCallTitle = callComingSoonText;
+  const videoCallTitle = callComingSoonText;
 
   if (!mounted) return null;
 
@@ -878,8 +1008,8 @@ export default function CnChatPage() {
         </h2>
         <p className="text-sm text-gray-500">
           {selectedRoom.otherUser?.isOnline
-            ? (language === 'zh' ? '在线' : 'Online')
-            : (language === 'zh' ? '离线' : 'Offline')
+            ? (language === 'zh' ? 'Online' : 'Online')
+            : (isCnDeployment ? '离线' : 'Offline')
           }
         </p>
       </div>
@@ -898,7 +1028,7 @@ export default function CnChatPage() {
         {selectedRoom.otherUser?.email && (
           <div>
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              {language === 'zh' ? '邮箱' : 'Email'}
+              {language === 'zh' ? 'Email' : 'Email'}
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 break-all">
               {selectedRoom.otherUser.email}
@@ -930,14 +1060,14 @@ export default function CnChatPage() {
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <h1 className="text-xl font-bold text-primary flex items-center">
             <MessageSquare className="h-5 w-5 mr-2" />
-            {language === 'zh' ? '消息' : 'Chats'}
+            {language === 'zh' ? 'Chats' : 'Chats'}
           </h1>
           {/* 搜索框 */}
           <div className="mt-3 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder={language === 'zh' ? '搜索' : 'Search'}
+              placeholder={language === 'zh' ? 'Search' : 'Search'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
@@ -1054,8 +1184,8 @@ export default function CnChatPage() {
                   </h2>
                   <p className="text-xs text-gray-500 truncate">
                     {selectedRoom.otherUser?.isOnline
-                      ? (language === 'zh' ? '在线' : 'Online')
-                      : (language === 'zh' ? '离线' : 'Offline')
+                      ? (language === 'zh' ? 'Online' : 'Online')
+                      : (isCnDeployment ? '离线' : 'Offline')
                     }
                   </p>
                 </div>
@@ -1068,7 +1198,7 @@ export default function CnChatPage() {
                   size="sm"
                   className="text-gray-500 hover:text-primary"
                   disabled={isCallButtonDisabled}
-                  onClick={() => handleSingleCallIconClick('audio')}
+                  onClick={handleSingleCallIconClick}
                   title={voiceCallTitle}
                 >
                   <Phone className="h-5 w-5" />
@@ -1078,7 +1208,7 @@ export default function CnChatPage() {
                   size="sm"
                   className="text-gray-500 hover:text-primary"
                   disabled={isCallButtonDisabled}
-                  onClick={() => handleSingleCallIconClick('video')}
+                  onClick={handleSingleCallIconClick}
                   title={videoCallTitle}
                 >
                   <Video className="h-5 w-5" />
@@ -1112,7 +1242,7 @@ export default function CnChatPage() {
                     }}>
                       <Pin className="h-4 w-4 mr-2" />
                       {pinnedRoomIds.has(selectedRoom.id)
-                        ? (language === 'zh' ? '取消置顶' : 'Unpin')
+                        ? (language === 'zh' ? 'Unpin' : 'Unpin')
                         : (language === 'zh' ? '置顶会话' : 'Pin Chat')
                       }
                     </DropdownMenuItem>
@@ -1122,77 +1252,6 @@ export default function CnChatPage() {
             </div>
 
             {/* 消息区域 */}
-            {isCnDeployment && isCallDebugEnabled && (
-              <div className="px-3 sm:px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-amber-50/60 dark:bg-amber-900/10">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium text-amber-700 dark:text-amber-200">
-                    {language === 'zh' ? '通话排障面板' : 'Call debug panel'}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-xs text-amber-700 dark:text-amber-200"
-                    onClick={() => setShowCallDebugPanel((prev) => !prev)}
-                  >
-                    {showCallDebugPanel
-                      ? (language === 'zh' ? '收起' : 'Collapse')
-                      : (language === 'zh' ? '展开' : 'Expand')}
-                  </Button>
-                </div>
-
-                {showCallDebugPanel && (
-                  <div className="mt-2 space-y-2">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-3 gap-y-1 text-[11px] text-amber-900 dark:text-amber-100">
-                      <div>{language === 'zh' ? '部署:' : 'Deploy:'} {isCnDeployment ? 'CN' : 'INTL'}</div>
-                      <div>{language === 'zh' ? 'CallKit就绪:' : 'CallKit ready:'} {String(callKitReady)}</div>
-                      <div>{language === 'zh' ? 'UI状态:' : 'UI status:'} {callStatus}</div>
-                      <div>{language === 'zh' ? '运行时状态:' : 'Runtime status:'} {runtimeCallStatus || 'null'}</div>
-                      <div>{language === 'zh' ? '有效状态:' : 'Effective status:'} {effectiveCallStatus}</div>
-                      <div>{language === 'zh' ? '通话中:' : 'In call:'} {String(isInCall)}</div>
-                      <div>{language === 'zh' ? '组件就绪:' : 'Component ready:'} {String(isCallComponentReady)}</div>
-                      <div>{language === 'zh' ? '可发起:' : 'Can start:'} {String(canStartCall)}</div>
-                      <div className="col-span-2 md:col-span-4 break-all">
-                        {language === 'zh' ? '配置错误:' : 'Config error:'} {callConfigError || '-'}
-                      </div>
-                      <div className="col-span-2 md:col-span-4 break-all">
-                        {language === 'zh' ? '最近错误:' : 'Last error:'} {lastCallErrorMessage || '-'}
-                      </div>
-                      <div className="col-span-2 md:col-span-4 break-all">
-                        {language === 'zh' ? '结束原因:' : 'End reason:'} {lastCallEndReason || '-'}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={refreshCallRuntimeStatus}
-                      >
-                        {language === 'zh' ? '刷新状态' : 'Refresh status'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={copyCallDebugInfo}
-                      >
-                        {language === 'zh' ? '复制排障信息' : 'Copy debug info'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20"
-                        onClick={forceEndCall}
-                      >
-                        {language === 'zh' ? '强制结束通话' : 'Force end call'}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
             <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
               {showSearchMessages && (
                 <div className="sticky top-0 z-10 bg-gray-50 dark:bg-gray-900 pb-3">
@@ -1224,7 +1283,7 @@ export default function CnChatPage() {
                         setSearchMessageQuery('');
                       }}
                     >
-                      {language === 'zh' ? '退出' : 'Close'}
+                      {language === 'zh' ? 'Close' : 'Close'}
                     </Button>
                   </div>
                 </div>
@@ -1298,7 +1357,7 @@ export default function CnChatPage() {
                                 className="flex items-center w-full px-4 py-2.5 text-sm text-left text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
                               >
                                 <Bot className="h-4 w-4 mr-2" />
-                                {language === 'zh' ? 'AI小助手' : 'AI Assistant'}
+                                {language === 'zh' ? 'AI Assistant' : 'AI Assistant'}
                               </button>
                             </div>
                           )}
@@ -1473,7 +1532,7 @@ export default function CnChatPage() {
                 <div className="flex items-center justify-between bg-primary/10 rounded-xl p-3">
                   <div className="flex items-center space-x-3">
                     <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-                    <span className="text-primary font-medium">{recordingDuration}″</span>
+                    <span className="text-primary font-medium">{recordingDuration}s</span>
                     <span className="text-gray-500 text-sm">
                       {language === 'zh' ? '正在录音...' : 'Recording...'}
                     </span>
@@ -1487,7 +1546,10 @@ export default function CnChatPage() {
                         audioChunksRef.current = [];
                         setIsRecording(false);
                         setRecordingDuration(0);
-                        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+                        if (recordingTimerRef.current) {
+                          clearInterval(recordingTimerRef.current);
+                          recordingTimerRef.current = null;
+                        }
                       }}
                     >
                       <X className="h-5 w-5" />
@@ -1497,12 +1559,15 @@ export default function CnChatPage() {
                       onClick={() => {
                         mediaRecorderRef.current?.stop();
                         setIsRecording(false);
-                        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+                        if (recordingTimerRef.current) {
+                          clearInterval(recordingTimerRef.current);
+                          recordingTimerRef.current = null;
+                        }
                       }}
                       className="bg-primary text-white"
                     >
                       <Square className="h-4 w-4 mr-1" />
-                      {language === 'zh' ? '发送' : 'Send'}
+                      {language === 'zh' ? 'Send' : 'Send'}
                     </Button>
                   </div>
                 </div>
@@ -1514,6 +1579,7 @@ export default function CnChatPage() {
                         ref={inputRef}
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
+                        readOnly={isRealtimeVoiceInputActive}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault();
@@ -1522,7 +1588,10 @@ export default function CnChatPage() {
                         }}
                         placeholder={language === "zh" ? "输入消息..." : "Type a message..."}
                         rows={1}
-                        className="w-full min-w-0 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        className={cn(
+                          "w-full min-w-0 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50",
+                          isRealtimeVoiceInputActive && "opacity-90"
+                        )}
                         style={{ maxHeight: "100px" }}
                       />
                     </div>
@@ -1540,6 +1609,54 @@ export default function CnChatPage() {
                     </Button>
                   </div>
                 
+                  <div className="hidden sm:flex items-center justify-between gap-2">
+                    <Button
+                      variant={isRealtimeVoiceInputActive ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        if (isRealtimeVoiceInputActive) {
+                          stopRealtimeVoiceInput();
+                        } else {
+                          startRealtimeVoiceInput();
+                        }
+                      }}
+                      disabled={isRecording}
+                      className={cn(
+                        "h-8 px-3 text-xs",
+                        isRealtimeVoiceInputActive
+                          ? "bg-primary text-white hover:bg-primary/90"
+                          : "text-gray-600 hover:text-primary"
+                      )}
+                    >
+                      {isRealtimeVoiceInputActive ? (
+                        <Square className="h-3.5 w-3.5 mr-1.5" />
+                      ) : (
+                        <FileText className="h-3.5 w-3.5 mr-1.5" />
+                      )}
+                      {isCnDeployment ? "实时语音转文字" : "Realtime Speech to Text"}
+                    </Button>
+
+                    <div className="min-w-0 text-right">
+                      <p className={cn(
+                        "text-xs truncate",
+                        isRealtimeVoiceInputActive ? "text-primary" : "text-gray-500"
+                      )}>
+                        {isRealtimeVoiceInputActive
+                          ? "Listening..."
+                          : (isCnDeployment ? "发送前将语音转换为文字" : "Convert speech to text before sending")}
+                      </p>
+                      {isRealtimeVoiceInputActive && interimVoiceText && (
+                        <p className="text-[11px] text-gray-500 truncate">{interimVoiceText}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {isRealtimeVoiceInputActive && (
+                    <div className="sm:hidden px-1 text-xs text-primary truncate">
+                      {interimVoiceText ? interimVoiceText : "Listening..."}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-4 gap-2 w-full">
                     <div className="flex justify-center">
                       <Button
@@ -1577,79 +1694,67 @@ export default function CnChatPage() {
                       </Button>
                     </div>
 
-                    <div className="flex justify-center">
+                    <div className="hidden sm:flex justify-center">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-primary"
-                        onClick={async () => {
-                          try {
-                            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                            const mediaRecorder = new MediaRecorder(stream);
-                            audioChunksRef.current = [];
-                            mediaRecorderRef.current = mediaRecorder;
-
-                            mediaRecorder.ondataavailable = (e) => {
-                              if (e.data.size > 0) audioChunksRef.current.push(e.data);
-                            };
-
-                            mediaRecorder.onstop = async () => {
-                              stream.getTracks().forEach(t => t.stop());
-                              const duration = recordingDurationRef.current;
-
-                              if (audioChunksRef.current.length > 0 && selectedRoom && user?.id) {
-                                try {
-                                  const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-                                  const roomId = selectedRoom.otherUser?.id || selectedRoom.id;
-                                  const formData = new FormData();
-                                  formData.append("audio", audioBlob, "voice.webm");
-                                  formData.append("chatId", roomId);
-                                  formData.append("duration", String(duration));
-
-                                  const response = await fetch("/api/chat/upload-audio", {
-                                    method: "POST",
-                                    body: formData,
-                                  });
-
-                                  const result = await response.json();
-                                  if (result.success) {
-                                    const service = chatServiceRef.current;
-                                    if (service) {
-                                      const sendResult = await service.sendMessage({
-                                        roomId,
-                                        content: "[??]",
-                                        type: "audio",
-                                        metadata: { audioUrl: result.audio_url, duration },
-                                      });
-                                      if (sendResult.success && sendResult.message) {
-                                        setMessages(prev => [...prev, sendResult.message!]);
-                                        setTimeout(() => scrollToBottom(), 100);
-                                      }
-                                    }
-                                  }
-                                } catch (error) {
-                                  console.error("Audio upload error:", error);
-                                }
-                              }
-                              setRecordingDuration(0);
-                            };
-
-                            mediaRecorder.start(100);
-                            setIsRecording(true);
-
-                            recordingDurationRef.current = 0;
-                            recordingTimerRef.current = setInterval(() => {
-                              recordingDurationRef.current += 1;
-                              setRecordingDuration(recordingDurationRef.current);
-                              if (recordingDurationRef.current >= 60) mediaRecorderRef.current?.stop();
-                            }, 1000);
-                          } catch (err) {
-                            console.error("Microphone access denied:", err);
-                          }
+                        className={cn(
+                          "text-primary",
+                          isRealtimeVoiceInputActive && "text-gray-300"
+                        )}
+                        disabled={isRealtimeVoiceInputActive}
+                        title={
+                          isRealtimeVoiceInputActive
+                            ? (language === "zh" ? "Stop realtime speech-to-text first" : "Stop realtime speech-to-text first")
+                            : (language === "zh" ? "Send voice message" : "Send voice message")
+                        }
+                        onClick={() => {
+                          void startVoiceMessageRecording();
                         }}
                       >
                         <Mic className="h-5 w-5" />
                       </Button>
+                    </div>
+
+                    <div className="sm:hidden flex justify-center">
+                      {isRealtimeVoiceInputActive ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-primary bg-primary/10"
+                          onClick={stopRealtimeVoiceInput}
+                          title="Stop realtime speech-to-text"
+                        >
+                          <Square className="h-5 w-5" />
+                        </Button>
+                      ) : (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-primary"
+                              title="Voice options"
+                            >
+                              <Mic className="h-5 w-5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="center" side="top" className="w-44">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                void startVoiceMessageRecording();
+                              }}
+                            >
+                              <Mic className="h-4 w-4 mr-2" />
+                              {language === "zh" ? "Voice message" : "Voice message"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={startRealtimeVoiceInput}>
+                              <FileText className="h-4 w-4 mr-2" />
+                              {language === "zh" ? "Realtime transcription" : "Realtime transcription"}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                     </div>
                   </div>
                   <EmojiPicker
@@ -1689,7 +1794,7 @@ export default function CnChatPage() {
           <div className="flex-1 flex items-center justify-center text-gray-500">
             <div className="text-center">
               <MessageSquare className="h-16 w-16 mx-auto mb-4 opacity-30" />
-              <p className="text-lg">{language === 'zh' ? '选择一个会话开始聊天' : 'Select a conversation to start'}</p>
+              <p className="text-lg">{language === 'zh' ? 'Select a conversation to start' : 'Select a conversation to start'}</p>
             </div>
           </div>
         )}
@@ -1704,10 +1809,7 @@ export default function CnChatPage() {
           userInfoProvider={userInfoProvider}
           groupInfoProvider={groupInfoProvider}
           onCallStatusChanged={handleCallStatusChanged}
-          onEndCallWithReason={(reason) => {
-            setCallStatus('idle');
-            setLastCallEndReason(reason || 'unknown');
-          }}
+          onEndCallWithReason={handleEndCallWithReason}
           onCallError={handleCallError}
           onReady={setCallKitReady}
         />
@@ -1715,3 +1817,4 @@ export default function CnChatPage() {
     </div>
   );
 }
+

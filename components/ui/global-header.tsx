@@ -13,9 +13,8 @@ import { NotificationDropdown } from '@/components/dashboard/NotificationDropdow
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { getDownloadUrl } from '@/lib/config/download.config';
 import type { PlatformType, MacOSArchType } from '@/lib/config/download.config';
-import { getBrandName } from '@/lib/config/branding.config';
 
-export function GlobalHeader() {
+export function GlobalHeader({ brandName }: { brandName: string }) {
   const [showSettings, setShowSettings] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showDownload, setShowDownload] = useState(false);
@@ -107,19 +106,19 @@ export function GlobalHeader() {
   return (
     <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 fixed top-0 left-0 right-0 z-40 pt-[env(safe-area-inset-top)] md:pt-0">
       <div className="container mx-auto px-2 py-2 md:px-4 md:py-4">
-        <nav className="flex items-center justify-between gap-1">
+        <nav className="relative flex items-center justify-between gap-1">
           <div className="flex min-w-0 flex-1 items-center space-x-2 md:space-x-3">
             <Link href="/" className="flex min-w-0 items-center space-x-2 md:space-x-3">
               <div className="w-8 h-8 md:w-10 md:h-10 bg-primary rounded-lg flex items-center justify-center">
                 <Heart className="h-4 w-4 md:h-6 md:w-6 text-white" />
               </div>
               <span className="max-w-[8.5rem] truncate text-base sm:max-w-none sm:text-lg md:text-2xl font-bold text-gray-900 dark:text-white">
-                {getBrandName()}
+                {brandName}
               </span>
             </Link>
           </div>
 
-          <div className="hidden md:flex items-center gap-1">
+          <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-1 md:flex">
             {navItems.map((item) => {
               const active = isActiveHref(item.href);
               return (

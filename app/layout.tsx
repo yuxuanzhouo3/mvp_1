@@ -19,6 +19,10 @@ function resolveDeploymentRegion(headerStore: { get(name: string): string | null
   return process.env.NEXT_PUBLIC_DEPLOYMENT_REGION === 'CN' ? 'CN' : 'INTL';
 }
 
+function normalizeLanguage(value: string | null | undefined): Language | null {
+  return value === 'zh' || value === 'en' ? value : null;
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const headerStore = headers();
   const region = resolveDeploymentRegion(headerStore);
@@ -78,16 +82,20 @@ export default function RootLayout({
   const isChinaRegion = region === 'CN' || host.includes('mornscience.top');
   const isMiniProgram = isWechatMiniProgramUserAgent(userAgent);
   const themeClass = isChinaRegion ? 'theme-cn' : 'theme-intl-modern';
+  const initialBrandName = getBrandName({ isCN: isChinaRegion, isWechatMiniProgram: isMiniProgram });
+  const regionDefaultLanguage: Language = isChinaRegion ? 'zh' : 'en';
+  const normalizedCookieLang = normalizeLanguage(cookieLang);
+  const normalizedHeaderLang = normalizeLanguage(headerLang);
 
   const initialLanguage: Language = isAdminRoute
-    ? ((cookieLang === 'zh' || cookieLang === 'en') ? (cookieLang as Language) : 'zh')
-    : (cookieLang === 'zh' || cookieLang === 'en'
-      ? (cookieLang as Language)
-      : headerLang === 'zh' || headerLang === 'en'
-        ? (headerLang as Language)
+    ? (normalizedCookieLang ?? normalizedHeaderLang ?? regionDefaultLanguage)
+    : (normalizedCookieLang
+      ? normalizedCookieLang
+      : normalizedHeaderLang
+        ? normalizedHeaderLang
         : acceptLanguage.toLowerCase().includes('zh')
           ? 'zh'
-          : (isChinaRegion ? 'zh' : 'en'))
+          : regionDefaultLanguage)
 
   const htmlLang = initialLanguage === 'zh' ? 'zh-CN' : 'en'
 
@@ -107,7 +115,7 @@ export default function RootLayout({
         <ErrorBoundary>
           <Providers initialLanguage={initialLanguage} languageScope={isAdminRoute ? 'admin' : 'app'}>
             <div className="bg-background">
-              <ConditionalHeader />
+              <ConditionalHeader brandName={initialBrandName} />
               {children}
               <Toaster />
             </div>

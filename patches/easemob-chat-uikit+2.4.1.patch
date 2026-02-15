@@ -1,0 +1,37 @@
+diff --git a/node_modules/easemob-chat-uikit/ChatUI.esm.js b/node_modules/easemob-chat-uikit/ChatUI.esm.js
+index b9f7708..8deb79e 100644
+--- a/node_modules/easemob-chat-uikit/ChatUI.esm.js
++++ b/node_modules/easemob-chat-uikit/ChatUI.esm.js
+@@ -109542,18 +109542,23 @@ const isHueValue = (e) => typeof e == "number" && e >= 0 && e <= 360, isHexColor
+     uikitVersion: "1.6.0"
+   };
+   v && (ue.appKey = v);
+-  const ce = useMemo$1(() => new chatSDK.connection(ue), [v]);
+-  rootStore.setClient(ce), rootStore.setInitConfig(n), useEventHandler(e);
+-  let pe = {
+-    fallbackLng: "en",
+-    lng: "en",
+-    resources: resource
+-  };
+-  if (r && (pe = {
++  const ce = useMemo$1(() => new chatSDK.connection(ue), [v]), pe = useMemo$1(() => r ? {
+     lng: r.lng,
+     fallbackLng: r.fallbackLng || "en",
+     resources: r.resources || resource
+-  }), instance.use(initReactI18next).init(pe), useEffect(() => {
++  } : {
++    fallbackLng: "en",
++    lng: "en",
++    resources: resource
++  }, [r == null ? void 0 : r.lng, r == null ? void 0 : r.fallbackLng, r == null ? void 0 : r.resources]);
++  useEffect(() => {
++    rootStore.setClient(ce), rootStore.setInitConfig(n);
++  }, [ce, n]);
++  useEffect(() => {
++    instance.use(initReactI18next).init(pe);
++  }, [pe]);
++  useEventHandler(e);
++  if (useEffect(() => {
+     n.userId && n.token ? ce.open({
+       user: n.userId.toLowerCase(),
+       agoraToken: n.token

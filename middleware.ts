@@ -78,6 +78,7 @@ export async function middleware(request: NextRequest) {
   const deploymentRegion =
     envRegion === "CN" || envRegion === "INTL" ? envRegion : inferredRegionFromHost || "INTL";
   const isInternationalDeployment = deploymentRegion === "INTL";
+  const defaultLangForRegion: "zh" | "en" = isInternationalDeployment ? "en" : "zh";
 
   // 跳过静态资源和Next.js内部路由
   if (
@@ -113,7 +114,8 @@ export async function middleware(request: NextRequest) {
     // Admin 路由直接返回,不经过地理位置检测,设置请求头供根布局使用
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set("x-pathname", pathname);
-    requestHeaders.set("x-lang", "zh");
+    requestHeaders.set("x-lang", defaultLangForRegion);
+    requestHeaders.set("x-deployment-region", deploymentRegion);
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
 
@@ -138,7 +140,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const cookieLang = normalizeLang(request.cookies.get("lang")?.value || null);
-  const inferredLang: "zh" | "en" = isInternationalDeployment ? "en" : "zh";
+  const inferredLang: "zh" | "en" = defaultLangForRegion;
   const lang = cookieLang || inferredLang;
 
   // 跳过所有支付相关 API 路由，让它们直接通过

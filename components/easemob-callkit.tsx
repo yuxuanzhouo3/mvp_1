@@ -21,7 +21,7 @@
  * @param onReady      - 通知父组件 CallKit 是否就绪
  */
 
-import { useState, useEffect, useRef, useCallback, type RefObject } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type RefObject } from 'react';
 import type { CallKitRef } from 'easemob-chat-uikit';
 
 
@@ -238,6 +238,14 @@ export default function EasemobCallKit(props: EasemobCallKitProps) {
   const { appKey, language, userId } = props;
   const [resolvedAppKey, setResolvedAppKey] = useState(appKey);
   const prevAppKeyRef = useRef(appKey);
+  const providerInitConfig = useMemo(() => ({ appKey: resolvedAppKey }), [resolvedAppKey]);
+  const providerLocalConfig = useMemo(
+    () => ({
+      lng: language,
+      fallbackLng: 'en',
+    }),
+    [language]
+  );
   const handleResolvedAppKey = useCallback((nextKey: string) => {
     if (!nextKey) return;
     setResolvedAppKey((prev) => (prev === nextKey ? prev : nextKey));
@@ -257,11 +265,8 @@ export default function EasemobCallKit(props: EasemobCallKitProps) {
   return (
     <EasemobProvider
       key={resolvedAppKey}
-      initConfig={{ appKey: resolvedAppKey }}
-      local={{
-        lng: language,
-        fallbackLng: 'en',
-      }}
+      initConfig={providerInitConfig}
+      local={providerLocalConfig}
     >
       <EasemobCallKitInner {...props} appKey={resolvedAppKey} onResolvedAppKey={handleResolvedAppKey} />
     </EasemobProvider>
