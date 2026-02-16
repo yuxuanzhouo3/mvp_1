@@ -7,6 +7,7 @@ import { clearAllCaches } from '@/lib/utils/cache-cleaner';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 import { getAuthServiceAsync } from '@/lib/services/auth';
 import { isWechatMiniProgramWebView, requestWxMiniProgramLogin } from '@/lib/utils/miniprogram-compat';
+import { signOutFromNativeGoogleIfAvailable } from '@/lib/auth/native-google';
 
 interface AuthContextType {
   user: User | null;
@@ -505,6 +506,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const clearNativeWebviewCookiesIfAvailable = useCallback(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const runtimeWindow = window as any;
+      if (typeof runtimeWindow?.AndroidWeChatBridge?.resetLoginState === 'function') {
+        runtimeWindow.AndroidWeChatBridge.resetLoginState();
+        return;
+      }
+
+      if (typeof runtimeWindow?.median?.webview?.clearCookies === 'function') {
+        runtimeWindow.median.webview.clearCookies();
+        return;
+      }
+
+      if (typeof runtimeWindow?.gonative?.webview?.clearCookies === 'function') {
+        runtimeWindow.gonative.webview.clearCookies();
+        return;
+      }
+
+      if (typeof runtimeWindow?.JSBridge?.postMessage === 'function') {
+        runtimeWindow.JSBridge.postMessage('median://webview/clearCookies');
+      }
+    } catch (e) {
+      console.warn('[Auth] Failed to clear native webview cookies:', e);
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     console.log('🚪 SignOut called');
 
@@ -524,7 +553,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (e) {
           console.error('CN logout API error:', e);
         }
+        clearNativeWebviewCookiesIfAvailable();
         localStorage.removeItem('cn_user');
+      }
+
+      if (!isChinaDeployment()) {
+        try {
+          await signOutFromNativeGoogleIfAvailable();
+        } catch (nativeSignOutError) {
+          console.warn('Native Google sign-out warning:', nativeSignOutError);
+        }
       }
 
       // Clear Supabase session
@@ -553,7 +591,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clearNativeWebviewCookiesIfAvailable]);
 
   const value = {
     user,

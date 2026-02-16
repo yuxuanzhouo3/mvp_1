@@ -20,12 +20,14 @@ import {
   canUseNativeGoogleSignIn,
   signInWithNativeGoogleForSupabase,
 } from '@/lib/auth/native-google';
-import { Mail, Lock, User, CheckCircle, Sparkles, Shield, Check, X } from 'lucide-react';
+import { Mail, Lock, User, CheckCircle, Sparkles, Shield, Check, X, Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [isSendingCode, setIsSendingCode] = useState(false);
@@ -409,13 +411,24 @@ export default function RegisterPage() {
                   </div>
                   <Input
                     {...form.register('password')}
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     placeholder={t.auth.register.passwordPlaceholder}
-                    className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
+                    className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                     autoComplete="new-password"
                     onFocus={() => setPasswordFocused(true)}
                     onBlur={() => setPasswordFocused(false)}
                   />
+                  <button
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors"
+                    aria-label={showPassword ? (language === 'zh' ? '隐藏密码' : 'Hide password') : (language === 'zh' ? '显示密码' : 'Show password')}
+                    aria-pressed={showPassword}
+                    title={showPassword ? (language === 'zh' ? '隐藏密码' : 'Hide password') : (language === 'zh' ? '显示密码' : 'Show password')}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
                 {/* Password validation hints */}
                 {(passwordFocused || password.length > 0) && (
@@ -461,11 +474,22 @@ export default function RegisterPage() {
                   </div>
                   <Input
                     {...form.register('confirmPassword')}
-                    type="password"
+                    type={showConfirmPassword ? 'text' : 'password'}
                     placeholder={t.auth.register.confirmPasswordPlaceholder}
-                    className="pl-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
+                    className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                     autoComplete="new-password"
                   />
+                  <button
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors"
+                    aria-label={showConfirmPassword ? (language === 'zh' ? '隐藏密码' : 'Hide password') : (language === 'zh' ? '显示密码' : 'Show password')}
+                    aria-pressed={showConfirmPassword}
+                    title={showConfirmPassword ? (language === 'zh' ? '隐藏密码' : 'Hide password') : (language === 'zh' ? '显示密码' : 'Show password')}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
                 </div>
                 {form.formState.errors.confirmPassword && (
                   <p className="text-sm text-red-400">

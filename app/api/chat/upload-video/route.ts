@@ -13,8 +13,25 @@ import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-
 
 export const dynamic = 'force-dynamic';
 
-const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB
-const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
+const DEFAULT_MAX_VIDEO_SIZE_MB = 200;
+const configuredMaxVideoSizeMbRaw = Number(
+  process.env.CHAT_UPLOAD_VIDEO_MAX_MB ??
+  process.env.NEXT_PUBLIC_CHAT_MAX_VIDEO_SIZE_MB ??
+  DEFAULT_MAX_VIDEO_SIZE_MB
+);
+const MAX_VIDEO_SIZE_MB = Number.isFinite(configuredMaxVideoSizeMbRaw) && configuredMaxVideoSizeMbRaw > 0
+  ? Math.floor(configuredMaxVideoSizeMbRaw)
+  : DEFAULT_MAX_VIDEO_SIZE_MB;
+const MAX_VIDEO_SIZE = MAX_VIDEO_SIZE_MB * 1024 * 1024;
+const ALLOWED_VIDEO_TYPES = [
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+  'video/x-msvideo',
+  'video/x-m4v',
+  'video/3gpp',
+  'video/mpeg',
+];
 
 function createSupabaseAdmin() {
   const url = getSupabaseUrl();
@@ -123,9 +140,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Chat ID required' }, { status: 400 });
     }
 
+    if (!ALLOWED_VIDEO_TYPES.includes(video.type)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid video type. Please upload MP4/WebM/MOV/AVI/M4V/3GP/MPEG.' },
+        { status: 400 }
+      );
+    }
+
     if (video.size > MAX_VIDEO_SIZE) {
       return NextResponse.json(
-        { success: false, error: 'Video too large. Maximum size is 50MB.' },
+        { success: false, error: `Video too large. Maximum size is ${MAX_VIDEO_SIZE_MB}MB.` },
         { status: 400 }
       );
     }

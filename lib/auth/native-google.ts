@@ -7,11 +7,14 @@ type NativeGoogleAccount = {
   displayName?: string;
 };
 
-type NativeGoogleSignInResult = {
+type NativeGoogleBridgeResult = {
   success?: boolean;
   status?: string;
   errorCode?: string;
   errorMessage?: string;
+};
+
+type NativeGoogleSignInResult = NativeGoogleBridgeResult & {
   idToken?: string;
   account?: NativeGoogleAccount;
 };
@@ -24,9 +27,18 @@ type NativeGoogleSignInFn = (
   params: NativeGoogleSignInParams
 ) => Promise<NativeGoogleSignInResult>;
 
+type NativeGoogleSignOutParams = {
+  serverClientId?: string;
+};
+
+type NativeGoogleSignOutFn = (
+  params?: NativeGoogleSignOutParams
+) => Promise<NativeGoogleBridgeResult>;
+
 type MedianLikeAuth = {
   auth?: {
     googleSignIn?: NativeGoogleSignInFn;
+    googleSignOut?: NativeGoogleSignOutFn;
   };
 };
 
@@ -45,6 +57,18 @@ function getNativeGoogleSignInFn(): NativeGoogleSignInFn | null {
 
   const goNativeSignIn = window.gonative?.auth?.googleSignIn;
   if (typeof goNativeSignIn === "function") return goNativeSignIn;
+
+  return null;
+}
+
+function getNativeGoogleSignOutFn(): NativeGoogleSignOutFn | null {
+  if (typeof window === "undefined") return null;
+
+  const medianSignOut = window.median?.auth?.googleSignOut;
+  if (typeof medianSignOut === "function") return medianSignOut;
+
+  const goNativeSignOut = window.gonative?.auth?.googleSignOut;
+  if (typeof goNativeSignOut === "function") return goNativeSignOut;
 
   return null;
 }
@@ -76,11 +100,14 @@ function extractIdToken(result: NativeGoogleSignInResult): string {
   return token.trim();
 }
 
-function getNativeErrorMessage(result: NativeGoogleSignInResult): string {
+function getNativeErrorMessage(
+  result: NativeGoogleBridgeResult,
+  fallbackMessage: string
+): string {
   return (
     result.errorMessage ||
     result.errorCode ||
-    "Google sign-in failed inside the app"
+    fallbackMessage
   );
 }
 
@@ -120,7 +147,9 @@ export async function signInWithNativeGoogleForSupabase(): Promise<void> {
     nativeResult.success === false ||
     nativeResult.status === "error"
   ) {
-    throw new Error(getNativeErrorMessage(nativeResult || {}));
+    throw new Error(
+      getNativeErrorMessage(nativeResult || {}, "Google sign-in failed inside the app")
+    );
   }
 
   const idToken = extractIdToken(nativeResult);
@@ -136,5 +165,26 @@ export async function signInWithNativeGoogleForSupabase(): Promise<void> {
 
   if (error || !data.session?.access_token) {
     throw new Error(error?.message || "Failed to create Supabase session");
+  }
+}
+
+export async function signOutFromNativeGoogleIfAvailable(): Promise<void> {
+  if (typeof window === "undefined" || !isAppContainer()) return;
+
+  const nativeSignOut = getNativeGoogleSignOutFn();
+  if (!nativeSignOut) return;
+
+  const serverClientId = getGoogleServerClientId();
+  const nativeResult = await nativeSignOut(
+    serverClientId ? { serverClientId } : undefined
+  );
+
+  if (
+    nativeResult &&
+    (nativeResult.success === false || nativeResult.status === "error")
+  ) {
+    throw new Error(
+      getNativeErrorMessage(nativeResult, "Google sign-out failed inside the app")
+    );
   }
 }

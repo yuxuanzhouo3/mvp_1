@@ -94,6 +94,11 @@ export default function CnChatPage() {
   const { language } = useLanguage();
   const { toast } = useToast();
   const isCnDeployment = isChinaDeployment();
+  const configuredMaxVideoSizeMb = Number(process.env.NEXT_PUBLIC_CHAT_MAX_VIDEO_SIZE_MB ?? 200);
+  const maxVideoSizeMb = Number.isFinite(configuredMaxVideoSizeMb) && configuredMaxVideoSizeMb > 0
+    ? Math.floor(configuredMaxVideoSizeMb)
+    : 200;
+  const maxVideoSizeBytes = maxVideoSizeMb * 1024 * 1024;
 
   // State
   const [mounted, setMounted] = useState(false);
@@ -221,6 +226,18 @@ export default function CnChatPage() {
           isOnline,
         },
       };
+    });
+  }, []);
+
+  const toggleRoomPin = useCallback((roomId: string) => {
+    setPinnedRoomIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomId)) {
+        next.delete(roomId);
+      } else {
+        next.add(roomId);
+      }
+      return next;
     });
   }, []);
 
@@ -1116,9 +1133,18 @@ export default function CnChatPage() {
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-800 rounded-full" />
                   )}
                   {pinnedRoomIds.has(room.id) && (
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center">
+                    <button
+                      type="button"
+                      className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full flex items-center justify-center"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        toggleRoomPin(room.id);
+                      }}
+                      title={language === 'zh' ? '取消置顶' : 'Unpin'}
+                      aria-label={language === 'zh' ? '取消置顶' : 'Unpin'}
+                    >
                       <Pin className="h-2.5 w-2.5 text-white" />
-                    </div>
+                    </button>
                   )}
                 </div>
 
@@ -1228,21 +1254,10 @@ export default function CnChatPage() {
                       <SearchIcon className="h-4 w-4 mr-2" />
                       {language === 'zh' ? '搜索消息' : 'Search Messages'}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => {
-                      const roomId = selectedRoom.id;
-                      setPinnedRoomIds(prev => {
-                        const newSet = new Set(prev);
-                        if (newSet.has(roomId)) {
-                          newSet.delete(roomId);
-                        } else {
-                          newSet.add(roomId);
-                        }
-                        return newSet;
-                      });
-                    }}>
+                    <DropdownMenuItem onClick={() => toggleRoomPin(selectedRoom.id)}>
                       <Pin className="h-4 w-4 mr-2" />
                       {pinnedRoomIds.has(selectedRoom.id)
-                        ? (language === 'zh' ? 'Unpin' : 'Unpin')
+                        ? (language === 'zh' ? '取消置顶' : 'Unpin')
                         : (language === 'zh' ? '置顶会话' : 'Pin Chat')
                       }
                     </DropdownMenuItem>
@@ -1472,8 +1487,20 @@ export default function CnChatPage() {
                     setIsSending(true);
                     const roomId = selectedRoom.otherUser?.id || selectedRoom.id;
                     const service = chatServiceRef.current;
+                    const failedUploads: string[] = [];
 
                     for (const file of files) {
+                      if (file.size > maxVideoSizeBytes) {
+                        failedUploads.push(
+                          `${file.name}: ${
+                            language === 'zh'
+                              ? `视频大小超过 ${maxVideoSizeMb}MB`
+                              : `Video size exceeds ${maxVideoSizeMb}MB`
+                          }`
+                        );
+                        continue;
+                      }
+
                       const formData = new FormData();
                       formData.append('video', file);
                       formData.append('chatId', roomId);
@@ -1484,9 +1511,13 @@ export default function CnChatPage() {
                         body: formData,
                       });
 
-                      const result = await response.json();
-                      if (!result.success) {
-                        console.error('Video upload failed:', result.error);
+                      const result = await response.json().catch(() => null);
+                      if (!response.ok || !result?.success) {
+                        const uploadError = typeof result?.error === 'string'
+                          ? result.error
+                          : `${response.status} ${response.statusText}`;
+                        failedUploads.push(`${file.name}: ${uploadError}`);
+                        console.error('Video upload failed:', uploadError);
                         continue;
                       }
 
@@ -1504,8 +1535,26 @@ export default function CnChatPage() {
                         if (sendResult.success && sendResult.message) {
                           setMessages(prev => [...prev, sendResult.message!]);
                           setTimeout(() => scrollToBottom(), 100);
+                        } else {
+                          failedUploads.push(
+                            `${file.name}: ${
+                              language === 'zh' ? '视频消息发送失败' : 'Failed to send video message'
+                            }`
+                          );
                         }
                       }
+                    }
+
+                    if (failedUploads.length > 0) {
+                      const firstError = failedUploads[0];
+                      const moreErrorCount = failedUploads.length - 1;
+                      toast({
+                        title: language === 'zh' ? '视频上传失败' : 'Video upload failed',
+                        description: moreErrorCount > 0
+                          ? `${firstError}${language === 'zh' ? `（另有 ${moreErrorCount} 个失败）` : ` (${moreErrorCount} more failed)`}`
+                          : firstError,
+                        variant: 'destructive',
+                      });
                     }
 
                     if (caption && service) {
@@ -1521,6 +1570,11 @@ export default function CnChatPage() {
                     }
                   } catch (error) {
                     console.error('Video upload error:', error);
+                    toast({
+                      title: language === 'zh' ? '视频上传失败' : 'Video upload failed',
+                      description: language === 'zh' ? '请稍后重试' : 'Please try again later',
+                      variant: 'destructive',
+                    });
                   } finally {
                     setIsSending(false);
                     if (videoInputRef.current) videoInputRef.current.value = "";

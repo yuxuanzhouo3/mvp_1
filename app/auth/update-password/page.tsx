@@ -51,6 +51,13 @@ function UpdatePasswordContent() {
     resolver: zodResolver(updatePasswordSchema),
   });
 
+  const allPasswordsVisible = showPassword && showConfirmPassword;
+  const toggleAllPasswordsVisible = () => {
+    const nextVisible = !allPasswordsVisible;
+    setShowPassword(nextVisible);
+    setShowConfirmPassword(nextVisible);
+  };
+
   useEffect(() => {
     if (isCN) {
       if (cnEmail && cnCode) {
@@ -288,6 +295,18 @@ function UpdatePasswordContent() {
 
           <CardContent className="space-y-6">
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={toggleAllPasswordsVisible}
+                  className="text-xs text-primary hover:text-primary/80 transition-colors"
+                >
+                  {language === 'zh'
+                    ? (allPasswordsVisible ? '隐藏密码' : '显示密码')
+                    : (allPasswordsVisible ? 'Hide passwords' : 'Show passwords')}
+                </button>
+              </div>
+
               <div className="space-y-2">
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -299,7 +318,14 @@ function UpdatePasswordContent() {
                     placeholder={t.updatePassword.newPasswordPlaceholder}
                     className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                   />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors"
+                    aria-label={showPassword ? (language === 'zh' ? '隐藏密码' : 'Hide password') : (language === 'zh' ? '显示密码' : 'Show password')}
+                    aria-pressed={showPassword}
+                    title={showPassword ? (language === 'zh' ? '隐藏密码' : 'Hide password') : (language === 'zh' ? '显示密码' : 'Show password')}
+                  >
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
@@ -321,7 +347,14 @@ function UpdatePasswordContent() {
                     placeholder={t.updatePassword.confirmPasswordPlaceholder}
                     className="pl-10 pr-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary focus:ring-primary/50 transition-all duration-300 shadow-sm"
                   />
-                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-primary transition-colors"
+                    aria-label={showConfirmPassword ? (language === 'zh' ? '隐藏密码' : 'Hide password') : (language === 'zh' ? '显示密码' : 'Show password')}
+                    aria-pressed={showConfirmPassword}
+                    title={showConfirmPassword ? (language === 'zh' ? '隐藏密码' : 'Hide password') : (language === 'zh' ? '显示密码' : 'Show password')}
+                  >
                     {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
