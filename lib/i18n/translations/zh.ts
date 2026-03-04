@@ -254,7 +254,7 @@ export const zh = {
     // 注册
     register: {
       title: '创建账户',
-      subtitle: '加入PersonaLink找到你的完美AI朋友匹配',
+      subtitle: '加入PersonaLink找到你的AI朋友匹配',
       fullNamePlaceholder: '输入你的全名',
       emailPlaceholder: '输入你的邮箱',
       passwordPlaceholder: '创建密码',
