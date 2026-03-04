@@ -9,12 +9,18 @@ import { cookies } from "next/headers";
 const SESSION_COOKIE_NAME = "admin_session";
 const SESSION_MAX_AGE = 60 * 60 * 24; // 24小时
 
-// 生产环境强制要求设置密钥
-const SECRET_KEY = process.env.ADMIN_SESSION_SECRET;
-if (!SECRET_KEY && process.env.NODE_ENV === "production") {
-  throw new Error("[session] ADMIN_SESSION_SECRET 环境变量未设置,生产环境必须配置此密钥");
+function getSessionSecret(): string {
+  const key = process.env.ADMIN_SESSION_SECRET;
+  if (!key && process.env.NODE_ENV === "production") {
+    throw new Error("[session] ADMIN_SESSION_SECRET 环境变量未设置,生产环境必须配置此密钥");
+  }
+  return key || "dev-only-secret-key";
 }
-const SESSION_SECRET = SECRET_KEY || "dev-only-secret-key";
+let _sessionSecret: string | null = null;
+function SESSION_SECRET(): string {
+  if (_sessionSecret === null) _sessionSecret = getSessionSecret();
+  return _sessionSecret;
+}
 
 export interface AdminSession {
   userId: string;
@@ -32,7 +38,7 @@ function encryptSession(session: AdminSession): string {
   const encoded = Buffer.from(payload).toString("base64");
   // 添加简单签名
   const signature = Buffer.from(
-    `${encoded}.${SESSION_SECRET}`
+    `${encoded}.${SESSION_SECRET()}`
   ).toString("base64");
   return `${encoded}.${signature.slice(0, 16)}`;
 }
@@ -44,7 +50,7 @@ function decryptSession(token: string): AdminSession | null {
 
     // 验证签名
     const expectedSig = Buffer.from(
-      `${encoded}.${SESSION_SECRET}`
+      `${encoded}.${SESSION_SECRET()}`
     ).toString("base64").slice(0, 16);
 
     if (sig !== expectedSig) return null;

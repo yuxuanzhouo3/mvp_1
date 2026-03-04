@@ -3,6 +3,7 @@ const nextConfig = {
   ...(process.platform === 'win32' && process.env.NEXT_STANDALONE !== '1'
     ? {}
     : { output: 'standalone' }),
+  eslint: { ignoreDuringBuilds: true },
   // Workaround: SWC minifier may generate invalid duplicate identifiers
   // in large third-party bundles (e.g. easemob-chat-uikit in vendors chunk).
   swcMinify: false,

@@ -1,6 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
 
-// Create a singleton Supabase client to prevent multiple instances
 let supabaseClient: ReturnType<typeof createBrowserClient> | null = null
 
 export function getSupabaseClient() {
@@ -12,16 +11,17 @@ export function getSupabaseClient() {
       throw new Error('Missing Supabase environment variables')
     }
 
-    // Use createBrowserClient from @supabase/ssr to ensure cookies are properly set
-    // This allows middleware to read the session from cookies
     supabaseClient = createBrowserClient(supabaseUrl, supabaseAnonKey)
   }
 
   return supabaseClient
 }
 
-// Export the client directly for convenience
-export const supabase = getSupabaseClient()
+export const supabase = new Proxy({} as ReturnType<typeof createBrowserClient>, {
+  get(_, prop) {
+    return (getSupabaseClient() as any)[prop];
+  },
+});
 
 export type Database = {
   public: {
