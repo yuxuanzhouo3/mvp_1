@@ -15,7 +15,7 @@ import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-
 
 export const dynamic = 'force-dynamic';
 
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_IMAGE_SIZE = 100 * 1024 * 1024; // 100MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 function createSupabaseAdmin() {
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     if (image.size > MAX_IMAGE_SIZE) {
       return NextResponse.json(
-        { success: false, error: 'Image too large. Maximum size is 5MB.' },
+        { success: false, error: 'Sending exceeds the limit.' },
         { status: 400 }
       );
     }

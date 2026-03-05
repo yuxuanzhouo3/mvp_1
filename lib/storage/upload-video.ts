@@ -6,17 +6,11 @@
 import { getSupabaseClient } from '@/lib/supabase/client';
 import { isChinaDeployment } from '@/lib/config/deployment.config';
 
-const DEFAULT_MAX_VIDEO_SIZE_MB = 200;
-const configuredMaxVideoSizeMbRaw = Number(
-  process.env.NEXT_PUBLIC_CHAT_MAX_VIDEO_SIZE_MB ?? DEFAULT_MAX_VIDEO_SIZE_MB
-);
-const MAX_VIDEO_SIZE_MB = Number.isFinite(configuredMaxVideoSizeMbRaw) && configuredMaxVideoSizeMbRaw > 0
-  ? Math.floor(configuredMaxVideoSizeMbRaw)
-  : DEFAULT_MAX_VIDEO_SIZE_MB;
+const MAX_VIDEO_SIZE_MB = 2048;
 
 // 视频上传配置
 const CONFIG = {
-  // 最大文件大小（默认 200MB，可通过 NEXT_PUBLIC_CHAT_MAX_VIDEO_SIZE_MB 调整）
+  // 最大文件大小（2GB）
   MAX_FILE_SIZE: MAX_VIDEO_SIZE_MB * 1024 * 1024,
   // 允许的视频类型
   ALLOWED_TYPES: [
@@ -170,7 +164,7 @@ export async function uploadChatVideo(options: VideoUploadOptions): Promise<Vide
     if (videoBlob.size > CONFIG.MAX_FILE_SIZE) {
       return {
         success: false,
-        error: `Video file too large. Maximum size is ${MAX_VIDEO_SIZE_MB}MB.`,
+        error: 'Sending exceeds the limit.',
       };
     }
 

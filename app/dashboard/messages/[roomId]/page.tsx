@@ -79,6 +79,11 @@ export default function ChatRoomPage() {
   const roomId = typeof params?.roomId === 'string' ? params.roomId : '';
   const showVoiceCallButton = isFeatureEnabled('chat', 'voiceCall');
   const showVideoCallButton = isFeatureEnabled('chat', 'videoCall');
+  const maxImageSizeBytes = 100 * 1024 * 1024;
+  const maxVideoSizeBytes = 2 * 1024 * 1024 * 1024;
+  const overLimitMessage = isChinaDeployment() ? '发送已超过限制。' : 'Sending exceeds the limit.';
+  const isOverLimitError = (message?: string) =>
+    typeof message === 'string' && /(too large|exceeds the limit|超过限制|大小超过)/i.test(message);
 
   const [mounted, setMounted] = useState(false);
   const [chatUser, setChatUser] = useState<ChatUser | null>(null);
@@ -331,6 +336,13 @@ export default function ChatRoomPage() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !roomId) return;
+    if (file.size > maxImageSizeBytes) {
+      alert(overLimitMessage);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
 
     try {
       setIsUploading(true);
@@ -346,7 +358,11 @@ export default function ChatRoomPage() {
         setTimeout(() => scrollToBottom(), 100);
       } else {
         console.error('图片上传失败:', result.error);
-        alert(result.error || (language === 'zh' ? '图片上传失败' : 'Failed to upload image'));
+        alert(
+          isOverLimitError(result.error)
+            ? overLimitMessage
+            : (result.error || (language === 'zh' ? '图片上传失败' : 'Failed to upload image'))
+        );
       }
     } catch (err) {
       console.error('图片上传异常:', err);
@@ -366,6 +382,13 @@ export default function ChatRoomPage() {
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !roomId) return;
+    if (file.size > maxVideoSizeBytes) {
+      alert(overLimitMessage);
+      if (videoInputRef.current) {
+        videoInputRef.current.value = '';
+      }
+      return;
+    }
 
     // 获取视频时长
     const getVideoDuration = (file: File): Promise<number> => {
@@ -402,7 +425,11 @@ export default function ChatRoomPage() {
         setTimeout(() => scrollToBottom(), 100);
       } else {
         console.error('视频上传失败:', result.error);
-        alert(result.error || (language === 'zh' ? '视频上传失败' : 'Failed to upload video'));
+        alert(
+          isOverLimitError(result.error)
+            ? overLimitMessage
+            : (result.error || (language === 'zh' ? '视频上传失败' : 'Failed to upload video'))
+        );
       }
     } catch (err) {
       console.error('视频上传异常:', err);

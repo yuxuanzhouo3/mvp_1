@@ -94,11 +94,12 @@ export default function CnChatPage() {
   const { language } = useLanguage();
   const { toast } = useToast();
   const isCnDeployment = isChinaDeployment();
-  const configuredMaxVideoSizeMb = Number(process.env.NEXT_PUBLIC_CHAT_MAX_VIDEO_SIZE_MB ?? 200);
-  const maxVideoSizeMb = Number.isFinite(configuredMaxVideoSizeMb) && configuredMaxVideoSizeMb > 0
-    ? Math.floor(configuredMaxVideoSizeMb)
-    : 200;
+  const maxImageSizeBytes = 100 * 1024 * 1024;
+  const maxVideoSizeMb = 2048;
   const maxVideoSizeBytes = maxVideoSizeMb * 1024 * 1024;
+  const overLimitMessage = isCnDeployment ? '发送已超过限制。' : 'Sending exceeds the limit.';
+  const isOverLimitError = (message?: string) =>
+    typeof message === 'string' && /(too large|exceeds the limit|超过限制|大小超过)/i.test(message);
 
   // State
   const [mounted, setMounted] = useState(false);
@@ -1419,8 +1420,14 @@ export default function CnChatPage() {
                     setIsSending(true);
                     const roomId = selectedRoom.otherUser?.id || selectedRoom.id;
                     const service = chatServiceRef.current;
+                    const failedUploads: string[] = [];
 
                     for (const file of files) {
+                      if (file.size > maxImageSizeBytes) {
+                        failedUploads.push(`${file.name}: ${overLimitMessage}`);
+                        continue;
+                      }
+
                       const formData = new FormData();
                       formData.append('image', file);
                       formData.append('chatId', roomId);
@@ -1430,9 +1437,14 @@ export default function CnChatPage() {
                         body: formData,
                       });
 
-                      const result = await response.json();
-                      if (!result.success) {
-                        console.error('Image upload failed:', result.error);
+                      const result = await response.json().catch(() => null);
+                      if (!response.ok || !result?.success) {
+                        const uploadError = typeof result?.error === 'string'
+                          ? result.error
+                          : `${response.status} ${response.statusText}`;
+                        const normalizedError = isOverLimitError(uploadError) ? overLimitMessage : uploadError;
+                        failedUploads.push(`${file.name}: ${normalizedError}`);
+                        console.error('Image upload failed:', uploadError);
                         continue;
                       }
 
@@ -1448,6 +1460,18 @@ export default function CnChatPage() {
                           setTimeout(() => scrollToBottom(), 100);
                         }
                       }
+                    }
+
+                    if (failedUploads.length > 0) {
+                      const firstError = failedUploads[0];
+                      const moreErrorCount = failedUploads.length - 1;
+                      toast({
+                        title: language === 'zh' ? '图片上传失败' : 'Image upload failed',
+                        description: moreErrorCount > 0
+                          ? `${firstError}${language === 'zh' ? `（另有 ${moreErrorCount} 个失败）` : ` (${moreErrorCount} more failed)`}`
+                          : firstError,
+                        variant: 'destructive',
+                      });
                     }
 
                     if (caption && service) {
@@ -1491,13 +1515,7 @@ export default function CnChatPage() {
 
                     for (const file of files) {
                       if (file.size > maxVideoSizeBytes) {
-                        failedUploads.push(
-                          `${file.name}: ${
-                            language === 'zh'
-                              ? `视频大小超过 ${maxVideoSizeMb}MB`
-                              : `Video size exceeds ${maxVideoSizeMb}MB`
-                          }`
-                        );
+                        failedUploads.push(`${file.name}: ${overLimitMessage}`);
                         continue;
                       }
 
@@ -1516,7 +1534,8 @@ export default function CnChatPage() {
                         const uploadError = typeof result?.error === 'string'
                           ? result.error
                           : `${response.status} ${response.statusText}`;
-                        failedUploads.push(`${file.name}: ${uploadError}`);
+                        const normalizedError = isOverLimitError(uploadError) ? overLimitMessage : uploadError;
+                        failedUploads.push(`${file.name}: ${normalizedError}`);
                         console.error('Video upload failed:', uploadError);
                         continue;
                       }

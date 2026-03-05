@@ -13,15 +13,7 @@ import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-
 
 export const dynamic = 'force-dynamic';
 
-const DEFAULT_MAX_VIDEO_SIZE_MB = 200;
-const configuredMaxVideoSizeMbRaw = Number(
-  process.env.CHAT_UPLOAD_VIDEO_MAX_MB ??
-  process.env.NEXT_PUBLIC_CHAT_MAX_VIDEO_SIZE_MB ??
-  DEFAULT_MAX_VIDEO_SIZE_MB
-);
-const MAX_VIDEO_SIZE_MB = Number.isFinite(configuredMaxVideoSizeMbRaw) && configuredMaxVideoSizeMbRaw > 0
-  ? Math.floor(configuredMaxVideoSizeMbRaw)
-  : DEFAULT_MAX_VIDEO_SIZE_MB;
+const MAX_VIDEO_SIZE_MB = 2048;
 const MAX_VIDEO_SIZE = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 const ALLOWED_VIDEO_TYPES = [
   'video/mp4',
@@ -149,7 +141,7 @@ export async function POST(request: NextRequest) {
 
     if (video.size > MAX_VIDEO_SIZE) {
       return NextResponse.json(
-        { success: false, error: `Video too large. Maximum size is ${MAX_VIDEO_SIZE_MB}MB.` },
+        { success: false, error: 'Sending exceeds the limit.' },
         { status: 400 }
       );
     }

@@ -7,8 +7,8 @@ import { getSupabaseClient } from '@/lib/supabase/client';
 
 // 图片上传配置
 const CONFIG = {
-  // 最大文件大小 (10MB)
-  MAX_FILE_SIZE: 10 * 1024 * 1024,
+  // 最大文件大小 (100MB)
+  MAX_FILE_SIZE: 100 * 1024 * 1024,
   // 允许的图片类型
   ALLOWED_TYPES: ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'],
   // 压缩质量 (0-1)
@@ -167,7 +167,7 @@ export async function uploadChatImage(options: ImageUploadOptions): Promise<Uplo
     if (file.size > CONFIG.MAX_FILE_SIZE) {
       return {
         success: false,
-        error: `图片大小超过限制 (最大 ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB)`,
+        error: 'Sending exceeds the limit.',
       };
     }
 
