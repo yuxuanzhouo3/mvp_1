@@ -15,7 +15,6 @@ import { getSupabaseUrl, isPlaceholderSupabaseUrl } from '@/lib/config/supabase-
 import {
   validatePhotoBuffer,
   ALLOWED_MIME_TYPES,
-  MAX_FILE_SIZE,
 } from '@/lib/services/photoValidation';
 
 // Force dynamic rendering - no caching
@@ -195,13 +194,6 @@ export async function POST(request: NextRequest) {
     if (!ALLOWED_TYPES.includes(file.type as any)) {
       return NextResponse.json(
         { success: false, error: 'Invalid file type. Only JPG, PNG, and WebP are allowed.' },
-        { status: 400 }
-      );
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { success: false, error: 'File too large. Maximum size is 5MB.' },
         { status: 400 }
       );
     }

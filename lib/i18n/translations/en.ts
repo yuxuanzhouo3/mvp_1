@@ -1452,7 +1452,7 @@ export const en = {
     photos: 'Photos',
     dragOrClick: 'Drag photos here or click to upload',
     dropHere: 'Drop photos here',
-    photoRequirements: 'JPG, PNG or WebP, max 5MB each',
+    photoRequirements: 'JPG, PNG or WebP',
     primaryPhoto: 'Primary Photo',
     additionalPhotos: 'Additional Photos',
     setAsPrimary: 'Set as primary',

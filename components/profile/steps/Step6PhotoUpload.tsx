@@ -31,9 +31,7 @@ interface PhotoItem {
   error?: string;
 }
 
-const MAX_PHOTOS = 6;
 const MIN_PHOTOS = 1;
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
 export default function Step6PhotoUpload({ data, onUpdate, onValidChange }: Step6Props) {
@@ -82,37 +80,34 @@ export default function Step6PhotoUpload({ data, onUpdate, onValidChange }: Step
     if (!ALLOWED_TYPES.includes(file.type)) {
       return t.profileSetup?.invalidFileType || 'Only JPG, PNG, and WebP images are allowed';
     }
-    if (file.size > MAX_FILE_SIZE) {
-      return t.profileSetup?.fileTooLarge || 'File size must be less than 5MB';
-    }
     return null;
   };
 
   const handleFiles = useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
-    const remainingSlots = MAX_PHOTOS - photos.length;
-    const filesToAdd = fileArray.slice(0, remainingSlots);
 
-    filesToAdd.forEach((file) => {
+    fileArray.forEach((file) => {
       const error = validateFile(file);
       const reader = new FileReader();
       
       reader.onload = (e) => {
-        const newPhoto: PhotoItem = {
-          id: `photo-${Date.now()}-${Math.random()}`,
-          file,
-          preview: e.target?.result as string,
-          is_primary: photos.length === 0,
-          error: error || undefined,
-        };
-        
-        setPhotos(prev => [...prev, newPhoto]);
+        setPhotos((prev) => {
+          const shouldBePrimary = prev.length === 0 || !prev.some((p) => p.is_primary);
+          const newPhoto: PhotoItem = {
+            id: `photo-${Date.now()}-${Math.random()}`,
+            file,
+            preview: e.target?.result as string,
+            is_primary: shouldBePrimary,
+            error: error || undefined,
+          };
+          return [...prev, newPhoto];
+        });
       };
       
       reader.readAsDataURL(file);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [photos.length]);
+  }, [t]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -169,8 +164,8 @@ export default function Step6PhotoUpload({ data, onUpdate, onValidChange }: Step
           <Camera className="w-5 h-5 text-primary" />
           {t.profileSetup?.photos || 'Photos'} <span className="text-red-500">*</span>
         </Label>
-        <span className={`text-sm ${photos.length >= MAX_PHOTOS ? 'text-orange-500' : 'text-gray-500'}`}>
-          {photos.length} / {MAX_PHOTOS}
+        <span className="text-sm text-gray-500">
+          {photos.length}
         </span>
       </div>
 
@@ -186,9 +181,9 @@ export default function Step6PhotoUpload({ data, onUpdate, onValidChange }: Step
             ? 'border-primary bg-primary/5' 
             : 'border-gray-300 dark:border-gray-600 hover:border-primary/50'
           }
-          ${photos.length >= MAX_PHOTOS ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+          cursor-pointer
         `}
-        onClick={() => photos.length < MAX_PHOTOS && fileInputRef.current?.click()}
+        onClick={() => fileInputRef.current?.click()}
       >
         <input
           ref={fileInputRef}
@@ -197,7 +192,6 @@ export default function Step6PhotoUpload({ data, onUpdate, onValidChange }: Step
           multiple
           onChange={handleFileInput}
           className="hidden"
-          disabled={photos.length >= MAX_PHOTOS}
         />
         
         <Upload className={`w-12 h-12 mx-auto mb-4 ${dragActive ? 'text-primary' : 'text-gray-400'}`} />
@@ -210,7 +204,7 @@ export default function Step6PhotoUpload({ data, onUpdate, onValidChange }: Step
         </p>
         
         <p className="text-sm text-gray-500">
-          {t.profileSetup?.photoRequirements || 'JPG, PNG or WebP, max 5MB each'}
+          {t.profileSetup?.photoRequirements || 'JPG, PNG or WebP'}
         </p>
       </div>
 

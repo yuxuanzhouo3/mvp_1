@@ -1691,7 +1691,7 @@ export const zh = {
     fileTooLarge: '文件大小不能超过5MB',
     dropHere: '将照片拖放到这里',
     dragOrClick: '拖放照片到这里或点击上传',
-    photoRequirements: 'JPG、PNG或WebP格式，每张最大5MB',
+    photoRequirements: 'JPG、PNG或WebP格式',
     primaryPhoto: '主照片',
     additionalPhotos: '其他照片',
     setAsPrimary: '设为主照片',

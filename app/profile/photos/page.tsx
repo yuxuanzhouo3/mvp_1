@@ -36,8 +36,6 @@ interface Photo {
   created_at: string;
 }
 
-const MAX_PHOTOS = 6;
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
 export default function PhotoManagementPage() {
@@ -98,9 +96,6 @@ export default function PhotoManagementPage() {
     if (!ALLOWED_TYPES.includes(file.type)) {
       return t.profileSetup?.invalidFileType || 'Only JPG, PNG, and WebP images are allowed';
     }
-    if (file.size > MAX_FILE_SIZE) {
-      return t.profileSetup?.fileTooLarge || 'File size must be less than 5MB';
-    }
     return null;
   };
 
@@ -109,20 +104,8 @@ export default function PhotoManagementPage() {
     if (!session?.access_token) return;
 
     const fileArray = Array.from(files);
-    const remainingSlots = MAX_PHOTOS - photos.length;
-
-    if (remainingSlots <= 0) {
-      toast({
-        title: t.photos?.maxPhotosReached || 'Maximum photos reached',
-        description: t.photos?.maxPhotosDesc || `You can only have ${MAX_PHOTOS} photos`,
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const filesToUpload = fileArray.slice(0, remainingSlots);
-
-    for (const file of filesToUpload) {
+    for (let index = 0; index < fileArray.length; index += 1) {
+      const file = fileArray[index];
       const error = validateFile(file);
       if (error) {
         toast({
@@ -138,7 +121,7 @@ export default function PhotoManagementPage() {
 
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('is_primary', String(photos.length === 0));
+        formData.append('is_primary', String(photos.length === 0 && index === 0));
 
         const response = await fetch('/api/user/profile/photos', {
           method: 'POST',
@@ -361,9 +344,9 @@ export default function PhotoManagementPage() {
                   ? 'border-primary bg-primary/5'
                   : 'border-gray-300 dark:border-gray-600 hover:border-primary/50'
                 }
-                ${photos.length >= MAX_PHOTOS || isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                ${isUploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
               `}
-              onClick={() => photos.length < MAX_PHOTOS && !isUploading && fileInputRef.current?.click()}
+              onClick={() => !isUploading && fileInputRef.current?.click()}
             >
               <input
                 ref={fileInputRef}
@@ -372,7 +355,7 @@ export default function PhotoManagementPage() {
                 multiple
                 onChange={handleFileInput}
                 className="hidden"
-                disabled={photos.length >= MAX_PHOTOS || isUploading}
+                disabled={isUploading}
               />
 
               {isUploading ? (
@@ -391,11 +374,11 @@ export default function PhotoManagementPage() {
               </p>
 
               <p className="text-sm text-gray-500">
-                {t.profileSetup?.photoRequirements || 'JPG, PNG or WebP, max 5MB each'}
+                {t.profileSetup?.photoRequirements || 'JPG, PNG or WebP'}
               </p>
 
               <p className="text-sm text-gray-400 mt-2">
-                {photos.length} / {MAX_PHOTOS} {t.photos?.photosUploaded || 'photos'}
+                {photos.length} {t.photos?.photosUploaded || 'photos'}
               </p>
             </div>
           </CardContent>
