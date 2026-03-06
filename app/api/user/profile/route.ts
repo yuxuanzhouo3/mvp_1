@@ -107,6 +107,33 @@ export async function GET(request: NextRequest) {
       .select('interest_id, interests(id, name, category, icon_url)')
       .eq('user_id', authUser.userId);
 
+    // 仅需判断是否有照片，limit 1 即可
+    const { data: photosForCompletion } = await db
+      .from('user_photos')
+      .select('id')
+      .eq('user_id', authUser.userId)
+      .limit(1);
+
+    // 某些历史环境可能没有 is_profile_complete 字段，兜底根据资料完整度推导
+    const fallbackProfileComplete = Boolean(
+      userData?.username &&
+      userData?.gender &&
+      userData?.birth_date &&
+      profileData?.city_name &&
+      profileData?.height_cm &&
+      profileData?.weight_kg &&
+      profileData?.education_level &&
+      profileData?.occupation &&
+      profileData?.company_type &&
+      profileData?.annual_income_range &&
+      profileData?.marital_status &&
+      profileData?.children_preference &&
+      (interestsData?.length || 0) > 0 &&
+      (photosForCompletion?.length || 0) > 0
+    );
+
+    const effectiveProfileComplete = Boolean(profileData?.is_profile_complete) || fallbackProfileComplete;
+
     // 组装统一的 profile 响应
     const profile = {
       id: authUser.userId,
@@ -130,7 +157,7 @@ export async function GET(request: NextRequest) {
       mbti: profileData?.mbti,
       interests: interestsData?.map((i: any) => (i.interests as any)?.name).filter(Boolean) || [],
       credits: profileData?.credits ?? 0,
-      is_profile_complete: profileData?.is_profile_complete || false,
+      is_profile_complete: effectiveProfileComplete,
       profile_skip_count: profileData?.profile_skip_count ?? 0,
       created_at: userData?.created_at || new Date().toISOString(),
       updated_at: profileData?.updated_at || userData?.updated_at || new Date().toISOString()

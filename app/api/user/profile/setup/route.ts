@@ -27,6 +27,32 @@ async function authenticateUser(request: NextRequest): Promise<{ userId: string;
   }
 }
 
+function getDbErrorText(error: any): string {
+  return `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+}
+
+function extractMissingColumn(error: any): string | null {
+  const rawText = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`;
+  const patterns = [
+    /could not find the ['"]([^'"]+)['"] column/i,
+    /column ['"]?([a-zA-Z0-9_]+)['"]? does not exist/i,
+  ];
+
+  for (const pattern of patterns) {
+    const matched = rawText.match(pattern);
+    if (matched?.[1]) return matched[1];
+  }
+  return null;
+}
+
+function isLocationWriteError(error: any): boolean {
+  const text = getDbErrorText(error);
+  return (
+    text.includes('location') &&
+    (text.includes('geography') || text.includes('geometry') || text.includes('invalid input syntax'))
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     const authUser = await authenticateUser(request);
@@ -118,31 +144,66 @@ export async function POST(request: NextRequest) {
     }
 
     // Update user_profiles table
-    const { error: profileError } = await db
+    const profileUpsertData: Record<string, any> = {
+      user_id: authUser.userId,
+      height_cm,
+      weight_kg,
+      education_level,
+      occupation,
+      company_type,
+      annual_income_range,
+      marital_status: marital_status || 'single',
+      relationship_history_count: relationship_history_count || 0,
+      children_preference,
+      mbti,
+      bio,
+      location: locationValue,
+      city_name,
+      // 部分历史环境可能未迁移该列，后续有降级重试
+      is_profile_complete: true,
+      updated_at: new Date().toISOString(),
+    };
+
+    // 仅 CN 环境需要在 user_profiles 冗余 gender/birth_date
+    if (isChinaDeployment()) {
+      profileUpsertData.gender = gender;
+      profileUpsertData.birth_date = birth_date;
+    }
+
+    let { error: profileError } = await db
       .from('user_profiles')
-      .upsert({
-        user_id: authUser.userId,
-        // CN 环境需要在 user_profiles 中存储 gender 和 birth_date（因为没有视图联合查询）
-        gender,
-        birth_date,
-        height_cm,
-        weight_kg,
-        education_level,
-        occupation,
-        company_type,
-        annual_income_range,
-        marital_status: marital_status || 'single',
-        relationship_history_count: relationship_history_count || 0,
-        children_preference,
-        mbti,
-        bio,
-        location: locationValue,
-        city_name,
-        is_profile_complete: true,
-        updated_at: new Date().toISOString(),
-      }, {
+      .upsert(profileUpsertData, {
         onConflict: 'user_id'
       });
+
+    // 兼容历史环境字段差异：字段缺失/位置字段类型不一致时自动降级重试
+    let retryBudget = 3;
+    while (profileError && retryBudget > 0) {
+      const missingColumn = extractMissingColumn(profileError);
+
+      if (
+        missingColumn &&
+        missingColumn !== 'user_id' &&
+        Object.prototype.hasOwnProperty.call(profileUpsertData, missingColumn)
+      ) {
+        delete profileUpsertData[missingColumn];
+      } else if (
+        isLocationWriteError(profileError) &&
+        Object.prototype.hasOwnProperty.call(profileUpsertData, 'location')
+      ) {
+        delete profileUpsertData.location;
+      } else {
+        break;
+      }
+
+      const retry = await db
+        .from('user_profiles')
+        .upsert(profileUpsertData, {
+          onConflict: 'user_id'
+        });
+      profileError = retry.error;
+      retryBudget -= 1;
+    }
 
     if (profileError) {
       console.error('Error updating user_profiles table:', profileError);
