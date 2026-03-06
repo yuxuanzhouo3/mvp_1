@@ -48,9 +48,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ city: '' });
     } else {
       // INTL 环境：使用 OpenStreetMap
+      const nominatimUrl =
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}` +
+        `&zoom=18&addressdetails=1&accept-language=en`;
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
-        { headers: { 'User-Agent': 'PersonaLink/1.0' } }
+        nominatimUrl,
+        { headers: { 'User-Agent': 'PersonaLink/1.0', 'Accept-Language': 'en' } }
       );
 
       if (!response.ok) {
@@ -58,11 +61,36 @@ export async function GET(request: NextRequest) {
       }
 
       const data = await response.json();
-      const city = data.address?.city || data.address?.town || data.address?.municipality || data.address?.county || '';
-      const country = data.address?.country || '';
+      const address = data.address || {};
+      const locality =
+        address.city_district ||
+        address.district ||
+        address.suburb ||
+        address.city ||
+        address.town ||
+        address.municipality ||
+        address.village ||
+        address.county ||
+        '';
+      const region = address.state_district || address.state || address.province || '';
+      const countryCode = String(data.address?.country_code || '').toUpperCase();
+      const fallbackCountryByCode: Record<string, string> = {
+        CN: 'China',
+      };
+      const country = address.country || fallbackCountryByCode[countryCode] || '';
+
+      const locationParts = [locality, region, country]
+        .map((part) => String(part || '').trim())
+        .filter(Boolean)
+        .filter((part, index, arr) => {
+          const normalized = part.toLowerCase();
+          return arr.findIndex((v) => String(v).toLowerCase() === normalized) === index;
+        });
+
+      const cityDisplay = locationParts.join(', ');
 
       return NextResponse.json({
-        city: country ? `${city}, ${country}` : city,
+        city: cityDisplay,
       });
     }
   } catch (error) {

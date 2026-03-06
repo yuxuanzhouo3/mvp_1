@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Play } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { isChinaDeployment } from "@/lib/config/deployment.config";
 
 interface VideoDemoData {
   video_url: string;
@@ -13,6 +14,7 @@ interface VideoDemoData {
 export function VideoDemoPanel() {
   const [videoData, setVideoData] = useState<VideoDemoData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const unavailableText = isChinaDeployment() ? "暂无可用演示视频" : "No demo video available";
 
   useEffect(() => {
     async function fetchVideoDemo() {
@@ -70,7 +72,7 @@ export function VideoDemoPanel() {
         </CardHeader>
         <CardContent className="pt-0">
           <div className="aspect-[9/16] rounded-md border border-dashed border-slate-300 flex items-center justify-center text-sm text-slate-500">
-            暂无可用演示视频
+            {unavailableText}
           </div>
         </CardContent>
       </Card>
