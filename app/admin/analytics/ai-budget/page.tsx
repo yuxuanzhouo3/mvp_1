@@ -350,7 +350,7 @@ function AIBudgetStatsView({ stats }: { stats: AIStats | null }) {
 
                       <div className="h-56">
                         {total > 0 ? (
-                          <ResponsiveContainer width="100%" height="100%">
+                          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
                             <PieChart>
                               <Pie
                                 data={pieData}
@@ -443,7 +443,7 @@ function AIBudgetStatsView({ stats }: { stats: AIStats | null }) {
         <CardContent>
           {stats.daily_stats && stats.daily_stats.length > 0 ? (
             <div className="w-full h-80">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
                 <LineChart data={stats.daily_stats}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis
@@ -601,7 +601,7 @@ function AIBudgetStatsView({ stats }: { stats: AIStats | null }) {
               <CardContent>
                 {personality.daily_trend && personality.daily_trend.length > 0 ? (
                   <div className="w-full h-72">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
                       <LineChart data={personality.daily_trend}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis

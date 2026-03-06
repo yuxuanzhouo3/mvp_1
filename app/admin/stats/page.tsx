@@ -201,7 +201,7 @@ export default function AdminStatsPage() {
         </CardHeader>
         <CardContent>
           <div className="w-full h-80">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
               <LineChart data={stats.userGrowth}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
@@ -253,7 +253,7 @@ export default function AdminStatsPage() {
         </CardHeader>
         <CardContent>
           <div className="w-full h-80">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={1}>
               <LineChart data={stats.revenueGrowth}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis

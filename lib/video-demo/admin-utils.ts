@@ -361,3 +361,32 @@ export async function uploadVideoToStorage(
   };
 }
 
+export async function createIntlVideoSignedUpload(
+  fileName: string
+): Promise<{
+  bucket: string;
+  path: string;
+  token: string;
+  signedUrl: string;
+  videoRef: string;
+}> {
+  const safeName = sanitizeFileName(fileName || "video.mp4");
+  const path = `video-demos/${Date.now()}-${safeName}`;
+  const supabase = createSupabaseAdmin();
+
+  const { data, error } = await supabase.storage
+    .from(VIDEO_BUCKET)
+    .createSignedUploadUrl(path);
+
+  if (error || !data?.token || !data?.signedUrl) {
+    throw new Error(error?.message || "Failed to create signed upload url");
+  }
+
+  return {
+    bucket: VIDEO_BUCKET,
+    path,
+    token: data.token,
+    signedUrl: data.signedUrl,
+    videoRef: `supabase://${VIDEO_BUCKET}/${path}`,
+  };
+}

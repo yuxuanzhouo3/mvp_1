@@ -61,6 +61,57 @@ export default function AdminVideoDemoPage() {
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
+  async function getHttpErrorMessage(res: Response): Promise<string> {
+    try {
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) {
+        const json = (await res.json().catch(() => null)) as any;
+        if (typeof json?.error === "string" && json.error.trim()) {
+          return json.error.trim();
+        }
+      }
+      const text = await res.text().catch(() => "");
+      if (text) return text.slice(0, 300);
+    } catch {}
+    return `HTTP ${res.status}`;
+  }
+
+  async function uploadIntlVideoFile(file: File): Promise<string> {
+    const prepareRes = await fetch("/api/admin/video-demo/prepare-upload", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        source: "INTL",
+        fileName: file.name,
+      }),
+    });
+    if (!prepareRes.ok) {
+      throw new Error(await getHttpErrorMessage(prepareRes));
+    }
+
+    const preparePayload = (await prepareRes.json().catch(() => null)) as
+      | { signedUrl?: string; videoRef?: string }
+      | null;
+    if (!preparePayload?.signedUrl || !preparePayload.videoRef) {
+      throw new Error("Invalid prepare-upload payload");
+    }
+
+    const uploadBody = new FormData();
+    uploadBody.append("cacheControl", "43200");
+    uploadBody.append("", file);
+
+    const uploadRes = await fetch(preparePayload.signedUrl, {
+      method: "PUT",
+      headers: { "x-upsert": "false" },
+      body: uploadBody,
+    });
+    if (!uploadRes.ok) {
+      throw new Error(`Storage upload failed (HTTP ${uploadRes.status})`);
+    }
+
+    return preparePayload.videoRef;
+  }
+
   const fetchVideos = useCallback(async () => {
     setLoading(true);
     try {
@@ -105,20 +156,37 @@ export default function AdminVideoDemoPage() {
 
     setSubmitting(true);
     try {
-      const body = new FormData();
-      body.append("source", form.source);
-      body.append("title", title);
-      body.append("description", description);
-      body.append("is_active", form.is_active ? "true" : "false");
-      body.append("file", file);
+      let res: Response;
+      if (form.source === "INTL") {
+        // For INTL we upload directly to storage first to avoid API payload limits (413).
+        const videoRef = await uploadIntlVideoFile(file);
+        res = await fetch("/api/admin/video-demo", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            source: "INTL",
+            title,
+            description,
+            is_active: form.is_active,
+            video_url: videoRef,
+          }),
+        });
+      } else {
+        const body = new FormData();
+        body.append("source", form.source);
+        body.append("title", title);
+        body.append("description", description);
+        body.append("is_active", form.is_active ? "true" : "false");
+        body.append("file", file);
 
-      const res = await fetch("/api/admin/video-demo", {
-        method: "POST",
-        body,
-      });
+        res = await fetch("/api/admin/video-demo", {
+          method: "POST",
+          body,
+        });
+      }
+
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error || `HTTP ${res.status}`);
+        throw new Error(await getHttpErrorMessage(res));
       }
 
       toast({ title: "创建成功" });
@@ -420,4 +488,3 @@ export default function AdminVideoDemoPage() {
     </div>
   );
 }
-
